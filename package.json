@@ -12,6 +12,6 @@
   "dependencies": {
     "astro": "^5.0.0",
     "@simplewebauthn/server": "^14.1.0",
-    "@simplewebauthn/browser": "^14.1.0"
+    "@simplewebauthn/browser": "^14.0.0"
   }
 }
