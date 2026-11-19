@@ -1,0 +1,25 @@
+---
+import SecondaryLayout from '../layouts/SecondaryLayout.astro';
+const apps = [
+  { icon: '✂', title: 'Background Remover', desc: 'Hapus latar belakang foto dan siapkan gambar dengan tampilan lebih bersih.' },
+  { icon: '▧', title: 'Photo Editor', desc: 'Edit, sesuaikan, dan optimalkan foto untuk kebutuhan digital maupun cetak.' },
+  { icon: '▦', title: 'Visa Photo Studio', desc: 'Siapkan foto visa dan paspor dengan ukuran serta panduan foto yang sesuai.' },
+  { icon: '◫', title: 'Image Compressor', desc: 'Optimalkan ukuran file gambar agar lebih ringan untuk website dan dibagikan.' },
+  { icon: '▤', title: 'Collage Maker', desc: 'Susun beberapa foto menjadi kolase yang rapi dan siap digunakan.' },
+  { icon: '✧', title: 'AI Creative Tools', desc: 'Jelajahi alat bantu kreatif untuk mempercepat proses pembuatan konten.' },
+];
+---
+<SecondaryLayout title="Aplikasi Digital" description="Jelajahi aplikasi dan alat digital dari VANNDIK." active="/aplikasi/">
+  <section class="page-hero" id="top">
+    <div class="page-eyebrow">VANNDIK / DIGITAL TOOLS</div>
+    <h1>Alat digital untuk membuat pekerjaan <span class="text-gradient">lebih mudah.</span></h1>
+    <p>Temukan aplikasi praktis untuk mengedit foto, mengolah gambar, membuat konten, dan mendukung produktivitas langsung dari browser.</p>
+  </section>
+  <section class="page-content">
+    <div class="section-kicker"><span>01</span><span class="kicker-line"></span><span>APLIKASI VANNDIK</span></div>
+    <div class="content-grid">
+      {apps.map((app, index) => <article class="content-card app-card"><div class="app-icon">{app.icon}</div><span class="status-soon">SEGERA HADIR</span><h3>{app.title}</h3><p>{app.desc}</p></article>)}
+    </div>
+    <div class="notice-line">Daftar ini adalah rencana direktori aplikasi. Tombol untuk membuka setiap aplikasi akan diaktifkan setelah tool terkait siap dipublikasikan.</div>
+  </section>
+</SecondaryLayout>
