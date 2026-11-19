@@ -63,16 +63,15 @@
 
   async function loadContent(){
     const map={article:'#articleGrid',news:'.news-cards',product:'.product-grid',game:'#gameGrid',app:'#appsGrid'};
-    const type=({artikel:'article',berita:'news',produk:'product',game:'game',aplikasi:'app'})[page]||page;
-    if(!map[type])return;
-    const container=document.querySelector(map[type]);if(!container)return;
+    const type=page==='home'?'article':(({artikel:'article',berita:'news',produk:'product',game:'game',aplikasi:'app'})[page]||page);
+    const container=document.querySelector(page==='home'?'.story-layout':map[type]);if(!container)return;
     const response=await fetch('/api/public/content?type='+encodeURIComponent(type));
     if(!response.ok)return;
     const data=await response.json(),items=data.items||[];
     if(!items.length)return;
     const staticCards=[...container.children].filter(child=>!child.classList.contains('cms-published-card'));
     staticCards.forEach(child=>child.hidden=true);
-    items.forEach(item=>container.appendChild(createCard(item,type)));
+    items.slice(0,page==='home'?3:100).forEach(item=>container.appendChild(createCard(item,type)));
     container.insertAdjacentHTML('beforebegin','<div class="cms-live-note">KONTEN TERBIT · '+items.length+' ITEM DARI VANNDIK CMS</div>');
   }
 
