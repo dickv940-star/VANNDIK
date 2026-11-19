@@ -1,52 +1,122 @@
 ---
 import SecondaryLayout from '../layouts/SecondaryLayout.astro';
 import { games } from '../data/games.js';
+const categories = ['Semua', 'Arcade', 'Puzzle', 'Brain Training', 'Word'];
 ---
-<SecondaryLayout title="Game" description="Kumpulan game ringan dan permainan seru dari VANNDIK." active="/game/">
-  <section class="page-hero">
-    <div class="page-eyebrow">VANNDIK PLAYGROUND · GAME HUB</div>
-    <h1>Waktunya <span class="text-gradient">bermain.</span></h1>
-    <p>Temukan permainan ringan untuk mengisi waktu, menguji refleks, dan melatih logika. Koleksi game VANNDIK akan terus bertambah.</p>
-  </section>
-  <section class="page-content">
-    <div class="game-intro">
-      <div>
-        <div class="page-eyebrow">PILIH PERMAINAN</div>
-        <h2 class="page-section-title">Game yang akan hadir</h2>
-        <p class="page-muted">Ini adalah katalog awal. Setiap permainan akan diaktifkan setelah selesai dibuat dan diuji.</p>
-      </div>
-      <span class="game-count">1116 GAME DIRANCANG</span>
+<SecondaryLayout title="Game Online" description="Jelajahi katalog game VANNDIK: arcade, puzzle, brain training, dan permainan ringan." active="/game/">
+  <section class="play-hero">
+    <div class="play-hero-grid"></div>
+    <div class="play-hero-copy">
+      <div class="play-eyebrow"><span class="live-dot"></span> VANNDIK PLAY · GAME HUB</div>
+      <h1>Find your next<br /><span>play moment.</span></h1>
+      <p>Ruang bermain digital untuk jeda singkat, tantangan baru, dan keseruan tanpa batas.</p>
+      <a class="explore-button" href="#game-library">Jelajahi game <span>↓</span></a>
+      <div class="hero-meta"><span>PLAY · DISCOVER · REPEAT</span><span>MADE FOR EVERY SCREEN</span></div>
     </div>
-    <div class="content-grid game-grid">
+    <div class="hero-art" aria-hidden="true">
+      <div class="art-orbit orbit-a"></div><div class="art-orbit orbit-b"></div>
+      <div class="art-core"><span>V</span><i>✦</i></div>
+      <div class="art-tile tile-one">⚡</div><div class="art-tile tile-two">◈</div><div class="art-tile tile-three">✳</div>
+      <div class="art-caption">YOUR NEXT<br />LEVEL STARTS HERE</div>
+    </div>
+  </section>
+  <section class="game-content" id="game-library">
+    <div class="section-heading">
+      <div><div class="section-kicker">DISCOVER SOMETHING FUN</div><h2>Jelajahi permainan</h2><p>Pilih kategori atau cari game yang ingin kamu temukan.</p></div>
+      <div class="library-count"><strong>{games.length.toString().padStart(2, '0')}</strong><span>GAME<br />IN CATALOG</span></div>
+    </div>
+    <div class="game-toolbar">
+      <label class="game-search"><span>⌕</span><input id="gameSearch" type="search" placeholder="Cari game..." aria-label="Cari game" /><kbd>⌘ K</kbd></label>
+      <div class="category-filters" role="group" aria-label="Filter kategori">
+        {categories.map((category, index) => <button class:list={['filter-chip', index === 0 ? 'active' : '']} type="button" data-category={category}>{category}</button>)}
+      </div>
+    </div>
+    <div class="featured-heading"><div><span class="section-kicker">PILIHAN VANNDIK</span><h3>Featured games</h3></div><span class="soon-label">COMING SOON</span></div>
+    <div class="featured-grid">
+      <article class="featured-card feature-main">
+        <div class="featured-visual visual-neon"><span class="visual-orbit"></span><span class="visual-symbol">⚡</span><span class="visual-code">01 / ARCADE</span></div>
+        <div class="featured-info"><div><span class="game-type">ARCADE · REFLEX</span><h3>Neon Reflex</h3><p>Uji kecepatan reaksi dan fokusmu dalam tantangan serba cepat.</p></div><span class="card-arrow">↗</span></div>
+      </article>
+      <article class="featured-card">
+        <div class="featured-visual visual-memory"><span class="memory-grid"><i>✦</i><i>◈</i><i>●</i><i>✧</i></span><span class="visual-code">02 / PUZZLE</span></div>
+        <div class="featured-info"><div><span class="game-type">PUZZLE · MEMORY</span><h3>Memory Grid</h3><p>Ingat pola, temukan urutan, dan tantang memorimu.</p></div><span class="card-arrow">↗</span></div>
+      </article>
+    </div>
+    <div class="featured-heading library-heading"><div><span class="section-kicker">THE GAME LIBRARY</span><h3>Semua game</h3></div><span class="results-label" id="resultsCount">{games.length} game ditemukan</span></div>
+    <div class="game-grid" id="gameGrid">
       {games.map((game, index) => (
-        <article class="content-card game-card reveal">
-          <div class="game-card-top">
-            <span class="game-card-icon" aria-hidden="true">{game.icon}</span>
-            <span class="game-category">{game.category}</span>
+        <article class="game-card" data-title={game.title.toLowerCase()} data-category={game.category}>
+          <div class:list={['game-art', 'art-' + (index + 1)]}>
+            <span class="game-art-icon">{game.icon}</span><span class="art-number">V / {String(index + 1).padStart(2, '0')}</span><span class="art-decoration"></span>
           </div>
-          <div class="card-index">GAME / {String(index + 1).padStart(2, '0')}</div>
-          <h3>{game.title}</h3>
+          <div class="game-card-info"><div><span class="game-type">{game.category}</span><h4>{game.title}</h4></div><span class="lock-icon">⌑</span></div>
           <p>{game.description}</p>
-          <span class:list={['status-soon', game.status === 'available' ? 'status-live' : '']}>
-            {game.status === 'available' ? 'DAPAT DIMAINKAN' : 'SEGERA HADIR'}
-          </span>
+          <div class="game-card-footer"><span class="status-pill">SEGERA HADIR</span><span class="game-platform">WEB · DESKTOP & MOBILE</span></div>
         </article>
       ))}
     </div>
-    <div class="notice-line">Game yang tampil saat ini masih berupa daftar rencana, belum dapat dimainkan. Kami akan menambahkan permainan satu per satu setelah siap.</div>
+    <div class="no-results" id="noResults" hidden><span>⌕</span><h3>Game tidak ditemukan</h3><p>Coba kata kunci atau kategori yang berbeda.</p></div>
+    <div class="catalog-note"><span>✦</span><p><strong>Lebih banyak keseruan sedang disiapkan.</strong><br />Game akan diaktifkan secara bertahap setelah proses pengembangan dan pengujian selesai.</p></div>
   </section>
   <style>
-    .game-intro{display:flex;align-items:end;justify-content:space-between;gap:24px}
-    .game-count{white-space:nowrap;color:#8dbaff;font-size:9px;letter-spacing:1.4px;border:1px solid #315b91;border-radius:30px;padding:9px 12px}
-    .game-grid{margin-top:24px}
-    .game-card{display:flex;flex-direction:column;gap:12px;min-height:260px}
-    .game-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-    .game-card-icon{width:48px;height:48px;display:grid;place-items:center;border:1px solid #315b91;border-radius:13px;background:linear-gradient(145deg,#17345a,#101c30);color:#9bc3ff;font-size:22px;font-weight:700}
-    .game-category{font-size:9px;color:#8294ad;letter-spacing:1px;text-transform:uppercase}
-    .game-card h3{margin:0;font-size:19px}
-    .game-card p{font-size:12px;line-height:1.8;color:#91a0b4;margin:0;flex:1}
-    .game-card .status-soon{margin-top:8px}
-    .status-live{color:#8ce0bd;border-color:#28684f}
-    @media(max-width:680px){.game-intro{align-items:flex-start;flex-direction:column}.game-count{margin-top:3px}}
+    .play-hero{position:relative;isolation:isolate;min-height:490px;overflow:hidden;padding:112px max(24px,calc((100% - 1120px)/2)) 38px;background:radial-gradient(ellipse at 77% 48%,#173f8c55,transparent 38%),radial-gradient(ellipse at 55% 100%,#7126a522,transparent 45%),#080b14}
+    .play-hero-grid{position:absolute;inset:0;z-index:-1;opacity:.45;background-image:linear-gradient(#8da8d00c 1px,transparent 1px),linear-gradient(90deg,#8da8d00c 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(90deg,black,transparent 95%)}
+    .play-hero-copy{position:relative;z-index:2;max-width:590px}.play-eyebrow,.section-kicker{font-size:9px;letter-spacing:2px;font-weight:700;color:#62dfff}.live-dot{display:inline-block;width:6px;height:6px;margin:0 9px 1px 0;border-radius:50%;background:#39ff88;box-shadow:0 0 12px #39ff88}
+    .play-hero h1{font:800 clamp(48px,6.6vw,76px)/1.02 Manrope,sans-serif;letter-spacing:-4px;margin:25px 0 18px}.play-hero h1 span{background:linear-gradient(90deg,#62dfff,#8a85ff 70%,#d48aff);color:transparent;background-clip:text}.play-hero-copy>p{max-width:440px;color:#a0acc0;font-size:14px;line-height:1.9}
+    .explore-button{display:inline-flex;align-items:center;gap:30px;margin-top:16px;padding:13px 17px;border:1px solid #5279c7;border-radius:5px;background:#1769ff22;color:#f4f6fb;font-size:11px;font-weight:700;transition:.25s}.explore-button:hover{background:#1769ff55;box-shadow:0 0 25px #1769ff33;transform:translateY(-2px)}.explore-button span{color:#42d9ff;font-size:16px}
+    .hero-meta{display:flex;gap:32px;margin-top:72px;color:#64758e;font-size:8px;letter-spacing:1.6px}.hero-art{position:absolute;width:390px;height:390px;right:max(5%,calc((100% - 1120px)/2 + 45px));top:45px;display:grid;place-items:center}
+    .art-orbit{position:absolute;border:1px solid #5798ff38;border-radius:50%}.orbit-a{inset:7%;box-shadow:0 0 70px #1769ff15}.orbit-b{inset:21%;border-style:dashed;animation:turn 38s linear infinite}
+    .art-core{width:145px;height:145px;border:1px solid #69baffaa;border-radius:35px;transform:rotate(45deg);display:grid;place-items:center;background:linear-gradient(145deg,#1c4c9c,#11172b 70%);box-shadow:0 0 70px #1769ff4d,inset 0 0 35px #42d9ff1c}.art-core span{font:800 82px Manrope,sans-serif;transform:rotate(-45deg);text-shadow:0 0 25px #42d9ff77}.art-core i{position:absolute;right:7px;top:4px;color:#42d9ff;font-style:normal;transform:rotate(-45deg);font-size:24px}
+    .art-tile{position:absolute;width:54px;height:54px;display:grid;place-items:center;border:1px solid #7c9bd655;border-radius:15px;background:#111a2bdc;font-size:25px;box-shadow:0 10px 35px #0006;animation:levitate 5s ease-in-out infinite}.tile-one{top:55px;left:72px;color:#42d9ff}.tile-two{right:49px;top:142px;color:#b38aff;animation-delay:-1.7s}.tile-three{bottom:53px;left:92px;color:#39ff88;animation-delay:-3s}.art-caption{position:absolute;right:0;bottom:36px;color:#8094b4;font-size:8px;letter-spacing:2px;line-height:1.8;text-align:right}
+    .game-content{width:min(1120px,calc(100% - 48px));margin:0 auto;padding:58px 0 85px}.section-heading{display:flex;align-items:end;justify-content:space-between;gap:20px}.section-heading h2{font:750 29px Manrope,sans-serif;letter-spacing:-1px;margin:10px 0 7px}.section-heading p{font-size:12px;color:#8f9db1;margin:0}.library-count{display:flex;align-items:center;gap:10px;padding:8px 13px;border:1px solid #263b5e;border-radius:7px;color:#8298bb}.library-count strong{font:800 25px Manrope;color:#fff}.library-count span{font-size:8px;letter-spacing:1px;line-height:1.5}
+    .game-toolbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:28px 0 38px}.game-search{height:43px;width:min(300px,100%);display:flex;align-items:center;gap:10px;padding:0 12px;border:1px solid #27334a;border-radius:6px;background:#0c111c;color:#7f91ac}.game-search>span{font-size:22px}.game-search input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:#f4f6fb;font:12px 'DM Sans',sans-serif}.game-search input::placeholder{color:#697990}.game-search kbd{font-size:9px;border:1px solid #34415a;border-radius:3px;padding:3px 5px;color:#8190a7}
+    .category-filters{display:flex;flex-wrap:wrap;gap:7px}.filter-chip{border:1px solid #27334a;border-radius:30px;padding:9px 13px;background:#0b101a;color:#9aa8bc;font-size:10px;cursor:pointer;transition:.2s}.filter-chip:hover,.filter-chip.active{border-color:#477dce;background:#1769ff20;color:#eaf3ff}
+    .featured-heading{display:flex;align-items:end;justify-content:space-between;margin-bottom:16px}.featured-heading h3{font:700 21px Manrope,sans-serif;letter-spacing:-.5px;margin:7px 0 0}.soon-label,.results-label{font-size:8px;letter-spacing:1.3px;color:#39ff88;border:1px solid #39ff8840;background:#39ff880c;border-radius:20px;padding:7px 10px}.results-label{color:#8292aa;border-color:#28344a;background:transparent}
+    .featured-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:15px}.featured-card{overflow:hidden;border:1px solid #28344a;border-radius:8px;background:#0d121d;transition:.25s}.featured-card:hover{border-color:#477dce;transform:translateY(-3px)}.featured-visual{height:185px;position:relative;display:grid;place-items:center;overflow:hidden}.visual-neon{background:radial-gradient(circle at 50% 50%,#1859a9,#111a36 42%,#0b1020 75%)}.visual-memory{background:radial-gradient(circle at 50% 50%,#592a9a,#17132f 48%,#0c1020)}
+    .visual-orbit{position:absolute;width:155px;height:155px;border:1px solid #71d9ff66;border-radius:50%;box-shadow:0 0 0 20px #42d9ff0a,0 0 0 42px #42d9ff08}.visual-symbol{font-size:67px;color:#c2f5ff;text-shadow:0 0 30px #42d9ff;z-index:1}.visual-code{position:absolute;left:17px;bottom:14px;color:#9eb1d1;font-size:8px;letter-spacing:1.5px}.memory-grid{display:grid;grid-template-columns:repeat(2,55px);gap:8px;transform:rotate(-8deg)}.memory-grid i{height:55px;display:grid;place-items:center;border:1px solid #c59cff77;border-radius:12px;background:#b77bff20;color:#e4caff;font-size:23px;font-style:normal;box-shadow:0 0 18px #a855f722}
+    .featured-info{display:flex;justify-content:space-between;align-items:center;padding:17px 18px}.game-type{font-size:8px;letter-spacing:1.4px;color:#6faaff}.featured-info h3{font:700 18px Manrope,sans-serif;margin:6px 0}.featured-info p{font-size:11px;color:#8f9db1;margin:0;line-height:1.6}.card-arrow{font-size:22px;color:#42d9ff}
+    .library-heading{margin-top:46px}.game-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.game-card{overflow:hidden;border:1px solid #252f43;border-radius:8px;background:linear-gradient(145deg,#101522,#090c13);transition:.25s}.game-card:hover{transform:translateY(-4px);border-color:#477dce;box-shadow:0 15px 38px #0005}.game-card[hidden]{display:none}
+    .game-art{height:145px;position:relative;display:grid;place-items:center;overflow:hidden;background:#121b32}.game-art:before,.game-art:after{content:'';position:absolute;width:170px;height:170px;border:1px solid #ffffff20;border-radius:50%}.game-art:after{width:115px;height:115px;border-style:dashed}.game-art-icon{z-index:1;font:800 55px Manrope,sans-serif;color:#e7f7ff;text-shadow:0 0 24px currentColor}.art-number{position:absolute;left:13px;bottom:12px;color:#c0cbe0;font-size:8px;letter-spacing:1.4px}.art-decoration{position:absolute;right:20px;top:15px;width:13px;height:13px;border-radius:4px;background:#ffffff55;transform:rotate(45deg)}
+    .art-1{background:radial-gradient(circle at 50% 45%,#1769ff77,#10162b 65%)}.art-1 .game-art-icon{color:#78dfff}.art-2{background:radial-gradient(circle at 50% 45%,#a855f766,#17132c 65%)}.art-2 .game-art-icon{color:#d5a8ff}.art-3{background:radial-gradient(circle at 50% 45%,#39ff8855,#0d2224 65%)}.art-3 .game-art-icon{color:#9affc2}.art-4{background:radial-gradient(circle at 50% 45%,#ff9c4c55,#251a20 65%)}.art-4 .game-art-icon{color:#ffc38f}.art-5{background:radial-gradient(circle at 50% 45%,#42d9ff55,#111d32 65%)}.art-5 .game-art-icon{color:#9ceeff}.art-6{background:radial-gradient(circle at 50% 45%,#e45b9c55,#241426 65%)}.art-6 .game-art-icon{color:#ffabd1}
+    .game-card-info{display:flex;align-items:center;justify-content:space-between;padding:15px 15px 0}.game-card-info h4{font:700 15px Manrope,sans-serif;margin:5px 0 0}.lock-icon{color:#7588a7;font-size:19px}.game-card>p{min-height:38px;margin:9px 15px 12px;color:#8997ab;font-size:10px;line-height:1.7}.game-card-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 15px;border-top:1px solid #ffffff0d}.status-pill{font-size:8px;letter-spacing:.8px;color:#39ff88}.game-platform{font-size:7px;color:#697990;letter-spacing:.8px}
+    .catalog-note{display:flex;gap:14px;align-items:center;margin-top:30px;padding:17px 19px;border:1px solid #39ff8830;border-radius:6px;background:#39ff8809}.catalog-note>span{font-size:20px;color:#39ff88}.catalog-note p{margin:0;color:#91a0b4;font-size:10px;line-height:1.8}.catalog-note strong{color:#dce7f7;font-size:11px}.no-results{text-align:center;padding:45px 20px;border:1px dashed #34415a;border-radius:8px;color:#8c9ab0}.no-results[hidden]{display:none}.no-results>span{font-size:30px;color:#42d9ff}.no-results h3{color:#f4f6fb;margin:8px 0}.no-results p{font-size:11px;margin:0}
+    @keyframes turn{to{transform:rotate(360deg)}}@keyframes levitate{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-10px) rotate(5deg)}}
+    @media(max-width:850px){.hero-art{right:-30px;opacity:.55}.play-hero-copy{max-width:520px}.game-toolbar{align-items:flex-start;flex-direction:column}.game-search{width:100%}.game-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:600px){.play-hero{min-height:550px;padding:95px 23px 28px}.play-hero h1{font-size:52px;letter-spacing:-3px}.play-hero-copy>p{max-width:320px;font-size:12px}.hero-art{width:260px;height:260px;right:-62px;top:220px;opacity:.32}.art-core{width:100px;height:100px}.art-core span{font-size:57px}.art-tile{width:40px;height:40px;font-size:18px}.hero-meta{margin-top:52px;gap:16px;font-size:7px}.game-content{width:calc(100% - 36px);padding-top:38px}.section-heading h2{font-size:24px}.section-heading p{max-width:245px;font-size:10px}.library-count{padding:7px 9px}.library-count strong{font-size:20px}.category-filters{gap:6px}.filter-chip{padding:8px 10px;font-size:9px}.featured-grid{grid-template-columns:1fr}.featured-visual{height:155px}.game-grid{grid-template-columns:1fr 1fr;gap:9px}.game-art{height:115px}.game-art-icon{font-size:43px}.game-card-info{padding:12px 10px 0}.game-card-info h4{font-size:12px}.game-card>p{font-size:9px;margin:8px 10px 10px;min-height:55px}.game-card-footer{padding:9px 10px;flex-direction:column;align-items:flex-start;gap:5px}.game-platform{font-size:6px}.featured-info{padding:14px}.featured-info p{font-size:10px}.featured-heading h3{font-size:18px}.results-label{font-size:7px}.catalog-note{align-items:flex-start;padding:14px}.catalog-note p{font-size:9px}}
+    @media(prefers-reduced-motion:reduce){.orbit-b,.art-tile{animation:none}}
   </style>
+  <script is:inline>
+    const searchInput = document.getElementById('gameSearch');
+    const cards = [...document.querySelectorAll('.game-card')];
+    const filters = [...document.querySelectorAll('.filter-chip')];
+    const count = document.getElementById('resultsCount');
+    const empty = document.getElementById('noResults');
+    let selectedCategory = 'Semua';
+    function filterGames() {
+      const term = searchInput.value.trim().toLowerCase();
+      let visible = 0;
+      cards.forEach((card) => {
+        const matchesTerm = card.dataset.title.includes(term) || card.textContent.toLowerCase().includes(term);
+        const matchesCategory = selectedCategory === 'Semua' || card.dataset.category === selectedCategory;
+        const show = matchesTerm && matchesCategory;
+        card.hidden = !show;
+        if (show) visible++;
+      });
+      count.textContent = visible + ' game ditemukan';
+      empty.hidden = visible !== 0;
+    }
+    searchInput.addEventListener('input', filterGames);
+    filters.forEach((button) => button.addEventListener('click', () => {
+      selectedCategory = button.dataset.category;
+      filters.forEach((item) => item.classList.toggle('active', item === button));
+      filterGames();
+    }));
+    document.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        searchInput.focus();
+      }
+      if (event.key === 'Escape' && document.activeElement === searchInput) searchInput.blur();
+    });
+  </script>
 </SecondaryLayout>
