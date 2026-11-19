@@ -1,0 +1,25 @@
+{
+  "id": "/admin/",
+  "name": "VANNDIK CMS",
+  "short_name": "VANNDIK CMS",
+  "description": "Admin dashboard untuk mengelola ekosistem VANNDIK.",
+  "lang": "id",
+  "start_url": "/admin/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#05060a",
+  "theme_color": "#05060a",
+  "icons": [
+    {
+      "src": "/admin-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
