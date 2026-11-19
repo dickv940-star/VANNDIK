@@ -1,0 +1,46 @@
+---
+import SecondaryLayout from '../../layouts/SecondaryLayout.astro';
+---
+<SecondaryLayout title="Konten" description="Konten terbaru dari VANNDIK." active="">
+  <section class="detail-hero">
+    <div class="detail-wrap">
+      <a class="back-link" href="/artikel/">← Kembali ke koleksi</a>
+      <div class="detail-kicker" id="detailCategory">VANNDIK JOURNAL</div>
+      <h1 id="detailTitle">Memuat konten...</h1>
+      <p id="detailExcerpt"></p>
+      <div class="detail-meta" id="detailMeta">VANNDIK · EDITORIAL</div>
+    </div>
+  </section>
+  <article class="detail-content" id="detailContent">
+    <img id="detailImage" alt="" hidden />
+    <div class="detail-body" id="detailBody">Sedang mengambil konten dari VANNDIK CMS...</div>
+    <div id="detailAction"></div>
+  </article>
+  <style>
+    .detail-hero{padding:90px 24px 55px;background:radial-gradient(ellipse at 80% 20%,#1769ff33,transparent 42%),#080d17;border-bottom:1px solid #26364c}.detail-wrap{width:min(850px,100%);margin:auto}.back-link{display:inline-block;margin-bottom:40px;color:#8db7f5;font-size:11px}.detail-kicker{color:#42d9ff;font-size:9px;letter-spacing:2px;font-weight:700}.detail-hero h1{font:800 clamp(36px,6vw,62px)/1.12 Manrope,sans-serif;letter-spacing:-2.5px;margin:17px 0}.detail-hero p{max-width:720px;color:#a0aec1;font-size:14px;line-height:1.8}.detail-meta{margin-top:24px;color:#73849e;font-size:8px;letter-spacing:1.5px}.detail-content{width:min(850px,calc(100% - 48px));margin:0 auto;padding:48px 0 90px}.detail-content img{width:100%;max-height:480px;object-fit:cover;border-radius:9px;margin-bottom:30px}.detail-body{white-space:pre-wrap;color:#c2ccdb;font-size:14px;line-height:2}.detail-action{display:inline-block;margin-top:25px;padding:12px 16px;border:1px solid #3d7ac8;border-radius:5px;color:#eaf3ff;font-size:11px}.detail-error{padding:30px;border:1px dashed #42516b;border-radius:8px;color:#a4b2c6}
+    @media(max-width:650px){.detail-hero{padding:70px 22px 38px}.detail-hero h1{font-size:38px}.detail-content{width:calc(100% - 40px);padding-top:30px}.detail-body{font-size:12px}}
+  </style>
+  <script is:inline>
+    (async()=>{
+      const params=new URLSearchParams(location.search),slug=params.get('slug');
+      const title=document.getElementById('detailTitle'),excerpt=document.getElementById('detailExcerpt'),body=document.getElementById('detailBody');
+      if(!slug){title.textContent='Konten tidak ditemukan';body.textContent='Pilih artikel atau berita dari koleksi VANNDIK.';return;}
+      try{
+        const response=await fetch('/api/public/content?slug='+encodeURIComponent(slug));
+        const data=await response.json();
+        if(!response.ok||!data.item)throw new Error('Konten tidak ditemukan atau belum dipublikasikan.');
+        const item=data.item;
+        document.title=item.title+' — VANNDIK';
+        title.textContent=item.title;excerpt.textContent=item.excerpt||'';
+        document.getElementById('detailCategory').textContent=(item.category||item.type).toUpperCase();
+        document.getElementById('detailMeta').textContent='VANNDIK · '+new Date(item.published_at||Date.now()).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+        body.textContent=item.body||item.excerpt||'Konten ini belum memiliki isi.';
+        if(item.image_url&&/^https?:\/\//i.test(item.image_url)){const image=document.getElementById('detailImage');image.src=item.image_url;image.alt=item.title;image.hidden=false;}
+        if(item.type==='game'||item.type==='app'||item.type==='product'){
+          const target=item.type==='product'?item.affiliate_url:item.target_url;
+          if(target&&/^https?:\/\//i.test(target)){const link=document.createElement('a');link.className='detail-action';link.href=target;link.target='_blank';link.rel='noopener noreferrer';link.textContent=item.type==='product'?'Lihat produk ↗':'Buka sekarang ↗';document.getElementById('detailAction').appendChild(link);}
+        }
+      }catch(error){title.textContent='Konten belum tersedia';excerpt.textContent='';body.className='detail-error';body.textContent=error.message;}
+    })();
+  </script>
+</SecondaryLayout>
