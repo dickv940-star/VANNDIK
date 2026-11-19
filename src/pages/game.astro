@@ -1,0 +1,52 @@
+---
+import SecondaryLayout from '../layouts/SecondaryLayout.astro';
+import { games } from '../data/games.js';
+---
+<SecondaryLayout title="Game" description="Kumpulan game ringan dan permainan seru dari VANNDIK." active="/game/">
+  <section class="page-hero">
+    <div class="page-eyebrow">VANNDIK PLAYGROUND · GAME HUB</div>
+    <h1>Waktunya <span class="text-gradient">bermain.</span></h1>
+    <p>Temukan permainan ringan untuk mengisi waktu, menguji refleks, dan melatih logika. Koleksi game VANNDIK akan terus bertambah.</p>
+  </section>
+  <section class="page-content">
+    <div class="game-intro">
+      <div>
+        <div class="page-eyebrow">PILIH PERMAINAN</div>
+        <h2 class="page-section-title">Game yang akan hadir</h2>
+        <p class="page-muted">Ini adalah katalog awal. Setiap permainan akan diaktifkan setelah selesai dibuat dan diuji.</p>
+      </div>
+      <span class="game-count">1116 GAME DIRANCANG</span>
+    </div>
+    <div class="content-grid game-grid">
+      {games.map((game, index) => (
+        <article class="content-card game-card reveal">
+          <div class="game-card-top">
+            <span class="game-card-icon" aria-hidden="true">{game.icon}</span>
+            <span class="game-category">{game.category}</span>
+          </div>
+          <div class="card-index">GAME / {String(index + 1).padStart(2, '0')}</div>
+          <h3>{game.title}</h3>
+          <p>{game.description}</p>
+          <span class:list={['status-soon', game.status === 'available' ? 'status-live' : '']}>
+            {game.status === 'available' ? 'DAPAT DIMAINKAN' : 'SEGERA HADIR'}
+          </span>
+        </article>
+      ))}
+    </div>
+    <div class="notice-line">Game yang tampil saat ini masih berupa daftar rencana, belum dapat dimainkan. Kami akan menambahkan permainan satu per satu setelah siap.</div>
+  </section>
+  <style>
+    .game-intro{display:flex;align-items:end;justify-content:space-between;gap:24px}
+    .game-count{white-space:nowrap;color:#8dbaff;font-size:9px;letter-spacing:1.4px;border:1px solid #315b91;border-radius:30px;padding:9px 12px}
+    .game-grid{margin-top:24px}
+    .game-card{display:flex;flex-direction:column;gap:12px;min-height:260px}
+    .game-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .game-card-icon{width:48px;height:48px;display:grid;place-items:center;border:1px solid #315b91;border-radius:13px;background:linear-gradient(145deg,#17345a,#101c30);color:#9bc3ff;font-size:22px;font-weight:700}
+    .game-category{font-size:9px;color:#8294ad;letter-spacing:1px;text-transform:uppercase}
+    .game-card h3{margin:0;font-size:19px}
+    .game-card p{font-size:12px;line-height:1.8;color:#91a0b4;margin:0;flex:1}
+    .game-card .status-soon{margin-top:8px}
+    .status-live{color:#8ce0bd;border-color:#28684f}
+    @media(max-width:680px){.game-intro{align-items:flex-start;flex-direction:column}.game-count{margin-top:3px}}
+  </style>
+</SecondaryLayout>
