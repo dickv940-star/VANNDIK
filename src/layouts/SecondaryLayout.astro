@@ -147,6 +147,28 @@ const languages = [
       .app-card h3{margin:3px 0 0}
       @media(max-width:900px){.desktop-nav{gap:15px;margin-left:0}.desktop-nav a{font-size:11px}.header-actions{gap:13px}}
       @media(max-width:680px){.inner-header{height:70px}.inner-header .desktop-nav{display:none;position:absolute;top:69px;left:0;right:0;padding:18px 24px 22px;background:#0c1320;border-bottom:1px solid var(--line);flex-direction:column;align-items:flex-start;gap:19px}.inner-header .desktop-nav.is-open{display:flex}.inner-header .header-cta{display:none}.inner-header .mobile-menu-toggle{display:block}.page-hero{padding:78px 24px 55px}.page-hero h1{font-size:43px;letter-spacing:-2px}.page-hero p{font-size:13px}.page-content{width:calc(100% - 44px);padding-top:38px}.content-grid{grid-template-columns:1fr;gap:11px}.content-card{min-height:175px}.inner-footer{grid-template-columns:1fr auto}}
-    </style>
+    
+      /* Neon accents across all secondary pages */
+      :root{color-scheme:dark}
+      .site-header{border-color:rgba(143,160,196,.18);background:rgba(5,6,10,.9)}
+      .language-trigger{background:#0d111b}
+      .language-menu{background:#0b0e17}
+      .language-option:hover,.language-option.is-selected{background:#151d30}
+      .desktop-nav a[aria-current="page"]{color:#42d9ff}
+      .desktop-nav a[aria-current="page"]::after{background:linear-gradient(90deg,#1769ff,#a855f7)}
+      .page-hero{background:radial-gradient(ellipse at 82% 30%,#1769ff30,transparent 42%),radial-gradient(ellipse at 12% 80%,#a855f71b,transparent 35%),#070910}
+      .page-hero::before{background-image:linear-gradient(#8299c20b 1px,transparent 1px),linear-gradient(90deg,#8299c20b 1px,transparent 1px)}
+      .page-eyebrow{color:#42d9ff}
+      .content-card{background:radial-gradient(ellipse at 90% 0%,#a855f711,transparent 45%),linear-gradient(145deg,#111522,#090b12)}
+      .content-card:hover{border-color:#42d9ff66;box-shadow:0 0 24px #1769ff18}
+      .content-card .card-index{color:#42d9ff}
+      .empty-state{background:#0b0e16;border-color:#39ff8855}
+      .empty-state-icon{color:#a855f7;text-shadow:0 0 20px #a855f766}
+      .notice-line{border-color:#39ff88;background:#39ff880d}
+      .app-icon{border-color:#a855f766;background:#a855f71a;color:#c99aff;box-shadow:0 0 18px #a855f71a}
+      .status-soon{border-color:#39ff8855;color:#39ff88;background:#39ff8810}
+      .inner-footer{border-color:rgba(143,160,196,.18)}
+      @media(max-width:680px){.inner-header .desktop-nav.is-open{background:#080b12}}
+\n    </style>
   </body>
 </html>
