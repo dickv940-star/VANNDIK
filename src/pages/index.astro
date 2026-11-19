@@ -222,12 +222,18 @@ const copy = {
             <div class="hero-footnote"><span class="footnote-line"></span><span>INDEPENDENT DIGITAL BRAND</span></div>
           </div>
           <div class="hero-art" aria-hidden="true">
-            <div class="orbit orbit-outer"></div><div class="orbit orbit-inner"></div>
-            <div class="orbit orbit-dash"></div>
-            <div class="orbit-core"><div class="core-inner">V<span>.</span></div></div>
-            <div class="orbit-node node-top"></div><div class="orbit-node node-right"></div><div class="orbit-node node-bottom"></div>
-            <div class="floating-tag tag-top"><span class="tag-dot"></span> IDEAS IN MOTION</div>
-            <div class="floating-tag tag-bottom">EST. <span>VANNDIK</span></div>
+            <div class="creative-window">
+              <div class="creative-window-top"><span></span><span></span><span></span><b>VANNDIK CREATIVE SPACE</b></div>
+              <div class="creative-preview">
+                <div class="preview-sun"></div><div class="preview-mountain mountain-back"></div><div class="preview-mountain mountain-front"></div>
+                <div class="preview-caption">IMAGINE<br/><strong>WHAT'S NEXT.</strong></div>
+                <div class="preview-stamp">CREATE<br/>01 / 04</div>
+              </div>
+              <div class="creative-window-bottom"><span><i></i> READY TO CREATE</span><span>01 — 04</span></div>
+            </div>
+            <div class="floating-tool tool-image"><span class="tool-symbol">✳</span><span><b>AI IMAGE</b><small>Visual creation</small></span></div>
+            <div class="floating-tool tool-video"><span class="tool-symbol">▶</span><span><b>AI VIDEO</b><small>Motion stories</small></span></div>
+            <div class="floating-note">IDEAS IN MOTION <span>↗</span></div>
           </div>
           <div class="hero-bottom"><span>01 / 03</span><span class="scroll-cue">SCROLL TO EXPLORE <span>↓</span></span><span>EST. VANNDIK</span></div>
         </section>
@@ -237,6 +243,42 @@ const copy = {
           <div class="intro-layout">
             <h2 data-i18n="sectionTitle">Satu ruang. <span class="text-gradient">Banyak kemungkinan.</span></h2>
             <p data-i18n="sectionIntro">Kami membangun pengalaman digital yang menghubungkan kreativitas, teknologi, dan kebutuhan nyata.</p>
+          </div>
+        </section>
+
+        <section class="studio-section section-wrap" id="explore">
+          <div class="studio-heading">
+            <div><div class="section-kicker"><span>02</span><span class="kicker-line"></span><span>EXPLORE THE VANNDIK SPACE</span></div>
+              <h2>Temukan ruang untuk <span class="text-gradient">berkreasi.</span></h2>
+              <p>Jelajahi berbagai pengalaman digital dalam satu tempat. Pilih yang ingin kamu mulai hari ini.</p>
+            </div>
+            <a class="studio-view-all" href="/aplikasi/">Lihat semua aplikasi <span>↗</span></a>
+          </div>
+          <div class="studio-grid">
+            <a class="studio-card studio-card-large" href="/aplikasi/">
+              <div class="studio-card-art art-image"><span class="art-orb"></span><span class="art-shape shape-one"></span><span class="art-shape shape-two"></span><span class="art-label">01 / VISUAL LAB</span></div>
+              <div class="studio-card-copy"><div><span class="studio-category">CREATIVE TOOLS</span><h3>AI & Photo Studio</h3><p>Jelajahi alat kreatif untuk gambar, foto, dan visual digital.</p></div><span class="studio-arrow">↗</span></div>
+            </a>
+            <a class="studio-card" href="/produk/">
+              <div class="studio-card-art art-product"><span class="product-cube"></span><span class="art-label">02 / DISCOVER</span></div>
+              <div class="studio-card-copy"><div><span class="studio-category">CURATED FINDS</span><h3>Produk Pilihan</h3><p>Temukan produk menarik dan rekomendasi pilihan.</p></div><span class="studio-arrow">↗</span></div>
+            </a>
+            <a class="studio-card" href="/game/">
+              <div class="studio-card-art art-game"><span class="game-ring"></span><span class="game-dot"></span><span class="art-label">03 / PLAY MODE</span></div>
+              <div class="studio-card-copy"><div><span class="studio-category">PLAY & EXPLORE</span><h3>Game Zone</h3><p>Tempat untuk bermain, mencoba, dan bersantai.</p></div><span class="studio-arrow">↗</span></div>
+            </a>
+          </div>
+        </section>
+
+        <section class="inspiration-section">
+          <div class="inspiration-inner">
+            <div class="section-kicker"><span>03</span><span class="kicker-line"></span><span>MADE FOR CURIOUS MINDS</span></div>
+            <div class="inspiration-heading"><h2>Ide sederhana bisa menjadi <span class="text-gradient">sesuatu yang luar biasa.</span></h2><p>Ruang untuk menemukan inspirasi, membaca wawasan, dan mengikuti hal-hal baru.</p></div>
+            <div class="inspiration-links">
+              <a href="/artikel/"><span class="inspiration-icon">✳</span><span><small>READ & LEARN</small><b>Artikel & Wawasan</b></span><span class="inspiration-arrow">↗</span></a>
+              <a href="/berita/"><span class="inspiration-icon">◈</span><span><small>STAY UPDATED</small><b>Berita & Tren</b></span><span class="inspiration-arrow">↗</span></a>
+              <a href="/tentang/"><span class="inspiration-icon">◎</span><span><small>GET TO KNOW US</small><b>Tentang VANNDIK</b></span><span class="inspiration-arrow">↗</span></a>
+            </div>
           </div>
         </section>
 
@@ -319,5 +361,69 @@ const copy = {
       const savedLanguage = localStorage.getItem('vanndik-language');
       if (savedLanguage && copy[savedLanguage]) setLanguage(savedLanguage);
     </script>
+    <style>
+      /* VANNDIK creative-platform homepage refresh */
+      .hero{min-height:760px;background:radial-gradient(ellipse at 78% 43%,rgba(26,93,180,.2),transparent 36%),linear-gradient(115deg,#080b12 20%,#0a1220 100%)}
+      .hero-grid{opacity:.36}
+      .hero-content{width:52%;max-width:650px}
+      .hero-content h1{max-width:650px;font-size:clamp(48px,5.6vw,76px)}
+      .hero-art{right:clamp(4%,8vw,125px);width:min(43vw,560px);top:51%;transform:translateY(-48%)}
+      .creative-window{position:absolute;inset:8% 5%;padding:13px;border:1px solid rgba(135,177,239,.24);border-radius:15px;background:linear-gradient(145deg,rgba(22,35,56,.96),rgba(8,14,24,.97));box-shadow:0 35px 100px #0009,0 0 65px #1769ff18;transform:perspective(1100px) rotateY(-8deg) rotateX(3deg)}
+      .creative-window-top,.creative-window-bottom{height:28px;display:flex;align-items:center;gap:6px;color:#8b9db7;font-size:7px;letter-spacing:1.5px}
+      .creative-window-top span{width:5px;height:5px;border-radius:50%;background:#6d85a7}
+      .creative-window-top b{margin-left:auto;font-size:7px;font-weight:600}
+      .creative-preview{height:calc(100% - 56px);min-height:270px;position:relative;overflow:hidden;border-radius:8px;background:radial-gradient(ellipse at 70% 28%,#9fc9ee 0%,#517fae 17%,transparent 38%),linear-gradient(150deg,#1b3553 0%,#527a9c 44%,#d2a58b 100%)}
+      .preview-sun{position:absolute;width:34%;aspect-ratio:1;border-radius:50%;right:17%;top:13%;background:radial-gradient(circle at 35% 35%,#fff6df,#f4bd91 55%,#d88778);box-shadow:0 0 75px #ffd4ad88}
+      .preview-mountain{position:absolute;left:-10%;right:-10%;bottom:-20%;height:65%;clip-path:polygon(0 68%,22% 18%,39% 53%,60% 0,100% 65%,100% 100%,0 100%)}
+      .mountain-back{background:linear-gradient(130deg,#273c59,#647b89 60%,#a77e78);transform:translateY(-10%)}
+      .mountain-front{background:linear-gradient(120deg,#101d30,#24425b 60%,#526e7c);clip-path:polygon(0 58%,25% 15%,48% 63%,70% 22%,100% 70%,100% 100%,0 100%)}
+      .preview-caption{position:absolute;left:8%;bottom:11%;font-size:clamp(15px,2vw,24px);line-height:1.05;letter-spacing:3px;color:#f7f2e9;text-shadow:0 3px 15px #18273c}
+      .preview-caption strong{font-size:1.35em;font-weight:800}
+      .preview-stamp{position:absolute;right:7%;bottom:9%;font-size:7px;line-height:1.8;letter-spacing:1.6px;color:#f9e8d8;text-align:right}
+      .creative-window-bottom{justify-content:space-between;padding:0 5px}.creative-window-bottom i{display:inline-block;width:5px;height:5px;border-radius:50%;background:#69d6aa;margin-right:6px;box-shadow:0 0 10px #69d6aa}
+      .floating-tool{position:absolute;display:flex;align-items:center;gap:10px;padding:11px 14px;border:1px solid #7899c344;border-radius:9px;background:#0c1524eF;box-shadow:0 15px 35px #0006;backdrop-filter:blur(15px);color:#eaf1fc}
+      .floating-tool b,.floating-tool small{display:block}.floating-tool b{font-size:8px;letter-spacing:1.3px}.floating-tool small{font-size:8px;color:#8798b2;margin-top:4px}
+      .tool-symbol{width:27px;height:27px;display:grid;place-items:center;border-radius:7px;background:#1c3c69;color:#8ebaff;font-size:13px}
+      .tool-image{left:-4%;top:22%}.tool-video{right:-6%;bottom:20%}.floating-note{position:absolute;right:1%;top:4%;font-size:7px;letter-spacing:2px;color:#a9c6ee}.floating-note span{color:#68a5ff;margin-left:8px}
+      .studio-section{padding-top:112px;padding-bottom:115px}
+      .studio-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:40px;margin-bottom:32px}
+      .studio-heading h2,.inspiration-heading h2{font:800 clamp(34px,4vw,52px)/1.12 Manrope,sans-serif;letter-spacing:-2.6px;max-width:670px;margin:25px 0 12px}
+      .studio-heading p,.inspiration-heading p{color:#97a6ba;font-size:13px;line-height:1.8;max-width:520px;margin:0}
+      .studio-view-all{white-space:nowrap;color:#a9c8f5;font-size:11px;padding-bottom:5px}.studio-view-all span{color:#6ba4ff;margin-left:9px}
+      .studio-grid{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:16px}
+      .studio-card{overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#0d1420;transition:transform .28s,border-color .28s,box-shadow .28s}
+      .studio-card:hover{transform:translateY(-6px);border-color:#3976c4;box-shadow:0 22px 50px #0005}
+      .studio-card-art{height:230px;position:relative;overflow:hidden}
+      .studio-card-large .studio-card-art{height:270px}
+      .art-label{position:absolute;left:19px;bottom:17px;color:#e4edf9;font-size:8px;letter-spacing:1.8px}
+      .art-image{background:radial-gradient(circle at 58% 45%,#a9c6e2 0 8%,transparent 8.5%),radial-gradient(ellipse at 65% 70%,#e5b49b 0 13%,transparent 13.5%),linear-gradient(135deg,#172f52,#3e6791 52%,#c28e82)}
+      .art-image:before{content:'';position:absolute;inset:0;background:linear-gradient(130deg,transparent 35%,#d7e6ed33 36%,transparent 60%),radial-gradient(ellipse at 15% 90%,#0a1729 0 30%,transparent 31%)}
+      .art-orb{position:absolute;width:125px;height:125px;border-radius:50%;top:16%;right:19%;background:radial-gradient(circle at 35% 32%,#fff1d9,#f1b98d 65%,#c77c78);box-shadow:0 0 55px #f4c6a177}
+      .art-shape{position:absolute;bottom:-22%;width:70%;height:75%;border-radius:50% 50% 0 0;transform:rotate(-18deg)}
+      .shape-one{left:-8%;background:linear-gradient(130deg,#132b49,#315b7a)}.shape-two{right:-20%;background:linear-gradient(130deg,#293f5a,#101d30)}
+      .art-product{background:radial-gradient(ellipse at 50% 70%,#3768a4 0,transparent 52%),linear-gradient(135deg,#17253b,#0c1422)}
+      .product-cube{position:absolute;left:50%;top:47%;width:105px;height:105px;transform:translate(-50%,-50%) rotate(-12deg);border-radius:18px;background:linear-gradient(145deg,#dce8f7,#6e8db8 45%,#253f67);box-shadow:18px 22px 40px #0008,inset -12px -10px 20px #172a45}
+      .product-cube:after{content:'';position:absolute;inset:20px;border:1px solid #fff8;border-radius:10px}
+      .art-game{background:radial-gradient(circle at 50% 50%,#244d83,#111b30 48%,#0a111c)}
+      .game-ring{position:absolute;width:130px;height:130px;left:50%;top:45%;transform:translate(-50%,-50%) rotateX(60deg);border:12px solid #79aaff;border-radius:50%;box-shadow:0 0 35px #347bff88,inset 0 0 25px #347bff55}
+      .game-dot{position:absolute;width:15px;height:15px;border-radius:50%;left:62%;top:27%;background:#e3f1ff;box-shadow:0 0 22px #9fcaff}
+      .studio-card-copy{display:flex;justify-content:space-between;gap:15px;padding:21px 20px 23px}
+      .studio-category{font-size:8px;letter-spacing:1.6px;color:#6fa8ff}
+      .studio-card-copy h3{font:700 18px Manrope,sans-serif;margin:8px 0 6px;letter-spacing:-.4px}
+      .studio-card-copy p{font-size:11px;line-height:1.7;color:#8f9eb2;margin:0;max-width:260px}
+      .studio-arrow{font-size:18px;color:#83b5ff;align-self:flex-end}
+      .inspiration-section{padding:95px 24px;background:linear-gradient(110deg,#0d1726,#0a101a 65%,#101b2d);border-top:1px solid #8cb6ee17;border-bottom:1px solid #8cb6ee17}
+      .inspiration-inner{width:min(1120px,100%);margin:0 auto}
+      .inspiration-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:45px;margin:25px 0 35px}
+      .inspiration-heading h2{margin:0;max-width:620px}.inspiration-heading p{max-width:330px}
+      .inspiration-links{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line)}
+      .inspiration-links a{display:flex;align-items:center;gap:14px;padding:23px 18px;border-bottom:1px solid var(--line);transition:background .2s}
+      .inspiration-links a:hover{background:#ffffff08}
+      .inspiration-icon{width:38px;height:38px;display:grid;place-items:center;border:1px solid #315b91;border-radius:9px;color:#83b5ff;background:#142846;font-size:16px}
+      .inspiration-links small,.inspiration-links b{display:block}.inspiration-links small{font-size:7px;letter-spacing:1.3px;color:#7d91ad;margin-bottom:6px}.inspiration-links b{font-size:11px;font-weight:600;color:#e2eaf6}
+      .inspiration-arrow{margin-left:auto;color:#78adff}
+      @media(max-width:900px){.hero-content{width:58%}.hero-art{right:0;width:43vw}.studio-grid{grid-template-columns:1fr 1fr}.studio-card-large{grid-column:1/-1}.studio-card-large .studio-card-art{height:230px}.inspiration-heading{display:block}.inspiration-heading p{margin-top:15px}}
+      @media(max-width:680px){.hero{min-height:860px;padding-top:132px;padding-bottom:345px}.hero-content{width:100%}.hero-content h1{font-size:clamp(43px,12vw,61px)}.hero-art{width:min(92vw,440px);height:290px;right:50%;top:auto;bottom:82px;transform:translateX(50%)}.creative-window{inset:6% 8%;padding:9px}.creative-preview{min-height:190px}.floating-tool{padding:8px 10px}.tool-image{left:0;top:12%}.tool-video{right:0;bottom:10%}.floating-note{top:0;right:5%}.studio-section{padding-top:75px;padding-bottom:75px}.studio-heading{display:block}.studio-view-all{display:inline-block;margin-top:20px}.studio-grid{grid-template-columns:1fr;gap:12px}.studio-card-large{grid-column:auto}.studio-card-art,.studio-card-large .studio-card-art{height:210px}.studio-card-copy{padding:18px}.inspiration-section{padding:70px 22px}.inspiration-heading{display:block}.inspiration-heading h2{font-size:36px}.inspiration-links{grid-template-columns:1fr}.inspiration-links a{padding:17px 5px}}
+    </style>
   </body>
 </html>
