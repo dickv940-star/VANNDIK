@@ -1,19 +1,99 @@
 ---
 import SecondaryLayout from '../layouts/SecondaryLayout.astro';
+const categories = ['Semua', 'Teknologi', 'Kreativitas', 'Bisnis Digital', 'Tips & Panduan'];
 ---
-<SecondaryLayout title="Artikel" description="Artikel, panduan, wawasan, dan inspirasi dari VANNDIK." active="/artikel/">
-  <section class="page-hero" id="top">
-    <div class="page-eyebrow">VANNDIK / KNOWLEDGE & INSIGHTS</div>
-    <h1>Wawasan baru untuk <span class="text-gradient">ide yang lebih besar.</span></h1>
-    <p>Temukan artikel, tutorial, panduan praktis, ulasan, dan inspirasi seputar teknologi, kreativitas, bisnis digital, serta gaya hidup.</p>
-  </section>
-  <section class="page-content">
-    <div class="section-kicker"><span>01</span><span class="kicker-line"></span><span>JELAJAHI PENGETAHUAN</span></div>
-    <div class="content-grid">
-      <article class="content-card"><div class="card-index">CATEGORY / 01</div><h2>Teknologi</h2><p>Perkembangan teknologi, perangkat, kecerdasan buatan, dan solusi digital.</p></article>
-      <article class="content-card"><div class="card-index">CATEGORY / 02</div><h2>Tips & Panduan</h2><p>Panduan praktis dan langkah-langkah untuk membantu aktivitas sehari-hari.</p></article>
-      <article class="content-card"><div class="card-index">CATEGORY / 03</div><h2>Bisnis & Kreativitas</h2><p>Ide, strategi, produktivitas, pemasaran digital, dan inspirasi berkarya.</p></article>
+<SecondaryLayout title="Artikel" description="Jelajahi artikel, inspirasi, dan panduan pilihan dari VANNDIK." active="/artikel/">
+  <section class="article-intro" id="top">
+    <div class="article-intro-inner">
+      <div class="article-kicker"><span></span> VANNDIK JOURNAL</div>
+      <h1>Ide menarik.<br /><em>Perspektif baru.</em></h1>
+      <p>Ruang untuk membaca, menemukan inspirasi, dan mengikuti perkembangan dunia digital.</p>
+      <a class="intro-link" href="#jelajahi">Jelajahi artikel <span>↓</span></a>
     </div>
-    <div class="notice-line">Artikel pertama sedang disiapkan. Kategori di atas merupakan struktur awal dan akan diisi dengan konten editorial VANNDIK.</div>
+    <div class="intro-art" aria-hidden="true">
+      <div class="art-orbit orbit-a"></div><div class="art-orbit orbit-b"></div>
+      <div class="art-panel panel-back"><span>IDEAS / 01</span><b>THINK<br />BEYOND.</b></div>
+      <div class="art-panel panel-front"><div class="panel-mark">V.</div><span>VANNDIK JOURNAL</span><b>Explore<br />what's next.</b><i>CREATIVITY · TECHNOLOGY · IDEAS</i></div>
+      <div class="art-stamp">EST.<br />2026</div>
+    </div>
+    <div class="intro-bottom"><span>INSIGHT FOR EVERY CURIOUS MIND</span><span>SCROLL TO DISCOVER ↓</span></div>
   </section>
+
+  <section class="journal-section" id="jelajahi">
+    <div class="journal-heading">
+      <div><div class="section-label">THE JOURNAL</div><h2>Jelajahi <span>artikel.</span></h2><p>Temukan bacaan yang sesuai dengan minatmu.</p></div>
+      <div class="journal-count">VANNDIK / <b>01—06</b></div>
+    </div>
+    <div class="journal-tools">
+      <div class="category-list" role="group" aria-label="Filter kategori">
+        {categories.map((category, index) => <button class:list={['category-chip', index === 0 && 'is-active']} type="button" data-category={category}>{category}</button>)}
+      </div>
+      <label class="article-search"><span aria-hidden="true">⌕</span><input id="articleSearch" type="search" placeholder="Cari artikel..." aria-label="Cari artikel" /><kbd>↵</kbd></label>
+    </div>
+
+    <div class="article-feature">
+      <div class="feature-visual" aria-hidden="true">
+        <div class="feature-shape shape-one"></div><div class="feature-shape shape-two"></div>
+        <div class="feature-visual-copy"><span>VANNDIK / INSIGHT</span><strong>Ideas<br />in motion.</strong><small>DISCOVER · LEARN · CREATE</small></div>
+        <div class="feature-visual-index">FEATURED<br />001</div>
+      </div>
+      <div class="feature-copy"><div class="article-meta"><span>EDITOR'S PICK</span><span>•</span><span>VANNDIK JOURNAL</span></div><h3>Temukan wawasan dan inspirasi digital pilihan</h3><p>Halaman artikel VANNDIK dirancang sebagai ruang editorial untuk berbagi pengetahuan, ide, dan panduan yang relevan.</p><a href="#daftar-artikel" class="read-link">Jelajahi koleksi <span>↗</span></a></div>
+    </div>
+
+    <div class="latest-heading" id="daftar-artikel"><div><div class="section-label">LATEST STORIES</div><h2>Artikel terbaru</h2></div><span class="latest-note">KOLEKSI EDITORIAL VANNDIK</span></div>
+    <div class="article-grid" id="articleGrid">
+      <article class="journal-card" data-category="Teknologi" data-search="teknologi inovasi digital masa depan"><div class="card-art art-tech"><span class="art-label">01 / TECHNOLOGY</span><div class="tech-orb"></div><b>THE<br />NEXT<br />WAVE.</b><span class="art-foot">TECHNOLOGY & INNOVATION</span></div><div class="card-copy"><div class="card-meta"><span>TEKNOLOGI</span><span>SEGERA HADIR</span></div><h3>Menjelajahi inovasi teknologi masa depan</h3><p>Wawasan dan perkembangan terbaru di dunia teknologi.</p><div class="card-bottom"><span>VANNDIK EDITORIAL</span><span>↗</span></div></div></article>
+      <article class="journal-card" data-category="Kreativitas" data-search="kreativitas desain visual ide kreatif"><div class="card-art art-create"><span class="art-label">02 / CREATIVITY</span><div class="create-shape"></div><b>MAKE<br />IT<br />MATTER.</b><span class="art-foot">DESIGN YOUR IDEAS</span></div><div class="card-copy"><div class="card-meta"><span>KREATIVITAS</span><span>SEGERA HADIR</span></div><h3>Mengubah ide kreatif menjadi karya bermakna</h3><p>Inspirasi untuk proses kreatif, desain, dan berkarya.</p><div class="card-bottom"><span>VANNDIK EDITORIAL</span><span>↗</span></div></div></article>
+      <article class="journal-card" data-category="Bisnis Digital" data-search="bisnis digital strategi pemasaran online"><div class="card-art art-business"><span class="art-label">03 / DIGITAL BUSINESS</span><div class="business-bars"><i></i><i></i><i></i><i></i><i></i></div><b>GROW<br />WITH<br />PURPOSE.</b><span class="art-foot">STRATEGY & GROWTH</span></div><div class="card-copy"><div class="card-meta"><span>BISNIS DIGITAL</span><span>SEGERA HADIR</span></div><h3>Membangun peluang di era bisnis digital</h3><p>Ide, strategi, dan wawasan untuk mengembangkan bisnis.</p><div class="card-bottom"><span>VANNDIK EDITORIAL</span><span>↗</span></div></div></article>
+      <article class="journal-card" data-category="Tips & Panduan" data-search="tips panduan produktivitas digital"><div class="card-art art-guide"><span class="art-label">04 / HOW TO</span><div class="guide-lines"><i></i><i></i><i></i></div><b>MAKE<br />IT<br />SIMPLE.</b><span class="art-foot">PRACTICAL KNOWLEDGE</span></div><div class="card-copy"><div class="card-meta"><span>TIPS & PANDUAN</span><span>SEGERA HADIR</span></div><h3>Panduan praktis untuk aktivitas digital</h3><p>Tips sederhana untuk bekerja dan berkreasi lebih efektif.</p><div class="card-bottom"><span>VANNDIK EDITORIAL</span><span>↗</span></div></div></article>
+      <article class="journal-card" data-category="Teknologi" data-search="kecerdasan buatan ai teknologi"><div class="card-art art-ai"><span class="art-label">05 / ARTIFICIAL INTELLIGENCE</span><div class="ai-grid"></div><b>HUMAN<br />× AI.</b><span class="art-foot">A NEW CREATIVE ERA</span></div><div class="card-copy"><div class="card-meta"><span>TEKNOLOGI</span><span>SEGERA HADIR</span></div><h3>Kolaborasi manusia dan kecerdasan buatan</h3><p>Mengenal kemungkinan baru dari teknologi AI.</p><div class="card-bottom"><span>VANNDIK EDITORIAL</span><span>↗</span></div></div></article>
+      <article class="journal-card" data-category="Kreativitas" data-search="inspirasi ide kreatif digital"><div class="card-art art-inspire"><span class="art-label">06 / INSPIRATION</span><div class="inspire-sun"></div><b>STAY<br />CURIOUS.</b><span class="art-foot">IDEAS START HERE</span></div><div class="card-copy"><div class="card-meta"><span>INSPIRASI</span><span>SEGERA HADIR</span></div><h3>Terus ingin tahu, terus menemukan hal baru</h3><p>Kumpulan perspektif untuk memantik ide dan inspirasi.</p><div class="card-bottom"><span>VANNDIK EDITORIAL</span><span>↗</span></div></div></article>
+    </div>
+    <div class="no-results" id="noResults" hidden>Artikel tidak ditemukan. Coba kata kunci atau kategori lain.</div>
+    <div class="journal-footer"><span>MORE STORIES ARE ON THE WAY</span><span>VANNDIK © 2026</span></div>
+  </section>
+  <style>
+    .article-intro{min-height:590px;position:relative;overflow:hidden;padding:125px max(24px,calc((100% - 1120px)/2)) 75px;background:radial-gradient(ellipse at 77% 45%,#164a913b,transparent 37%),linear-gradient(115deg,#080b12 5%,#0c1421 62%,#080b12)}
+    .article-intro::before{content:'';position:absolute;inset:0;background-image:linear-gradient(#9ab9e00a 1px,transparent 1px),linear-gradient(90deg,#9ab9e00a 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(90deg,black,transparent 90%)}
+    .article-intro-inner{position:relative;z-index:2;max-width:560px}
+    .article-kicker,.section-label{font-size:9px;font-weight:700;letter-spacing:2.4px;color:#8eadd7}.article-kicker span{display:inline-block;width:7px;height:7px;background:#438cff;border-radius:50%;margin-right:9px;box-shadow:0 0 14px #438cff}
+    .article-intro h1{font:800 clamp(54px,7vw,84px)/1.02 Manrope,sans-serif;letter-spacing:-5px;margin:27px 0 20px}.article-intro h1 em{font-style:normal;color:#75aaff}.article-intro p{font-size:14px;line-height:1.9;color:#a0adbf;max-width:420px}.intro-link{display:inline-flex;gap:30px;align-items:center;margin-top:23px;padding:13px 17px;border:1px solid #416ba4;color:#e5edfa;font-size:11px}.intro-link span{color:#77aaff;font-size:17px}
+    .intro-art{position:absolute;right:max(7%,calc((100% - 1120px)/2));top:50%;transform:translateY(-48%);width:440px;height:390px}.art-orbit{position:absolute;border:1px solid #6ca4f52a;border-radius:50%;transform:rotate(-25deg)}.orbit-a{inset:8px 30px 10px 20px}.orbit-b{inset:50px 0 45px 55px;transform:rotate(35deg);border-style:dashed}.art-panel{position:absolute;display:flex;flex-direction:column;justify-content:space-between;padding:23px;border:1px solid #83b3f64a;box-shadow:0 25px 70px #0006}.art-panel span{font-size:8px;letter-spacing:2px;color:#9ab8e2}.panel-back{width:235px;height:285px;left:12px;top:48px;transform:rotate(-9deg);background:linear-gradient(145deg,#193b68,#101a2c)}.panel-back b{font:800 43px/.95 Manrope;color:#9fc4ff;letter-spacing:-3px}.panel-front{width:245px;height:300px;right:28px;top:30px;transform:rotate(8deg);background:linear-gradient(145deg,#152944,#0b111d)}.panel-mark{font:800 48px Manrope;color:#77aaff}.panel-front b{font:800 34px/.98 Manrope;letter-spacing:-2px}.panel-front i{font-style:normal;font-size:7px;letter-spacing:1.5px;color:#7891b2}.art-stamp{position:absolute;right:5px;bottom:0;width:66px;height:66px;display:grid;place-content:center;text-align:center;border:1px solid #77aaff;border-radius:50%;font:700 10px/1.5 Manrope;color:#9ec2ff;transform:rotate(12deg)}
+    .intro-bottom{position:absolute;bottom:28px;left:max(24px,calc((100% - 1120px)/2));right:max(24px,calc((100% - 1120px)/2));display:flex;justify-content:space-between;color:#667991;font-size:8px;letter-spacing:1.8px}
+    .journal-section{width:min(1120px,calc(100% - 48px));margin:0 auto;padding:85px 0 55px}.journal-heading,.latest-heading{display:flex;justify-content:space-between;align-items:end}.journal-heading h2,.latest-heading h2{font:800 38px/1.2 Manrope;letter-spacing:-2px;margin:14px 0 8px}.journal-heading h2 span{color:#72a8ff}.journal-heading p{color:#91a0b4;font-size:13px;margin:0}.journal-count,.latest-note{font-size:9px;letter-spacing:1.4px;color:#71839b}.journal-count b{color:#83b2fa}
+    .journal-tools{display:flex;justify-content:space-between;align-items:center;gap:20px;margin:34px 0 25px;padding-bottom:18px;border-bottom:1px solid var(--line)}.category-list{display:flex;flex-wrap:wrap;gap:7px}.category-chip{padding:9px 13px;border:1px solid var(--line);border-radius:3px;background:transparent;color:#9ba9bc;font-size:10px;cursor:pointer;transition:.2s}.category-chip:hover,.category-chip.is-active{border-color:#3978ca;background:#142744;color:#e5efff}.article-search{display:flex;align-items:center;gap:8px;width:220px;padding:8px 10px;border:1px solid var(--line);border-radius:3px;color:#8ba5c9}.article-search>span{font-size:20px}.article-search input{min-width:0;width:100%;border:0;outline:0;background:transparent;color:#eef4ff;font-size:11px}.article-search input::placeholder{color:#74849a}.article-search kbd{font-size:9px;color:#72849d}
+    .article-feature{display:grid;grid-template-columns:1.12fr .88fr;min-height:315px;border:1px solid var(--line);background:#0d1522}.feature-visual{position:relative;overflow:hidden;min-height:315px;background:linear-gradient(135deg,#122e55,#0a1321 70%)}.feature-visual::before{content:'';position:absolute;inset:0;background-image:linear-gradient(#91b7e40b 1px,transparent 1px),linear-gradient(90deg,#91b7e40b 1px,transparent 1px);background-size:35px 35px}.feature-shape{position:absolute;border:1px solid #6ba6ff65;border-radius:50%;transform:rotate(-28deg)}.shape-one{width:310px;height:220px;right:7%;top:13%;box-shadow:0 0 65px #1769ff18}.shape-two{width:225px;height:280px;right:20%;top:8%;border-style:dashed}.feature-visual-copy{position:absolute;left:9%;top:17%;display:flex;flex-direction:column;gap:20px}.feature-visual-copy span,.feature-visual-copy small,.feature-visual-index{font-size:8px;letter-spacing:2px;color:#a1bee6}.feature-visual-copy strong{font:800 48px/.95 Manrope;letter-spacing:-3px;color:#d9e9ff}.feature-visual-index{position:absolute;right:7%;bottom:9%;line-height:1.7;text-align:right}
+    .feature-copy{padding:42px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center}.article-meta{display:flex;gap:9px;align-items:center;color:#79aaff;font-size:8px;letter-spacing:1.5px}.feature-copy h3{font:700 27px/1.25 Manrope;letter-spacing:-1px;margin:20px 0 13px;max-width:400px}.feature-copy p{color:#91a0b4;font-size:12px;line-height:1.9;max-width:390px}.read-link{margin-top:13px;color:#8cb8fa;font-size:11px}.read-link span{margin-left:15px}
+    .latest-heading{margin:70px 0 25px}.latest-heading h2{font-size:29px;margin:10px 0 0}.article-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.journal-card{overflow:hidden;border:1px solid var(--line);background:#0c131e;transition:transform .25s,border-color .25s}.journal-card:hover{transform:translateY(-4px);border-color:#376eb5}.card-art{height:205px;position:relative;overflow:hidden;padding:17px;background:#12243b}.card-art::after{content:'';position:absolute;inset:0;background:linear-gradient(125deg,transparent 35%,#07101b77)}.art-label,.art-foot{position:absolute;z-index:2;left:17px;font-size:7px;letter-spacing:1.5px;color:#c2d7f4}.art-label{top:17px}.art-foot{bottom:15px;color:#91a9c9}.card-art>b{position:absolute;z-index:2;left:18px;bottom:43px;font:800 35px/.9 Manrope;letter-spacing:-2px;color:#e5efff}.art-tech{background:linear-gradient(135deg,#183c67,#0a1424)}.tech-orb{position:absolute;width:185px;height:185px;border:1px solid #85baff88;border-radius:50%;right:-15px;top:27px;box-shadow:inset 0 0 40px #3d8aff33,0 0 50px #3d8aff22}.tech-orb::before,.tech-orb::after{content:'';position:absolute;inset:22px;border:1px dashed #8abaff77;border-radius:50%}.tech-orb::after{inset:53px;background:#7db5ff22}.art-create{background:linear-gradient(135deg,#382b68,#11152e)}.create-shape{position:absolute;width:170px;height:170px;right:12px;top:23px;background:linear-gradient(135deg,#b5a1ff,#4d6fff);border-radius:48% 52% 61% 39%;transform:rotate(35deg);box-shadow:0 0 55px #9379ff55}.art-business{background:linear-gradient(135deg,#17483f,#0b1a20)}.business-bars{position:absolute;right:20px;top:35px;height:120px;display:flex;align-items:end;gap:8px;transform:skewY(-22deg)}.business-bars i{display:block;width:20px;background:linear-gradient(#9de6c9,#278a72);height:45%}.business-bars i:nth-child(2){height:65%}.business-bars i:nth-child(3){height:55%}.business-bars i:nth-child(4){height:85%}.business-bars i:nth-child(5){height:100%}.art-guide{background:linear-gradient(135deg,#55401d,#171a20)}.guide-lines{position:absolute;right:24px;top:45px;width:115px;display:grid;gap:14px;transform:rotate(-12deg)}.guide-lines i{height:8px;border:1px solid #e8c77e;background:#e8c77e22}.guide-lines i:nth-child(2){width:80%}.guide-lines i:nth-child(3){width:58%}.art-ai{background:linear-gradient(135deg,#26345d,#11152b)}.ai-grid{position:absolute;right:12px;top:20px;width:165px;height:165px;background:radial-gradient(circle,#9ac1ff 1px,transparent 2px);background-size:14px 14px;mask-image:radial-gradient(circle,black,transparent 70%)}.art-inspire{background:linear-gradient(135deg,#6b3d45,#201727)}.inspire-sun{position:absolute;right:24px;top:22px;width:140px;height:140px;border-radius:50%;background:linear-gradient(135deg,#ffd8a0,#df7f85);box-shadow:0 0 70px #f18d9566}
+    .card-copy{padding:19px}.card-meta{display:flex;justify-content:space-between;gap:8px;color:#82aff0;font-size:7px;letter-spacing:1px}.card-meta span:last-child{color:#718198}.card-copy h3{font:700 17px/1.35 Manrope;letter-spacing:-.4px;margin:15px 0 8px}.card-copy p{min-height:38px;color:#8f9db0;font-size:11px;line-height:1.7;margin:0}.card-bottom{display:flex;justify-content:space-between;margin-top:18px;padding-top:13px;border-top:1px solid var(--line);font-size:7px;letter-spacing:1.2px;color:#6f8098}.card-bottom span:last-child{color:#80adf1;font-size:13px}.no-results{padding:35px;text-align:center;color:#9aaac0;border:1px dashed var(--line);font-size:12px}.journal-footer{display:flex;justify-content:space-between;margin-top:55px;padding-top:18px;border-top:1px solid var(--line);font-size:8px;letter-spacing:1.5px;color:#65758b}
+    @media(max-width:850px){.intro-art{right:-65px;opacity:.65;transform:translateY(-48%) scale(.82)}.article-intro-inner{max-width:490px}.article-feature{grid-template-columns:1fr 1fr}.feature-copy{padding:28px}.article-grid{gap:12px}.card-art{height:175px}.card-art>b{font-size:29px}}
+    @media(max-width:650px){.article-intro{min-height:700px;padding:105px 24px 75px}.article-intro h1{font-size:58px;letter-spacing:-3.5px}.article-intro p{max-width:330px}.intro-art{top:auto;bottom:52px;right:50%;transform:translateX(50%) scale(.68);transform-origin:center bottom;opacity:.75}.intro-bottom{left:24px;right:24px;bottom:20px;font-size:6px;letter-spacing:1px}.journal-section{width:calc(100% - 40px);padding-top:58px}.journal-heading h2{font-size:32px}.journal-count{display:none}.journal-tools{align-items:stretch;flex-direction:column}.category-list{flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px}.category-chip{white-space:nowrap}.article-search{width:100%}.article-feature{grid-template-columns:1fr}.feature-visual{min-height:245px}.feature-copy{padding:25px}.feature-copy h3{font-size:24px}.latest-heading{margin-top:52px}.latest-note{display:none}.article-grid{grid-template-columns:1fr 1fr;gap:10px}.card-art{height:145px;padding:12px}.art-label,.art-foot{left:12px;font-size:6px}.card-art>b{left:12px;bottom:35px;font-size:25px}.card-copy{padding:13px}.card-meta{font-size:6px;flex-wrap:wrap}.card-copy h3{font-size:14px}.card-copy p{font-size:10px}.card-bottom{font-size:6px}.journal-footer{font-size:6px;letter-spacing:.8px}}
+    @media(max-width:390px){.article-grid{grid-template-columns:1fr}.card-art{height:190px}.article-intro h1{font-size:51px}}
+    @media(prefers-reduced-motion:reduce){.journal-card{transition:none}}
+  </style>
+  <script>
+    const chips = [...document.querySelectorAll('.category-chip')];
+    const cards = [...document.querySelectorAll('.journal-card')];
+    const search = document.getElementById('articleSearch');
+    const empty = document.getElementById('noResults');
+    let selected = 'Semua';
+    function filterArticles() {
+      const query = search.value.trim().toLowerCase();
+      let visible = 0;
+      cards.forEach((card) => {
+        const categoryMatch = selected === 'Semua' || card.dataset.category === selected;
+        const searchMatch = !query || (card.dataset.search + ' ' + card.textContent).toLowerCase().includes(query);
+        const show = categoryMatch && searchMatch;
+        card.hidden = !show;
+        if (show) visible++;
+      });
+      empty.hidden = visible !== 0;
+    }
+    chips.forEach((chip) => chip.addEventListener('click', () => {
+      selected = chip.dataset.category;
+      chips.forEach((item) => item.classList.toggle('is-active', item === chip));
+      filterArticles();
+    }));
+    search.addEventListener('input', filterArticles);
+  </script>
 </SecondaryLayout>
