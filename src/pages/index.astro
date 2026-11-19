@@ -176,12 +176,14 @@ const copy = {
   <body>
     <div class="site-shell">
       <header class="site-header">
-        <a class="wordmark" href="#home" aria-label="VANNDIK home">VANNDIK<span>.</span></a>
-        <nav class="desktop-nav" aria-label="Main navigation">
-          <a href="#home" data-i18n="navHome">Beranda</a>
-          <a href="#about" data-i18n="navAbout">Tentang</a>
-          <a href="#explore" data-i18n="navExplore">Jelajahi</a>
-          <a href="#contact" data-i18n="navContact">Kontak</a>
+        <a class="wordmark" href="/" aria-label="VANNDIK home">VANNDIK<span>.</span></a>
+        <nav class="desktop-nav" aria-label="Navigasi utama">
+          <a href="/" aria-current="page">Beranda</a>
+          <a href="/tentang/">Tentang</a>
+          <a href="/berita/">Berita</a>
+          <a href="/artikel/">Artikel</a>
+          <a href="/produk/">Produk</a>
+          <a href="/aplikasi/">Aplikasi</a>
         </nav>
         <div class="header-actions">
           <div class="language-picker">
@@ -196,7 +198,7 @@ const copy = {
               ))}
             </div>
           </div>
-          <a class="header-cta" href="#contact" data-i18n="navContact">Kontak <span>↗</span></a>
+          <a class="header-cta" href="/produk/">Produk <span>↗</span></a>
           <button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button>
         </div>
       </header>
@@ -262,7 +264,7 @@ const copy = {
       </main>
 
       <footer class="site-footer">
-        <a class="wordmark footer-wordmark" href="#home">VANNDIK<span>.</span></a>
+        <a class="wordmark footer-wordmark" href="/">VANNDIK<span>.</span></a>
         <p data-i18n="footer">Ruang digital untuk ide dan kemungkinan baru.</p>
         <div class="footer-meta"><span>© {new Date().getFullYear()} VANNDIK</span><a href="#home">BACK TO TOP ↑</a></div>
       </footer>
