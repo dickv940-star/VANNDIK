@@ -63,7 +63,7 @@
 
   async function loadContent(){
     const map={article:'#articleGrid',news:'.news-cards',product:'.product-grid',game:'#gameGrid',app:'#appsGrid'};
-    const type=page==='aplikasi'?'app':page;
+    const type=({artikel:'article',berita:'news',produk:'product',game:'game',aplikasi:'app'})[page]||page;
     if(!map[type])return;
     const container=document.querySelector(map[type]);if(!container)return;
     const response=await fetch('/api/public/content?type='+encodeURIComponent(type));
