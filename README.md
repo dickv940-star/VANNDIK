@@ -2,40 +2,58 @@
 
 **Premium Digital Experience**
 
-Website resmi VANNDIK, dibangun dengan Astro dan dirancang dengan identitas visual hitam, biru, putih, dan abu-abu.
+Website resmi VANNDIK, dibangun dengan Astro dan identitas visual hitam, biru, putih, dan abu-abu.
 
-## Tech stack
+## Struktur proyek
+```text
+VANNDIK/
+├── public/                 # Aset statis: gambar, ikon, file publik
+├── src/
+│   ├── components/         # Komponen UI yang dapat digunakan ulang
+│   ├── data/               # Data katalog, game, dan konten
+│   ├── layouts/            # Kerangka halaman dan navigasi bersama
+│   ├── pages/              # Route website (satu file = satu halaman)
+│   └── styles/             # CSS global dan animasi
+├── .github/workflows/      # Otomatisasi build
+├── astro.config.mjs
+├── package.json
+└── README.md
+```
 
-- [Astro](https://astro.build/) — framework web open-source
-- HTML, CSS, JavaScript
-- Cloudflare Pages — target hosting static gratis
-- GitHub — source control
+## Lokasi penting
+| Bagian | Lokasi |
+|---|---|
+| Beranda | `src/pages/index.astro` |
+| Navigasi halaman dalam | `src/layouts/SecondaryLayout.astro` |
+| Halaman Game | `src/pages/game.astro` |
+| Data katalog game | `src/data/games.js` |
+| Gaya dasar | `src/styles/global.css` |
+| Animasi | `src/styles/animations.css` |
+| Aset publik | `public/` |
 
-## Development
+## Menambah game
+1. Buka `src/data/games.js`.
+2. Tambahkan objek dengan `title`, `description`, `category`, `icon`, dan `status`.
+3. Gunakan `status: 'available'` hanya jika game sudah dibuat dan diuji.
+4. Game yang belum siap memakai `status: 'soon'`.
+
+## Tech stack & perintah
+- [Astro](https://astro.build/), HTML, CSS, JavaScript
+- Cloudflare Pages untuk hosting static
+- GitHub untuk source control
 
 ```bash
 npm install
 npm run dev
-```
-
-## Build
-
-```bash
 npm run build
 npm run preview
 ```
 
-Build output berada di folder `dist/`.
+Build output berada di folder `dist/`. Konfigurasi Cloudflare Pages: build command `npm run build`, output directory `dist`, production branch `main`.
 
-## Deployment Cloudflare Pages
-
-Hubungkan repository ini ke Cloudflare Pages dengan konfigurasi:
-
-- Framework preset: Astro
-- Build command: `npm run build`
-- Build output directory: `dist`
-- Production branch: `main`
-
-## Catatan
-
-Logo resmi VANNDIK akan dipasang setelah file logo asli diberikan. Konten dan terjemahan saat ini merupakan fondasi awal yang dapat disesuaikan.
+## Prinsip pengembangan
+- Pisahkan data dari tampilan agar konten mudah diperbarui.
+- Gunakan komponen bersama untuk elemen yang muncul di banyak halaman.
+- Hormati `prefers-reduced-motion` agar animasi ramah aksesibilitas.
+- Jangan menandai fitur sebagai aktif sebelum benar-benar tersedia.
+- Logo resmi dipasang setelah file logo asli diberikan.
