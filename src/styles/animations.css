@@ -104,7 +104,7 @@ body { animation: page-enter .55s ease both; }
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
-  height: 42px !important;
+  height: 62px !important;
   width: auto !important;
   max-width: 190px !important;
   object-fit: contain !important;
