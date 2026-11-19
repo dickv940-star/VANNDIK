@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import '../styles/animations.css';
 
 const { title, description, active = '' } = Astro.props;
 const navItems = [
@@ -9,6 +10,7 @@ const navItems = [
   { label: 'Artikel', href: '/artikel/' },
   { label: 'Produk', href: '/produk/' },
   { label: 'Aplikasi', href: '/aplikasi/' },
+  { label: 'Game', href: '/game/' },
 ];
 const languages = [
   ['id', '🇮🇩', 'Bahasa Indonesia'], ['en', '🇬🇧', 'English'],
