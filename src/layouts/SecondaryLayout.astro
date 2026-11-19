@@ -33,7 +33,7 @@ const languages = [
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   </head>
-  <body>
+  <body data-cms-page={active.replaceAll("/", "") || "home"}>
     <div class="site-shell">
       <header class="site-header inner-header">
         <a class="wordmark" href="/" aria-label="VANNDIK home"><img class="brand-logo" src={vanndikLogo.src} alt="VANNDIK" /></a>
@@ -116,6 +116,7 @@ const languages = [
         document.querySelectorAll('.reveal').forEach((element) => revealObserver.observe(element));
       }
     </script>
+    <script is:inline src="/site-cms.js"></script>
     <style>
       .inner-header{position:sticky;background:rgba(8,11,18,.88)}
       .inner-main{min-height:calc(100vh - 150px);padding:0 0 70px}
