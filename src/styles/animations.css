@@ -93,3 +93,48 @@ body { animation: page-enter .55s ease both; }
     animation: none !important;
   }
 }
+
+
+/* Logo visibility correction: the original asset is dark on a dark header.
+   Keep the mark readable on every page while retaining a subtle breathing effect. */
+.brand img,
+.brand-logo,
+.footer-brand img,
+.footer-brand-logo {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  height: 42px !important;
+  width: auto !important;
+  max-width: 190px !important;
+  object-fit: contain !important;
+  filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(66,217,255,.22)) !important;
+  animation: logo-breathe-visible 4.8s ease-in-out infinite !important;
+}
+@keyframes logo-breathe-visible {
+  0%, 100% {
+    opacity: 1;
+    filter: brightness(0) invert(1) drop-shadow(0 0 5px rgba(66,217,255,.16));
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(0) invert(1) drop-shadow(0 0 13px rgba(66,217,255,.48));
+    transform: translateY(-1px) scale(1.025);
+  }
+}
+.brand:hover img,
+.wordmark:hover .brand-logo,
+.footer-brand:hover img {
+  opacity: 1 !important;
+  filter: brightness(0) invert(1) drop-shadow(0 0 16px rgba(66,217,255,.65)) !important;
+}
+@media (max-width: 700px) {
+  .brand img { height: 36px !important; max-width: 160px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand img, .brand-logo, .footer-brand img, .footer-brand-logo {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+}
