@@ -28,7 +28,7 @@ const copy = {
     card3: 'Eksplorasi', desc3: 'Terus belajar, berkembang, dan membuka peluang baru.',
     contactTitle: 'Punya ide untuk diwujudkan?',
     contactText: 'Mari mulai percakapan dan temukan kemungkinan berikutnya bersama VANNDIK.',
-    contact: 'Hubungi kami', footer: 'Ruang digital untuk ide dan kemungkinan baru.'
+    contact: 'Kunjungi GitHub', footer: 'Ruang digital untuk ide dan kemungkinan baru.'
   },
   en: {
     navHome: 'Home', navAbout: 'About', navExplore: 'Explore', navContact: 'Contact',
@@ -44,7 +44,7 @@ const copy = {
     card3: 'Exploration', desc3: 'Keep learning, growing, and opening new opportunities.',
     contactTitle: 'Have an idea to bring to life?',
     contactText: 'Start a conversation and discover what is possible with VANNDIK.',
-    contact: 'Get in touch', footer: 'A digital space for ideas and new possibilities.'
+    contact: 'Visit GitHub', footer: 'A digital space for ideas and new possibilities.'
   },
   jv: {
     navHome: 'Ngarep', navAbout: 'Babagan', navExplore: 'Jelajahi', navContact: 'Kontak',
@@ -256,7 +256,7 @@ const copy = {
             <div class="section-kicker"><span>02</span><span class="kicker-line"></span><span>LET'S CONNECT</span></div>
             <h2 data-i18n="contactTitle">Punya ide untuk diwujudkan?</h2>
             <p data-i18n="contactText">Mari mulai percakapan dan temukan kemungkinan berikutnya bersama VANNDIK.</p>
-            <a class="button button-primary" href="mailto:hello@vanndik.com"><span data-i18n="contact">Hubungi kami</span><span class="button-arrow">↗</span></a>
+            <a class="button button-primary" href="https://github.com/dickv940-star" target="_blank" rel="noreferrer"><span data-i18n="contact">Hubungi kami</span><span class="button-arrow">↗</span></a>
           </div>
         </section>
       </main>
@@ -267,7 +267,9 @@ const copy = {
         <div class="footer-meta"><span>© {new Date().getFullYear()} VANNDIK</span><a href="#home">BACK TO TOP ↑</a></div>
       </footer>
     </div>
-    <script is:inline define:vars={{ copy }}>
+    <script type="application/json" id="translations" set:html={JSON.stringify(copy)}></script>
+    <script is:inline>
+      const copy = JSON.parse(document.getElementById('translations')?.textContent || '{}');
       const trigger = document.getElementById('languageTrigger');
       const menu = document.getElementById('languageMenu');
       const current = document.getElementById('currentLanguage');
