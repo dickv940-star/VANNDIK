@@ -6,7 +6,7 @@ export async function onRequest({request,env}){
   try{
     if(path==='content'){
       const slug=url.searchParams.get('slug')||'';
-      if(slug){const item=await env.CMS_DB.prepare("SELECT id,type,title,slug,excerpt,body,image_url,category,tags,published_at FROM cms_content WHERE slug=? AND status='published' LIMIT 1").bind(slug).first();return item?json({item}):json({error:'Content not found'},404);}
+      if(slug){const item=await env.CMS_DB.prepare("SELECT id,type,title,slug,excerpt,body,image_url,category,tags,published_at FROM cms_content WHERE slug=? AND (status='published' OR (status='scheduled' AND published_at IS NOT NULL AND datetime(published_at)<=CURRENT_TIMESTAMP)) LIMIT 1").bind(slug).first();return item?json({item}):json({error:'Content not found'},404);}
       const type=url.searchParams.get('type')||'';
       if(type&&!['article','news','product','game','app'].includes(type))return json({items:[]});
       const rows=await env.CMS_DB.prepare("SELECT id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at,created_at,updated_at FROM cms_content WHERE (status='published' OR (status='scheduled' AND published_at IS NOT NULL AND datetime(published_at)<=CURRENT_TIMESTAMP)) AND (?='' OR type=?) ORDER BY featured DESC,sort_order ASC,published_at DESC,created_at DESC LIMIT 100").bind(type,type).all();
