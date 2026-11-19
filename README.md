@@ -91,7 +91,7 @@ Media Library CMS menggunakan Google Drive akun `dickv940@gmail.com`. File disim
 
 1. Buka [Google Cloud Console](https://console.cloud.google.com/).
 2. Pilih atau buat project Google Cloud, lalu aktifkan **Google Drive API**.
-3. Konfigurasikan Google Auth Platform / OAuth consent screen. Jika aplikasi masih berstatus Testing, tambahkan `dickv940@gmail.com` sebagai test user.
+3. Konfigurasikan Google Auth Platform / OAuth consent screen. Tambahkan `dickv940@gmail.com` sebagai test user saat pengujian. **Sebelum dipakai jangka panjang, ubah Publishing status menjadi In production**: Google menyatakan refresh token untuk aplikasi External berstatus Testing (dengan scope Drive) akan kedaluwarsa setelah 7 hari. Status In production menghindari batas 7 hari tersebut, meskipun Google tetap dapat mencabut token karena alasan keamanan atau pengguna mencabut izin. [Dokumentasi masa berlaku token](https://developers.google.com/identity/protocols/oauth2#expiration).
 4. Buat OAuth Client ID dengan tipe **Web application**.
 5. Tambahkan Authorized redirect URI persis: `https://vanndik.pages.dev/api/cms/drive/callback`.
 6. Di Cloudflare Dashboard → Workers & Pages → `vanndik` → Settings → Variables and Secrets → Production, tambahkan tiga secrets:
