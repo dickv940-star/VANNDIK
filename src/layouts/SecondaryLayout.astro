@@ -102,6 +102,21 @@ const languages = [
         mobileToggle.setAttribute('aria-expanded', 'false');
       }));
     </script>
+    <script is:inline>
+      // Reveal cards as they enter the viewport; respect reduced-motion preferences.
+      if ('IntersectionObserver' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.documentElement.classList.add('reveal-ready');
+        const revealObserver = new IntersectionObserver((entries, observer) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.12 });
+        document.querySelectorAll('.reveal').forEach((element) => revealObserver.observe(element));
+      }
+    </script>
     <style>
       .inner-header{position:sticky;background:rgba(8,11,18,.88)}
       .inner-main{min-height:calc(100vh - 150px);padding:0 0 70px}
