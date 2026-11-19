@@ -1,0 +1,316 @@
+---
+import '../styles/global.css';
+
+const languages = [
+  { code: 'id', label: 'Bahasa Indonesia', flag: '🇮🇩' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'jv', label: 'Basa Jawa', flag: '🇮🇩' },
+  { code: 'su', label: 'Basa Sunda', flag: '🇮🇩' },
+  { code: 'ms', label: 'Bahasa Melayu', flag: '🇲🇾' },
+  { code: 'ja', label: '日本語', flag: '🇯🇵' },
+  { code: 'ko', label: '한국어', flag: '🇰🇷' },
+  { code: 'zh', label: '简体中文', flag: '🇨🇳' },
+  { code: 'ar', label: 'العربية', flag: '🇸🇦' },
+];
+
+const copy = {
+  id: {
+    navHome: 'Beranda', navAbout: 'Tentang', navExplore: 'Jelajahi', navContact: 'Kontak',
+    eyebrow: 'RUANG DIGITAL • IDE • INOVASI',
+    title: 'Ide hebat layak mendapat ruang untuk tumbuh.',
+    intro: 'Selamat datang di VANNDIK. Sebuah ruang digital untuk mengeksplorasi ide, karya, teknologi, dan kemungkinan baru.',
+    explore: 'Jelajahi VANNDIK', learn: 'Kenali lebih jauh',
+    label: 'DIBANGUN UNTUK TERUS BERKEMBANG',
+    sectionTitle: 'Satu ruang. Banyak kemungkinan.',
+    sectionIntro: 'Kami membangun pengalaman digital yang menghubungkan kreativitas, teknologi, dan kebutuhan nyata.',
+    card1: 'Kreativitas', desc1: 'Mengubah gagasan menjadi pengalaman yang bermakna.',
+    card2: 'Teknologi', desc2: 'Memanfaatkan teknologi untuk solusi yang lebih baik.',
+    card3: 'Eksplorasi', desc3: 'Terus belajar, berkembang, dan membuka peluang baru.',
+    contactTitle: 'Punya ide untuk diwujudkan?',
+    contactText: 'Mari mulai percakapan dan temukan kemungkinan berikutnya bersama VANNDIK.',
+    contact: 'Hubungi kami', footer: 'Ruang digital untuk ide dan kemungkinan baru.'
+  },
+  en: {
+    navHome: 'Home', navAbout: 'About', navExplore: 'Explore', navContact: 'Contact',
+    eyebrow: 'DIGITAL SPACE • IDEAS • INNOVATION',
+    title: 'Great ideas deserve room to grow.',
+    intro: 'Welcome to VANNDIK. A digital space to explore ideas, creativity, technology, and new possibilities.',
+    explore: 'Explore VANNDIK', learn: 'Discover more',
+    label: 'BUILT TO KEEP EVOLVING',
+    sectionTitle: 'One space. Many possibilities.',
+    sectionIntro: 'We shape digital experiences connecting creativity, technology, and real needs.',
+    card1: 'Creativity', desc1: 'Turning ideas into meaningful experiences.',
+    card2: 'Technology', desc2: 'Using technology to create better solutions.',
+    card3: 'Exploration', desc3: 'Keep learning, growing, and opening new opportunities.',
+    contactTitle: 'Have an idea to bring to life?',
+    contactText: 'Start a conversation and discover what is possible with VANNDIK.',
+    contact: 'Get in touch', footer: 'A digital space for ideas and new possibilities.'
+  },
+  jv: {
+    navHome: 'Ngarep', navAbout: 'Babagan', navExplore: 'Jelajahi', navContact: 'Kontak',
+    eyebrow: 'PAPAN DIGITAL • GAGASAN • INOVASI',
+    title: 'Gagasan apik pantes diwenehi papan kanggo tuwuh.',
+    intro: 'Sugeng rawuh ing VANNDIK. Papan digital kanggo njelajah gagasan, karya, teknologi, lan kamungkinan anyar.',
+    explore: 'Jelajahi VANNDIK', learn: 'Kenali luwih jero',
+    label: 'DIBANGUN KANGGO TERUS NGREMBAKA',
+    sectionTitle: 'Siji papan. Akeh kamungkinan.',
+    sectionIntro: 'Kita mbangun pengalaman digital sing nyambungake kreativitas, teknologi, lan kabutuhan nyata.',
+    card1: 'Kreativitas', desc1: 'Ngowahi gagasan dadi pengalaman kang migunani.',
+    card2: 'Teknologi', desc2: 'Nggunakake teknologi kanggo solusi sing luwih becik.',
+    card3: 'Jelajah', desc3: 'Terus sinau, tuwuh, lan mbukak kesempatan anyar.',
+    contactTitle: 'Duwe gagasan sing arep diwujudake?',
+    contactText: 'Ayo miwiti rembugan lan nemokake kamungkinan anyar bebarengan VANNDIK.',
+    contact: 'Hubungi kita', footer: 'Papan digital kanggo gagasan lan kamungkinan anyar.'
+  },
+  su: {
+    navHome: 'Imah', navAbout: 'Ngeunaan', navExplore: 'Jajah', navContact: 'Kontak',
+    eyebrow: 'RUANG DIGITAL • GAGASAN • INOVASI',
+    title: 'Gagasan anu hadé pantes meunang rohangan pikeun mekar.',
+    intro: 'Wilujeng sumping di VANNDIK. Rohangan digital pikeun ngajajah gagasan, karya, téknologi, jeung kamungkinan anyar.',
+    explore: 'Jajah VANNDIK', learn: 'Kenal leuwih jauh',
+    label: 'DIwangun PIKEUN TERUS MEKAR',
+    sectionTitle: 'Hiji rohangan. Loba kamungkinan.',
+    sectionIntro: 'Kami ngawangun pangalaman digital anu ngahubungkeun kreativitas, téknologi, jeung kabutuhan nyata.',
+    card1: 'Kreativitas', desc1: 'Ngarobah gagasan jadi pangalaman anu miboga harti.',
+    card2: 'Téknologi', desc2: 'Ngamangpaatkeun téknologi pikeun solusi anu leuwih hadé.',
+    card3: 'Éksplorasi', desc3: 'Terus diajar, mekar, jeung muka kasempetan anyar.',
+    contactTitle: 'Boga gagasan pikeun diwujudkeun?',
+    contactText: 'Hayu ngamimitian paguneman jeung manggihan kamungkinan anyar babarengan VANNDIK.',
+    contact: 'Taros kami', footer: 'Rohangan digital pikeun gagasan jeung kamungkinan anyar.'
+  },
+  ms: {
+    navHome: 'Utama', navAbout: 'Tentang', navExplore: 'Terokai', navContact: 'Hubungi',
+    eyebrow: 'RUANG DIGITAL • IDEA • INOVASI',
+    title: 'Idea hebat wajar diberi ruang untuk berkembang.',
+    intro: 'Selamat datang ke VANNDIK. Ruang digital untuk meneroka idea, kreativiti, teknologi dan kemungkinan baharu.',
+    explore: 'Terokai VANNDIK', learn: 'Ketahui lanjut',
+    label: 'DIBINA UNTUK TERUS BERKEMBANG',
+    sectionTitle: 'Satu ruang. Pelbagai kemungkinan.',
+    sectionIntro: 'Kami membina pengalaman digital yang menghubungkan kreativiti, teknologi dan keperluan sebenar.',
+    card1: 'Kreativiti', desc1: 'Mengubah idea menjadi pengalaman yang bermakna.',
+    card2: 'Teknologi', desc2: 'Memanfaatkan teknologi untuk penyelesaian lebih baik.',
+    card3: 'Eksplorasi', desc3: 'Terus belajar, berkembang dan membuka peluang baharu.',
+    contactTitle: 'Ada idea untuk direalisasikan?',
+    contactText: 'Mari mulakan perbualan dan terokai kemungkinan seterusnya bersama VANNDIK.',
+    contact: 'Hubungi kami', footer: 'Ruang digital untuk idea dan kemungkinan baharu.'
+  },
+  ja: {
+    navHome: 'ホーム', navAbout: '概要', navExplore: '探索', navContact: 'お問い合わせ',
+    eyebrow: 'デジタル • アイデア • イノベーション',
+    title: '素晴らしいアイデアには、成長するための場所が必要です。',
+    intro: 'VANNDIKへようこそ。アイデア、創造性、テクノロジー、そして新しい可能性を探求するデジタル空間です。',
+    explore: 'VANNDIKを見る', learn: '詳しく見る',
+    label: '進化し続けるために',
+    sectionTitle: 'ひとつの場所。無限の可能性。',
+    sectionIntro: '創造性、テクノロジー、そして本当のニーズをつなぐデジタル体験を創造します。',
+    card1: '創造性', desc1: 'アイデアを意味のある体験へ。',
+    card2: 'テクノロジー', desc2: 'より良いソリューションのために技術を活用。',
+    card3: '探求', desc3: '学び、成長し、新しい機会を切り開く。',
+    contactTitle: '実現したいアイデアがありますか？',
+    contactText: 'VANNDIKと一緒に、新しい可能性を見つけましょう。',
+    contact: 'お問い合わせ', footer: 'アイデアと新しい可能性のためのデジタル空間。'
+  },
+  ko: {
+    navHome: '홈', navAbout: '소개', navExplore: '탐색', navContact: '문의',
+    eyebrow: '디지털 공간 • 아이디어 • 혁신',
+    title: '훌륭한 아이디어가 성장할 공간을 만듭니다.',
+    intro: 'VANNDIK에 오신 것을 환영합니다. 아이디어, 창의성, 기술과 새로운 가능성을 탐색하는 디지털 공간입니다.',
+    explore: 'VANNDIK 둘러보기', learn: '더 알아보기',
+    label: '계속 발전하는 공간',
+    sectionTitle: '하나의 공간. 무한한 가능성.',
+    sectionIntro: '창의성, 기술, 실제 필요를 연결하는 디지털 경험을 만듭니다.',
+    card1: '창의성', desc1: '아이디어를 의미 있는 경험으로 만듭니다.',
+    card2: '기술', desc2: '더 나은 솔루션을 위해 기술을 활용합니다.',
+    card3: '탐색', desc3: '계속 배우고 성장하며 새로운 기회를 엽니다.',
+    contactTitle: '실현하고 싶은 아이디어가 있나요?',
+    contactText: 'VANNDIK과 함께 새로운 가능성을 찾아보세요.',
+    contact: '문의하기', footer: '아이디어와 새로운 가능성을 위한 디지털 공간.'
+  },
+  zh: {
+    navHome: '首页', navAbout: '关于', navExplore: '探索', navContact: '联系',
+    eyebrow: '数字空间 • 创意 • 创新',
+    title: '优秀的创意值得拥有成长的空间。',
+    intro: '欢迎来到 VANNDIK。一个探索创意、作品、技术与全新可能性的数字空间。',
+    explore: '探索 VANNDIK', learn: '了解更多',
+    label: '为持续进化而打造',
+    sectionTitle: '一个空间，无限可能。',
+    sectionIntro: '我们打造连接创意、技术与真实需求的数字体验。',
+    card1: '创意', desc1: '将想法转化为有意义的体验。',
+    card2: '技术', desc2: '运用技术创造更好的解决方案。',
+    card3: '探索', desc3: '持续学习、成长并开启新的机会。',
+    contactTitle: '有想要实现的想法吗？',
+    contactText: '与 VANNDIK 开启对话，探索更多可能。',
+    contact: '联系我们', footer: '探索创意与全新可能性的数字空间。'
+  },
+  ar: {
+    navHome: 'الرئيسية', navAbout: 'من نحن', navExplore: 'استكشف', navContact: 'اتصل بنا',
+    eyebrow: 'مساحة رقمية • أفكار • ابتكار',
+    title: 'الأفكار العظيمة تستحق مساحة للنمو.',
+    intro: 'مرحباً بك في VANNDIK، مساحة رقمية لاستكشاف الأفكار والإبداع والتكنولوجيا والإمكانات الجديدة.',
+    explore: 'استكشف VANNDIK', learn: 'اكتشف المزيد',
+    label: 'مصمم للتطور المستمر',
+    sectionTitle: 'مساحة واحدة. إمكانات متعددة.',
+    sectionIntro: 'نصنع تجارب رقمية تربط الإبداع بالتكنولوجيا والاحتياجات الحقيقية.',
+    card1: 'الإبداع', desc1: 'تحويل الأفكار إلى تجارب ذات معنى.',
+    card2: 'التكنولوجيا', desc2: 'توظيف التكنولوجيا لصنع حلول أفضل.',
+    card3: 'الاستكشاف', desc3: 'التعلم والنمو وفتح فرص جديدة باستمرار.',
+    contactTitle: 'هل لديك فكرة تريد تحقيقها؟',
+    contactText: 'ابدأ حواراً واكتشف الإمكانات القادمة مع VANNDIK.',
+    contact: 'تواصل معنا', footer: 'مساحة رقمية للأفكار والإمكانات الجديدة.'
+  }
+};
+---
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#080b12" />
+    <meta name="description" content="VANNDIK — ruang digital untuk ide, karya, teknologi, dan kemungkinan baru." />
+    <title>VANNDIK — Premium Digital Experience</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <a class="wordmark" href="#home" aria-label="VANNDIK home">VANNDIK<span>.</span></a>
+        <nav class="desktop-nav" aria-label="Main navigation">
+          <a href="#home" data-i18n="navHome">Beranda</a>
+          <a href="#about" data-i18n="navAbout">Tentang</a>
+          <a href="#explore" data-i18n="navExplore">Jelajahi</a>
+          <a href="#contact" data-i18n="navContact">Kontak</a>
+        </nav>
+        <div class="header-actions">
+          <div class="language-picker">
+            <button class="language-trigger" id="languageTrigger" type="button" aria-expanded="false" aria-label="Choose language">
+              <span class="globe-icon">◎</span><span id="currentLanguage">ID</span><span class="chevron">⌄</span>
+            </button>
+            <div class="language-menu" id="languageMenu" hidden>
+              {languages.map((language) => (
+                <button class="language-option" type="button" data-lang={language.code}>
+                  <span class="language-flag">{language.flag}</span><span>{language.label}</span><span class="language-code">{language.code.toUpperCase()}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <a class="header-cta" href="#contact" data-i18n="navContact">Kontak <span>↗</span></a>
+          <button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" id="home">
+          <div class="hero-grid"></div>
+          <div class="hero-glow hero-glow-one"></div>
+          <div class="hero-glow hero-glow-two"></div>
+          <div class="hero-content">
+            <div class="eyebrow"><span class="eyebrow-dot"></span><span data-i18n="eyebrow">RUANG DIGITAL • IDE • INOVASI</span></div>
+            <h1 data-i18n="title">Ide hebat layak mendapat ruang untuk <span class="text-gradient">tumbuh.</span></h1>
+            <p class="hero-description" data-i18n="intro">Selamat datang di VANNDIK. Sebuah ruang digital untuk mengeksplorasi ide, karya, teknologi, dan kemungkinan baru.</p>
+            <div class="hero-actions">
+              <a class="button button-primary" href="#explore"><span data-i18n="explore">Jelajahi VANNDIK</span><span class="button-arrow">↗</span></a>
+              <a class="button button-quiet" href="#about"><span data-i18n="learn">Kenali lebih jauh</span><span class="quiet-arrow">↓</span></a>
+            </div>
+            <div class="hero-footnote"><span class="footnote-line"></span><span>INDEPENDENT DIGITAL BRAND</span></div>
+          </div>
+          <div class="hero-art" aria-hidden="true">
+            <div class="orbit orbit-outer"></div><div class="orbit orbit-inner"></div>
+            <div class="orbit orbit-dash"></div>
+            <div class="orbit-core"><div class="core-inner">V<span>.</span></div></div>
+            <div class="orbit-node node-top"></div><div class="orbit-node node-right"></div><div class="orbit-node node-bottom"></div>
+            <div class="floating-tag tag-top"><span class="tag-dot"></span> IDEAS IN MOTION</div>
+            <div class="floating-tag tag-bottom">EST. <span>VANNDIK</span></div>
+          </div>
+          <div class="hero-bottom"><span>01 / 03</span><span class="scroll-cue">SCROLL TO EXPLORE <span>↓</span></span><span>EST. VANNDIK</span></div>
+        </section>
+
+        <section class="intro-section section-wrap" id="about">
+          <div class="section-kicker"><span>01</span><span class="kicker-line"></span><span data-i18n="label">DIBANGUN UNTUK TERUS BERKEMBANG</span></div>
+          <div class="intro-layout">
+            <h2 data-i18n="sectionTitle">Satu ruang. <span class="text-gradient">Banyak kemungkinan.</span></h2>
+            <p data-i18n="sectionIntro">Kami membangun pengalaman digital yang menghubungkan kreativitas, teknologi, dan kebutuhan nyata.</p>
+          </div>
+        </section>
+
+        <section class="feature-section section-wrap" id="explore">
+          <article class="feature-card feature-card-main">
+            <div class="feature-number">01 / THINK</div><div class="feature-icon">✳</div>
+            <h3 data-i18n="card1">Kreativitas</h3><p data-i18n="desc1">Mengubah gagasan menjadi pengalaman yang bermakna.</p><span class="feature-link">↗</span>
+          </article>
+          <article class="feature-card">
+            <div class="feature-number">02 / BUILD</div><div class="feature-icon">⌘</div>
+            <h3 data-i18n="card2">Teknologi</h3><p data-i18n="desc2">Memanfaatkan teknologi untuk solusi yang lebih baik.</p><span class="feature-link">↗</span>
+          </article>
+          <article class="feature-card">
+            <div class="feature-number">03 / GROW</div><div class="feature-icon">◌</div>
+            <h3 data-i18n="card3">Eksplorasi</h3><p data-i18n="desc3">Terus belajar, berkembang, dan membuka peluang baru.</p><span class="feature-link">↗</span>
+          </article>
+        </section>
+
+        <section class="contact-section section-wrap" id="contact">
+          <div class="contact-panel">
+            <div class="contact-orb"></div>
+            <div class="section-kicker"><span>02</span><span class="kicker-line"></span><span>LET'S CONNECT</span></div>
+            <h2 data-i18n="contactTitle">Punya ide untuk diwujudkan?</h2>
+            <p data-i18n="contactText">Mari mulai percakapan dan temukan kemungkinan berikutnya bersama VANNDIK.</p>
+            <a class="button button-primary" href="mailto:hello@vanndik.com"><span data-i18n="contact">Hubungi kami</span><span class="button-arrow">↗</span></a>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <a class="wordmark footer-wordmark" href="#home">VANNDIK<span>.</span></a>
+        <p data-i18n="footer">Ruang digital untuk ide dan kemungkinan baru.</p>
+        <div class="footer-meta"><span>© {new Date().getFullYear()} VANNDIK</span><a href="#home">BACK TO TOP ↑</a></div>
+      </footer>
+    </div>
+    <script is:inline define:vars={{ copy }}>
+      const trigger = document.getElementById('languageTrigger');
+      const menu = document.getElementById('languageMenu');
+      const current = document.getElementById('currentLanguage');
+      const options = document.querySelectorAll('[data-lang]');
+      const mobileToggle = document.getElementById('mobileMenuToggle');
+      const nav = document.querySelector('.desktop-nav');
+
+      function setLanguage(code) {
+        const dictionary = copy[code] || copy.id;
+        document.documentElement.lang = code;
+        document.documentElement.dir = code === 'ar' ? 'rtl' : 'ltr';
+        current.textContent = code.toUpperCase();
+        document.querySelectorAll('[data-i18n]').forEach((element) => {
+          const key = element.dataset.i18n;
+          if (dictionary[key]) element.textContent = dictionary[key];
+        });
+        options.forEach((option) => option.classList.toggle('is-selected', option.dataset.lang === code));
+        localStorage.setItem('vanndik-language', code);
+        menu.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+
+      trigger.addEventListener('click', () => {
+        menu.hidden = !menu.hidden;
+        trigger.setAttribute('aria-expanded', String(!menu.hidden));
+      });
+      options.forEach((option) => option.addEventListener('click', () => setLanguage(option.dataset.lang)));
+      document.addEventListener('click', (event) => {
+        if (!event.target.closest('.language-picker')) {
+          menu.hidden = true;
+          trigger.setAttribute('aria-expanded', 'false');
+        }
+      });
+      mobileToggle.addEventListener('click', () => {
+        const open = nav.classList.toggle('is-open');
+        mobileToggle.setAttribute('aria-expanded', String(open));
+      });
+      nav.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => {
+        nav.classList.remove('is-open');
+        mobileToggle.setAttribute('aria-expanded', 'false');
+      }));
+      const savedLanguage = localStorage.getItem('vanndik-language');
+      if (savedLanguage && copy[savedLanguage]) setLanguage(savedLanguage);
+    </script>
+  </body>
+</html>
