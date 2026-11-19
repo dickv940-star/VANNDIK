@@ -1,25 +1,171 @@
 ---
 import SecondaryLayout from '../layouts/SecondaryLayout.astro';
+
+const categories = [
+  { id: 'all', label: 'Semua fitur' },
+  { id: 'photo', label: 'Photo Editing' },
+  { id: 'ai', label: 'AI Creative' },
+  { id: 'design', label: 'Design Tools' },
+  { id: 'image', label: 'Image Tools' },
+];
+
 const apps = [
-  { icon: '✂', title: 'Background Remover', desc: 'Hapus latar belakang foto dan siapkan gambar dengan tampilan lebih bersih.' },
-  { icon: '▧', title: 'Photo Editor', desc: 'Edit, sesuaikan, dan optimalkan foto untuk kebutuhan digital maupun cetak.' },
-  { icon: '▦', title: 'Visa Photo Studio', desc: 'Siapkan foto visa dan paspor dengan ukuran serta panduan foto yang sesuai.' },
-  { icon: '◫', title: 'Image Compressor', desc: 'Optimalkan ukuran file gambar agar lebih ringan untuk website dan dibagikan.' },
-  { icon: '▤', title: 'Collage Maker', desc: 'Susun beberapa foto menjadi kolase yang rapi dan siap digunakan.' },
-  { icon: '✧', title: 'AI Creative Tools', desc: 'Jelajahi alat bantu kreatif untuk mempercepat proses pembuatan konten.' },
+  { category: 'photo', icon: '◈', title: 'Background Remover', desc: 'Hilangkan latar belakang dengan hasil potongan yang bersih untuk kebutuhan katalog, profil, dan konten.', tag: 'PHOTO EDITING', featured: true },
+  { category: 'photo', icon: '▧', title: 'Photo Editor', desc: 'Atur warna, pencahayaan, komposisi, dan detail foto dalam satu ruang edit yang praktis.', tag: 'PHOTO EDITING' },
+  { category: 'photo', icon: '▣', title: 'Visa Photo Studio', desc: 'Siapkan foto visa dan paspor dengan ukuran serta panduan foto sesuai negara tujuan.', tag: 'PHOTO EDITING' },
+  { category: 'ai', icon: '✧', title: 'AI Image Generator', desc: 'Ubah ide dan deskripsi menjadi visual orisinal untuk kebutuhan kreatif dan pemasaran.', tag: 'AI CREATIVE', featured: true },
+  { category: 'ai', icon: '✦', title: 'AI Photo Enhancement', desc: 'Bantu tingkatkan kejernihan dan kualitas visual foto dengan dukungan kecerdasan buatan.', tag: 'AI CREATIVE' },
+  { category: 'ai', icon: '◌', title: 'AI Style Transfer', desc: 'Eksplorasi gaya visual berbeda dan temukan tampilan baru untuk karya Anda.', tag: 'AI CREATIVE' },
+  { category: 'design', icon: '▦', title: 'Collage Maker', desc: 'Gabungkan beberapa foto menjadi komposisi kolase yang rapi dan menarik.', tag: 'DESIGN TOOLS' },
+  { category: 'design', icon: '▤', title: 'Poster & Social Design', desc: 'Rancang materi visual untuk promosi, media sosial, dan kebutuhan publikasi.', tag: 'DESIGN TOOLS' },
+  { category: 'image', icon: '◫', title: 'Image Compressor', desc: 'Perkecil ukuran file gambar agar lebih ringan tanpa mengabaikan kualitas visual.', tag: 'IMAGE TOOLS' },
+  { category: 'image', icon: '⇄', title: 'Image Converter & Resize', desc: 'Ubah format dan dimensi gambar untuk berbagai kebutuhan digital.', tag: 'IMAGE TOOLS' },
 ];
 ---
-<SecondaryLayout title="Aplikasi Digital" description="Jelajahi aplikasi dan alat digital dari VANNDIK." active="/aplikasi/">
-  <section class="page-hero" id="top">
-    <div class="page-eyebrow">VANNDIK / DIGITAL TOOLS</div>
-    <h1>Alat digital untuk membuat pekerjaan <span class="text-gradient">lebih mudah.</span></h1>
-    <p>Temukan aplikasi praktis untuk mengedit foto, mengolah gambar, membuat konten, dan mendukung produktivitas langsung dari browser.</p>
-  </section>
-  <section class="page-content">
-    <div class="section-kicker"><span>01</span><span class="kicker-line"></span><span>APLIKASI VANNDIK</span></div>
-    <div class="content-grid">
-      {apps.map((app, index) => <article class="content-card app-card"><div class="app-icon">{app.icon}</div><span class="status-soon">SEGERA HADIR</span><h3>{app.title}</h3><p>{app.desc}</p></article>)}
+<SecondaryLayout title="Aplikasi & AI Creative Studio" description="Jelajahi alat edit foto, AI Creative, desain, dan pengolahan gambar dari VANNDIK." active="/aplikasi/">
+  <section class="apps-hero" id="top">
+    <div class="apps-hero-grid"></div>
+    <div class="apps-hero-copy">
+      <div class="page-eyebrow"><span class="eyebrow-pulse"></span> VANNDIK / CREATIVE WORKSPACE</div>
+      <h1>Satu ruang untuk <span class="text-gradient">semua ide kreatif.</span></h1>
+      <p class="apps-lead">Edit foto, eksplorasi AI, rancang desain, dan olah gambar dengan rangkaian tools yang dirancang agar proses kreatif terasa lebih mudah.</p>
+      <div class="apps-hero-actions">
+        <a class="apps-primary" href="#explore">Jelajahi semua fitur <span>↘</span></a>
+        <span class="apps-note"><span class="note-dot"></span> Tools baru terus disiapkan</span>
+      </div>
     </div>
-    <div class="notice-line">Daftar ini adalah rencana direktori aplikasi. Tombol untuk membuka setiap aplikasi akan diaktifkan setelah tool terkait siap dipublikasikan.</div>
+    <div class="studio-visual" aria-label="Ilustrasi ruang kerja kreatif VANNDIK">
+      <div class="visual-glow"></div>
+      <div class="visual-window">
+        <div class="window-top"><span class="window-dots"><i></i><i></i><i></i></span><span>VANNDIK CREATIVE STUDIO</span><span class="window-status">WORKSPACE</span></div>
+        <div class="visual-canvas">
+          <div class="canvas-art"><div class="art-sun"></div><div class="art-mountain back"></div><div class="art-mountain front"></div><div class="art-shine"></div></div>
+          <div class="canvas-caption"><span>CREATIVE CONCEPT / 001</span><strong>Imagine more.</strong></div>
+        </div>
+        <div class="window-tools"><span><b>✧</b> AI GENERATE</span><span><b>◈</b> EDIT IMAGE</span><span><b>▦</b> DESIGN</span></div>
+      </div>
+      <div class="float-chip chip-ai"><span>✧</span><div><b>AI CREATIVE</b><small>Ideas into visuals</small></div></div>
+      <div class="float-chip chip-edit"><span>◈</span><div><b>PHOTO TOOLS</b><small>Edit with precision</small></div></div>
+    </div>
+    <div class="hero-bottom-line"><span>CREATE</span><span>EDIT</span><span>TRANSFORM</span><span>01 — 04</span></div>
   </section>
+
+  <section class="apps-content" id="explore">
+    <div class="apps-intro">
+      <div><div class="section-kicker"><span>01</span><span class="kicker-line"></span><span>EXPLORE WORKSPACE</span></div><h2>Temukan tools yang <span class="text-gradient">Anda butuhkan.</span></h2></div>
+      <p>Pilih kategori untuk menemukan alat yang sesuai dengan alur kerja Anda. Semua fitur akan tersedia bertahap.</p>
+    </div>
+
+    <div class="category-strip" role="group" aria-label="Filter kategori aplikasi">
+      {categories.map((category, index) => <button class:list={['category-button', { 'is-active': index === 0 }]} type="button" data-filter={category.id} aria-pressed={index === 0 ? 'true' : 'false'}>{category.label}<span>{index === 0 ? '10' : ''}</span></button>)}
+    </div>
+
+    <div class="apps-grid" id="appsGrid">
+      {apps.map((app, index) => <article class="tool-card" data-category={app.category}>
+        <div class="tool-card-top"><div class="tool-icon">{app.icon}</div><span class="tool-number">{String(index + 1).padStart(2, '0')}</span></div>
+        <div class="tool-tag">{app.tag}</div>
+        <h3>{app.title}</h3>
+        <p>{app.desc}</p>
+        <div class="tool-card-bottom"><span class="coming-soon"><i></i> SEGERA HADIR</span><span class="tool-arrow">↗</span></div>
+      </article>)}
+    </div>
+    <div class="apps-empty" id="appsEmpty" hidden>Belum ada fitur pada kategori ini.</div>
+    <div class="apps-footnote"><span>ⓘ</span><p>Fitur yang ditampilkan merupakan roadmap pengembangan VANNDIK. Fitur akan diaktifkan setelah siap digunakan dan melewati pengujian.</p></div>
+  </section>
+
+  <section class="apps-cta">
+    <div class="cta-orb"></div><div class="cta-copy"><span class="cta-kicker">YOUR NEXT CREATIVE TOOL</span><h2>Ide hebat dimulai dari <span class="text-gradient">satu langkah.</span></h2><p>Jelajahi inspirasi, temukan tools yang tepat, dan bersiaplah menciptakan sesuatu yang baru.</p></div><a href="/artikel/" class="apps-secondary">Jelajahi inspirasi <span>↗</span></a>
+  </section>
+
+  <script is:inline>
+    const filterButtons = document.querySelectorAll('[data-filter]');
+    const toolCards = document.querySelectorAll('.tool-card');
+    const emptyState = document.getElementById('appsEmpty');
+    filterButtons.forEach((button) => button.addEventListener('click', () => {
+      const selected = button.dataset.filter;
+      let visible = 0;
+      filterButtons.forEach((item) => {
+        const active = item === button;
+        item.classList.toggle('is-active', active);
+        item.setAttribute('aria-pressed', String(active));
+      });
+      toolCards.forEach((card) => {
+        const show = selected === 'all' || card.dataset.category === selected;
+        card.hidden = !show;
+        if (show) visible += 1;
+      });
+      emptyState.hidden = visible > 0;
+    }));
+  </script>
+
+  <style>
+    .apps-hero{position:relative;isolation:isolate;overflow:hidden;min-height:620px;padding:145px max(24px,calc((100% - 1120px)/2)) 80px;background:radial-gradient(ellipse at 75% 48%,rgba(25,91,190,.2),transparent 38%),linear-gradient(120deg,#080b12,#0b1321 65%,#080b12);display:flex;align-items:center}
+    .apps-hero-grid{position:absolute;inset:0;z-index:-1;background-image:linear-gradient(rgba(123,157,207,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(123,157,207,.05) 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(to bottom,black,transparent 95%)}
+    .apps-hero-copy{position:relative;z-index:3;width:51%;max-width:570px}
+    .apps-hero .page-eyebrow{display:flex;align-items:center;gap:10px;color:#8eaff0}
+    .eyebrow-pulse,.note-dot{width:6px;height:6px;border-radius:50%;background:#438cff;box-shadow:0 0 13px #438cff}
+    .apps-hero h1{font:700 clamp(43px,5.5vw,68px)/1.12 Manrope,sans-serif;letter-spacing:-3.5px;margin:24px 0 20px;max-width:590px}
+    .apps-lead{max-width:475px;color:#a0adbf;font-size:14px;line-height:1.95}
+    .apps-hero-actions{display:flex;align-items:center;gap:23px;flex-wrap:wrap;margin-top:32px}
+    .apps-primary{display:inline-flex;align-items:center;gap:28px;padding:15px 18px;border-radius:5px;background:#1769ff;color:white;font-size:12px;font-weight:700;box-shadow:0 10px 30px #1769ff35;transition:.2s}
+    .apps-primary:hover{transform:translateY(-2px);box-shadow:0 12px 34px #1769ff65}
+    .apps-primary span{font-size:17px}.apps-note{display:flex;align-items:center;gap:9px;color:#8291a7;font-size:10px}
+    .studio-visual{position:absolute;right:max(24px,calc((100% - 1120px)/2));top:50%;transform:translateY(-47%);width:min(44%,490px);z-index:1}
+    .visual-glow{position:absolute;inset:10%;border-radius:50%;background:#1769ff;filter:blur(100px);opacity:.18}
+    .visual-window{position:relative;padding:12px;border:1px solid #607da044;border-radius:13px;background:linear-gradient(145deg,#17243aee,#0b111dee);box-shadow:0 35px 90px #0008;transform:perspective(1000px) rotateY(-7deg) rotateX(2deg)}
+    .window-top{height:28px;display:flex;align-items:center;justify-content:space-between;color:#7f91ac;font-size:8px;letter-spacing:1.3px}
+    .window-dots{display:flex;gap:4px}.window-dots i{width:5px;height:5px;border-radius:50%;background:#52647f}.window-status{color:#7eb0ff;font-size:7px}
+    .visual-canvas{position:relative;overflow:hidden;height:260px;border-radius:6px;background:linear-gradient(140deg,#172c49,#253e60 48%,#111a2b)}
+    .canvas-art{position:absolute;inset:0;overflow:hidden;background:radial-gradient(ellipse at 72% 23%,#f1c99c55,transparent 26%),linear-gradient(155deg,#344f72,#152b47 64%,#0c192a)}
+    .art-sun{position:absolute;width:112px;height:112px;border-radius:50%;right:17%;top:14%;background:linear-gradient(140deg,#f8d6a5,#c78b83);box-shadow:0 0 55px #edbfa566}
+    .art-mountain{position:absolute;left:-8%;right:-8%;bottom:-2%;height:65%;clip-path:polygon(0 80%,19% 28%,33% 60%,54% 8%,74% 58%,88% 29%,100% 72%,100% 100%,0 100%);background:linear-gradient(130deg,#5c7892,#1a3653)}
+    .art-mountain.front{height:46%;left:10%;bottom:-5%;background:linear-gradient(120deg,#263e5b,#101d30);transform:scaleX(-1);opacity:.95}
+    .art-shine{position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,#ffffff0b 50%,transparent 65%)}
+    .canvas-caption{position:absolute;left:20px;bottom:18px;display:flex;flex-direction:column;gap:7px;color:#d9e6f6}
+    .canvas-caption span{font-size:7px;letter-spacing:2px;color:#b1c5df}.canvas-caption strong{font:600 22px Manrope,sans-serif;letter-spacing:-.8px}
+    .window-tools{display:flex;justify-content:space-around;gap:8px;padding:14px 2px 3px;color:#9eafc7;font-size:7px;letter-spacing:1px}
+    .window-tools b{color:#80adff;font-size:12px;margin-right:5px}
+    .float-chip{position:absolute;z-index:2;display:flex;align-items:center;gap:10px;padding:11px 14px;border:1px solid #7896c044;border-radius:8px;background:#101b2beF;box-shadow:0 14px 40px #0007;backdrop-filter:blur(14px)}
+    .float-chip>span{display:grid;place-items:center;width:30px;height:30px;border-radius:7px;background:#1a3762;color:#9cc3ff;font-size:17px}
+    .float-chip div{display:flex;flex-direction:column;gap:3px}.float-chip b{font-size:8px;letter-spacing:1px;color:#e1eafa}.float-chip small{font-size:8px;color:#8294ae}
+    .chip-ai{top:-22px;right:-17px}.chip-edit{bottom:30px;left:-34px}
+    .hero-bottom-line{position:absolute;bottom:27px;left:max(24px,calc((100% - 1120px)/2));right:max(24px,calc((100% - 1120px)/2));display:flex;gap:25px;color:#63748e;font-size:8px;letter-spacing:2px}
+    .hero-bottom-line span:last-child{margin-left:auto;color:#8093b0}
+    .apps-content{width:min(1120px,calc(100% - 48px));margin:0 auto;padding:86px 0 80px}
+    .apps-intro{display:flex;justify-content:space-between;align-items:flex-end;gap:35px}
+    .apps-intro h2{font:700 clamp(28px,3.5vw,40px)/1.2 Manrope,sans-serif;letter-spacing:-1.8px;margin:18px 0 0;max-width:580px}
+    .apps-intro>p{max-width:330px;color:#91a0b4;font-size:12px;line-height:1.9;margin:0 0 3px}
+    .section-kicker{font-size:9px}.kicker-line{width:28px;height:1px;background:#2878ff}
+    .category-strip{display:flex;gap:9px;flex-wrap:wrap;margin:36px 0 22px;padding-bottom:17px;border-bottom:1px solid var(--line)}
+    .category-button{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid transparent;border-radius:4px;background:#101722;color:#93a1b5;font-size:11px;cursor:pointer;transition:.2s}
+    .category-button:hover{color:#fff;border-color:#35537c}.category-button.is-active{background:#14294a;border-color:#285ba0;color:#fff}
+    .category-button span{font-size:8px;color:#85b3ff}
+    .apps-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .tool-card{position:relative;display:flex;flex-direction:column;min-height:270px;padding:22px;border:1px solid var(--line);border-radius:7px;background:linear-gradient(145deg,#111a29,#0b111b);transition:transform .22s,border-color .22s,background .22s}
+    .tool-card:hover{transform:translateY(-4px);border-color:#345d96;background:linear-gradient(145deg,#14233a,#0d1522)}
+    .tool-card[hidden]{display:none}
+    .tool-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:23px}
+    .tool-icon{display:grid;place-items:center;width:43px;height:43px;border:1px solid #315b91;border-radius:9px;background:#142846;color:#91baff;font-size:21px}
+    .tool-number{font-size:9px;color:#65758d;letter-spacing:1px}
+    .tool-tag{font-size:8px;letter-spacing:1.5px;color:#7daeff;font-weight:700}
+    .tool-card h3{font:650 17px Manrope,sans-serif;letter-spacing:-.4px;margin:9px 0 8px}
+    .tool-card p{font-size:11px;line-height:1.8;color:#91a0b4;margin:0 0 22px}
+    .tool-card-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:13px;border-top:1px solid #ffffff0c}
+    .coming-soon{display:flex;align-items:center;gap:7px;color:#8b9bb2;font-size:8px;letter-spacing:1.1px}
+    .coming-soon i{width:5px;height:5px;border-radius:50%;background:#7794bd}
+    .tool-arrow{font-size:16px;color:#7185a3}
+    .apps-empty{padding:35px;text-align:center;border:1px dashed var(--line);color:#91a0b4;font-size:12px}
+    .apps-footnote{display:flex;align-items:flex-start;gap:12px;margin-top:23px;padding:14px 17px;border-left:2px solid #2878ff;background:#101a2a;color:#8fa2bd}
+    .apps-footnote>span{color:#79aaff;font-size:14px}.apps-footnote p{font-size:10px;line-height:1.8;margin:0}
+    .apps-cta{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:30px;width:min(1120px,calc(100% - 48px));margin:0 auto 75px;padding:43px 48px;border:1px solid #29466c;border-radius:9px;background:linear-gradient(110deg,#111d30,#0b111c)}
+    .cta-orb{position:absolute;width:240px;height:240px;right:18%;top:-140px;border-radius:50%;background:#1769ff;filter:blur(100px);opacity:.2}
+    .cta-copy{position:relative;max-width:650px}.cta-kicker{font-size:8px;letter-spacing:2px;color:#80adff;font-weight:700}
+    .cta-copy h2{font:700 clamp(25px,3vw,34px)/1.2 Manrope,sans-serif;letter-spacing:-1.4px;margin:12px 0}
+    .cta-copy p{font-size:11px;color:#91a0b4;line-height:1.8;margin:0}
+    .apps-secondary{position:relative;white-space:nowrap;display:flex;gap:22px;align-items:center;padding:13px 16px;border:1px solid #47658d;border-radius:4px;color:#e1eafa;font-size:10px}
+    .apps-secondary span{color:#80adff;font-size:15px}
+    @media(max-width:900px){.apps-hero{min-height:580px}.studio-visual{right:3%;width:43%}.apps-hero-copy{width:55%}.apps-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.apps-intro{align-items:flex-start;flex-direction:column;gap:16px}.apps-intro>p{max-width:560px}}
+    @media(max-width:680px){.apps-hero{min-height:0;padding:105px 24px 70px;display:block}.apps-hero-copy{width:100%}.apps-hero h1{font-size:43px;letter-spacing:-2.3px}.apps-lead{font-size:12px}.studio-visual{position:relative;top:auto;right:auto;transform:none;width:90%;margin:55px auto 8px}.visual-canvas{height:195px}.chip-ai{right:-13px}.chip-edit{left:-17px;bottom:20px}.hero-bottom-line{bottom:22px;gap:14px;font-size:7px}.apps-content{width:calc(100% - 44px);padding:58px 0}.apps-intro h2{font-size:30px}.category-strip{gap:7px;margin-top:25px}.category-button{font-size:10px;padding:9px 11px}.apps-grid{grid-template-columns:1fr;gap:10px}.tool-card{min-height:235px;padding:19px}.apps-cta{width:calc(100% - 44px);margin-bottom:45px;padding:27px 23px;align-items:flex-start;flex-direction:column;gap:22px}.cta-copy h2{font-size:27px}}
+    @media(prefers-reduced-motion:reduce){.tool-card,.apps-primary{transition:none}}
+  </style>
 </SecondaryLayout>
