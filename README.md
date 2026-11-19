@@ -76,7 +76,7 @@ CMS admin tersedia sebagai Progressive Web App (PWA) di `/admin/` dan dapat dipa
 - Pages D1 binding: `CMS_DB`
 - Pages Functions: `functions/api/cms/` dan `functions/api/public/`
 - PWA manifest dan service worker: `public/manifest.webmanifest`, `public/admin-sw.js`
-- Media uploads: membutuhkan R2 bucket dan binding `CMS_MEDIA` (belum aktif).
+- Media storage: Google Drive akun `dickv940@gmail.com`, folder `VANNDIK Media`; OAuth refresh token dienkripsi di D1.
 
 ### Aktivasi awal admin
 1. Di Cloudflare Dashboard buka **Workers & Pages → vanndik → Settings → Variables and Secrets**.
@@ -86,10 +86,27 @@ CMS admin tersedia sebagai Progressive Web App (PWA) di `/admin/` dan dapat dipa
 5. Setelah masuk, buka **Keamanan Admin** lalu daftarkan passkey di perangkat. Browser/perangkat akan menawarkan sidik jari, Face ID, Windows Hello, atau metode verifikasi perangkat yang tersedia.
 6. Untuk memasang aplikasi, gunakan tombol **Install App** jika tersedia, atau menu browser **Install app / Add to Home Screen**.
 
-### Mengaktifkan unggah gambar
-1. Aktifkan R2 Object Storage pada akun Cloudflare.
-2. Buat bucket bernama `vanndik-media`.
-3. Tambahkan binding R2 bernama `CMS_MEDIA` ke Pages project `vanndik`.
-4. Implementasikan route upload yang memvalidasi tipe file, ukuran, dan autentikasi admin sebelum menulis ke bucket.
+### Integrasi Google Drive untuk media website
+Media Library CMS menggunakan Google Drive akun `dickv940@gmail.com`. File disimpan di folder `VANNDIK Media`; metadata dan refresh token terenkripsi disimpan di Cloudflare D1. R2 tidak diperlukan untuk alur ini.
 
-**Penting:** Jangan bagikan kode aktivasi atau password. CMS hanya dapat digunakan setelah secret `CMS_SETUP_TOKEN` diatur dan admin owner pertama dibuat.
+1. Buka [Google Cloud Console](https://console.cloud.google.com/).
+2. Pilih atau buat project Google Cloud, lalu aktifkan **Google Drive API**.
+3. Konfigurasikan Google Auth Platform / OAuth consent screen. Jika aplikasi masih berstatus Testing, tambahkan `dickv940@gmail.com` sebagai test user.
+4. Buat OAuth Client ID dengan tipe **Web application**.
+5. Tambahkan Authorized redirect URI persis: `https://vanndik.pages.dev/api/cms/drive/callback`.
+6. Di Cloudflare Dashboard → Workers & Pages → `vanndik` → Settings → Variables and Secrets → Production, tambahkan tiga secrets:
+   - `GOOGLE_DRIVE_CLIENT_ID` — OAuth Client ID dari Google Cloud.
+   - `GOOGLE_DRIVE_CLIENT_SECRET` — OAuth Client Secret.
+   - `GOOGLE_DRIVE_TOKEN_KEY` — kunci acak rahasia minimal 32 karakter. Contoh membuat nilai acak di PowerShell: `[guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")`.
+7. Simpan secrets lalu deploy ulang Pages.
+8. Login ke `https://vanndik.pages.dev/admin/`, buka **Media Library**, lalu pilih **Hubungkan Google Drive** dan login menggunakan `dickv940@gmail.com`.
+9. Setujui akses Drive. CMS akan membuat folder `VANNDIK Media` secara otomatis.
+
+**Batas dan privasi media**
+- CMS menerima JPG, PNG, WEBP, GIF, dan AVIF hingga 8 MB per file; SVG ditolak.
+- File yang diunggah diberi izin pembaca publik agar gambar dapat tampil di website. Jangan unggah dokumen pribadi atau file sensitif.
+- Kapasitas mengikuti sisa kuota Google Drive akun (kuota gratis Google dibagi dengan Gmail dan Google Photos).
+- Google Drive berfungsi sebagai penyimpanan, bukan CDN khusus. Kecepatan dan batas akses gambar mengikuti layanan Google.
+- Hapus media yang masih dipakai konten akan ditolak sampai URL gambar pada konten diganti.
+
+**Penting:** Jangan commit OAuth Client Secret atau kunci enkripsi ke GitHub dan jangan membagikannya di chat. CMS tetap memerlukan secret `CMS_SETUP_TOKEN` untuk membuat admin owner pertama.
