@@ -1,0 +1,39 @@
+/* VANNDIK motion system
+   Keep movement subtle, fast, and respectful of reduced-motion preferences. */
+html { scroll-behavior: smooth; }
+body { animation: page-enter .55s ease both; }
+@keyframes page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes soft-glow {
+  0%, 100% { opacity: .42; transform: scale(.96); }
+  50% { opacity: .72; transform: scale(1.04); }
+}
+.page-hero h1, .hero-content h1 { animation: rise-in .75s .08s both; }
+.page-hero p, .hero-description { animation: rise-in .75s .18s both; }
+.page-eyebrow, .eyebrow { animation: rise-in .65s both; }
+.hero-glow-one { animation: soft-glow 9s ease-in-out infinite; }
+.content-card, .feature-card, .game-card {
+  transition: transform .28s ease, border-color .28s ease, box-shadow .28s ease, background-color .28s ease;
+}
+.content-card:hover, .feature-card:hover, .game-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(76, 145, 255, .62);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, .22), 0 0 28px rgba(40, 120, 255, .08);
+}
+.button, .header-cta, .desktop-nav a, .language-trigger { transition: color .2s ease, background-color .2s ease, transform .2s ease, box-shadow .2s ease; }
+.button:active { transform: translateY(0) scale(.98); }
+.game-card-icon { transition: transform .3s ease; }
+.game-card:hover .game-card-icon { transform: translateY(-3px) rotate(-5deg); }
+@media (prefers-reduced-motion: no-preference) {
+  .reveal-ready .reveal { opacity: 0; transform: translateY(18px); }
+  .reveal-ready .reveal.is-visible { opacity: 1; transform: translateY(0); transition: opacity .65s ease, transform .65s cubic-bezier(.2,.7,.2,1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
