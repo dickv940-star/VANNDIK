@@ -2,428 +2,152 @@
 import '../styles/global.css';
 import '../styles/animations.css';
 import vanndikLogo from '../../logo-512.png';
-
 const languages = [
-  { code: 'id', label: 'Bahasa Indonesia', flag: '🇮🇩' },
-  { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'jv', label: 'Basa Jawa', flag: '🇮🇩' },
-  { code: 'su', label: 'Basa Sunda', flag: '🇮🇩' },
-  { code: 'ms', label: 'Bahasa Melayu', flag: '🇲🇾' },
-  { code: 'ja', label: '日本語', flag: '🇯🇵' },
-  { code: 'ko', label: '한국어', flag: '🇰🇷' },
-  { code: 'zh', label: '简体中文', flag: '🇨🇳' },
-  { code: 'ar', label: 'العربية', flag: '🇸🇦' },
+  ['id','🇮🇩','Bahasa Indonesia'],['en','🇬🇧','English'],['jv','🇮🇩','Basa Jawa'],
+  ['su','🇮🇩','Basa Sunda'],['ms','🇲🇾','Bahasa Melayu'],['ja','🇯🇵','日本語'],
+  ['ko','🇰🇷','한국어'],['zh','🇨🇳','简体中文'],['ar','🇸🇦','العربية']
 ];
-
-const copy = {
-  id: {
-    navHome: 'Beranda', navAbout: 'Tentang', navExplore: 'Jelajahi', navContact: 'Kontak',
-    eyebrow: 'RUANG DIGITAL • IDE • INOVASI',
-    title: 'Ide hebat layak mendapat ruang untuk tumbuh.',
-    intro: 'Selamat datang di VANNDIK. Sebuah ruang digital untuk mengeksplorasi ide, karya, teknologi, dan kemungkinan baru.',
-    explore: 'Jelajahi VANNDIK', learn: 'Kenali lebih jauh',
-    label: 'DIBANGUN UNTUK TERUS BERKEMBANG',
-    sectionTitle: 'Satu ruang. Banyak kemungkinan.',
-    sectionIntro: 'Kami membangun pengalaman digital yang menghubungkan kreativitas, teknologi, dan kebutuhan nyata.',
-    card1: 'Kreativitas', desc1: 'Mengubah gagasan menjadi pengalaman yang bermakna.',
-    card2: 'Teknologi', desc2: 'Memanfaatkan teknologi untuk solusi yang lebih baik.',
-    card3: 'Eksplorasi', desc3: 'Terus belajar, berkembang, dan membuka peluang baru.',
-    contactTitle: 'Punya ide untuk diwujudkan?',
-    contactText: 'Mari mulai percakapan dan temukan kemungkinan berikutnya bersama VANNDIK.',
-    contact: 'Kunjungi GitHub', footer: 'Ruang digital untuk ide dan kemungkinan baru.'
-  },
-  en: {
-    navHome: 'Home', navAbout: 'About', navExplore: 'Explore', navContact: 'Contact',
-    eyebrow: 'DIGITAL SPACE • IDEAS • INNOVATION',
-    title: 'Great ideas deserve room to grow.',
-    intro: 'Welcome to VANNDIK. A digital space to explore ideas, creativity, technology, and new possibilities.',
-    explore: 'Explore VANNDIK', learn: 'Discover more',
-    label: 'BUILT TO KEEP EVOLVING',
-    sectionTitle: 'One space. Many possibilities.',
-    sectionIntro: 'We shape digital experiences connecting creativity, technology, and real needs.',
-    card1: 'Creativity', desc1: 'Turning ideas into meaningful experiences.',
-    card2: 'Technology', desc2: 'Using technology to create better solutions.',
-    card3: 'Exploration', desc3: 'Keep learning, growing, and opening new opportunities.',
-    contactTitle: 'Have an idea to bring to life?',
-    contactText: 'Start a conversation and discover what is possible with VANNDIK.',
-    contact: 'Visit GitHub', footer: 'A digital space for ideas and new possibilities.'
-  },
-  jv: {
-    navHome: 'Ngarep', navAbout: 'Babagan', navExplore: 'Jelajahi', navContact: 'Kontak',
-    eyebrow: 'PAPAN DIGITAL • GAGASAN • INOVASI',
-    title: 'Gagasan apik pantes diwenehi papan kanggo tuwuh.',
-    intro: 'Sugeng rawuh ing VANNDIK. Papan digital kanggo njelajah gagasan, karya, teknologi, lan kamungkinan anyar.',
-    explore: 'Jelajahi VANNDIK', learn: 'Kenali luwih jero',
-    label: 'DIBANGUN KANGGO TERUS NGREMBAKA',
-    sectionTitle: 'Siji papan. Akeh kamungkinan.',
-    sectionIntro: 'Kita mbangun pengalaman digital sing nyambungake kreativitas, teknologi, lan kabutuhan nyata.',
-    card1: 'Kreativitas', desc1: 'Ngowahi gagasan dadi pengalaman kang migunani.',
-    card2: 'Teknologi', desc2: 'Nggunakake teknologi kanggo solusi sing luwih becik.',
-    card3: 'Jelajah', desc3: 'Terus sinau, tuwuh, lan mbukak kesempatan anyar.',
-    contactTitle: 'Duwe gagasan sing arep diwujudake?',
-    contactText: 'Ayo miwiti rembugan lan nemokake kamungkinan anyar bebarengan VANNDIK.',
-    contact: 'Hubungi kita', footer: 'Papan digital kanggo gagasan lan kamungkinan anyar.'
-  },
-  su: {
-    navHome: 'Imah', navAbout: 'Ngeunaan', navExplore: 'Jajah', navContact: 'Kontak',
-    eyebrow: 'RUANG DIGITAL • GAGASAN • INOVASI',
-    title: 'Gagasan anu hadé pantes meunang rohangan pikeun mekar.',
-    intro: 'Wilujeng sumping di VANNDIK. Rohangan digital pikeun ngajajah gagasan, karya, téknologi, jeung kamungkinan anyar.',
-    explore: 'Jajah VANNDIK', learn: 'Kenal leuwih jauh',
-    label: 'DIwangun PIKEUN TERUS MEKAR',
-    sectionTitle: 'Hiji rohangan. Loba kamungkinan.',
-    sectionIntro: 'Kami ngawangun pangalaman digital anu ngahubungkeun kreativitas, téknologi, jeung kabutuhan nyata.',
-    card1: 'Kreativitas', desc1: 'Ngarobah gagasan jadi pangalaman anu miboga harti.',
-    card2: 'Téknologi', desc2: 'Ngamangpaatkeun téknologi pikeun solusi anu leuwih hadé.',
-    card3: 'Éksplorasi', desc3: 'Terus diajar, mekar, jeung muka kasempetan anyar.',
-    contactTitle: 'Boga gagasan pikeun diwujudkeun?',
-    contactText: 'Hayu ngamimitian paguneman jeung manggihan kamungkinan anyar babarengan VANNDIK.',
-    contact: 'Taros kami', footer: 'Rohangan digital pikeun gagasan jeung kamungkinan anyar.'
-  },
-  ms: {
-    navHome: 'Utama', navAbout: 'Tentang', navExplore: 'Terokai', navContact: 'Hubungi',
-    eyebrow: 'RUANG DIGITAL • IDEA • INOVASI',
-    title: 'Idea hebat wajar diberi ruang untuk berkembang.',
-    intro: 'Selamat datang ke VANNDIK. Ruang digital untuk meneroka idea, kreativiti, teknologi dan kemungkinan baharu.',
-    explore: 'Terokai VANNDIK', learn: 'Ketahui lanjut',
-    label: 'DIBINA UNTUK TERUS BERKEMBANG',
-    sectionTitle: 'Satu ruang. Pelbagai kemungkinan.',
-    sectionIntro: 'Kami membina pengalaman digital yang menghubungkan kreativiti, teknologi dan keperluan sebenar.',
-    card1: 'Kreativiti', desc1: 'Mengubah idea menjadi pengalaman yang bermakna.',
-    card2: 'Teknologi', desc2: 'Memanfaatkan teknologi untuk penyelesaian lebih baik.',
-    card3: 'Eksplorasi', desc3: 'Terus belajar, berkembang dan membuka peluang baharu.',
-    contactTitle: 'Ada idea untuk direalisasikan?',
-    contactText: 'Mari mulakan perbualan dan terokai kemungkinan seterusnya bersama VANNDIK.',
-    contact: 'Hubungi kami', footer: 'Ruang digital untuk idea dan kemungkinan baharu.'
-  },
-  ja: {
-    navHome: 'ホーム', navAbout: '概要', navExplore: '探索', navContact: 'お問い合わせ',
-    eyebrow: 'デジタル • アイデア • イノベーション',
-    title: '素晴らしいアイデアには、成長するための場所が必要です。',
-    intro: 'VANNDIKへようこそ。アイデア、創造性、テクノロジー、そして新しい可能性を探求するデジタル空間です。',
-    explore: 'VANNDIKを見る', learn: '詳しく見る',
-    label: '進化し続けるために',
-    sectionTitle: 'ひとつの場所。無限の可能性。',
-    sectionIntro: '創造性、テクノロジー、そして本当のニーズをつなぐデジタル体験を創造します。',
-    card1: '創造性', desc1: 'アイデアを意味のある体験へ。',
-    card2: 'テクノロジー', desc2: 'より良いソリューションのために技術を活用。',
-    card3: '探求', desc3: '学び、成長し、新しい機会を切り開く。',
-    contactTitle: '実現したいアイデアがありますか？',
-    contactText: 'VANNDIKと一緒に、新しい可能性を見つけましょう。',
-    contact: 'お問い合わせ', footer: 'アイデアと新しい可能性のためのデジタル空間。'
-  },
-  ko: {
-    navHome: '홈', navAbout: '소개', navExplore: '탐색', navContact: '문의',
-    eyebrow: '디지털 공간 • 아이디어 • 혁신',
-    title: '훌륭한 아이디어가 성장할 공간을 만듭니다.',
-    intro: 'VANNDIK에 오신 것을 환영합니다. 아이디어, 창의성, 기술과 새로운 가능성을 탐색하는 디지털 공간입니다.',
-    explore: 'VANNDIK 둘러보기', learn: '더 알아보기',
-    label: '계속 발전하는 공간',
-    sectionTitle: '하나의 공간. 무한한 가능성.',
-    sectionIntro: '창의성, 기술, 실제 필요를 연결하는 디지털 경험을 만듭니다.',
-    card1: '창의성', desc1: '아이디어를 의미 있는 경험으로 만듭니다.',
-    card2: '기술', desc2: '더 나은 솔루션을 위해 기술을 활용합니다.',
-    card3: '탐색', desc3: '계속 배우고 성장하며 새로운 기회를 엽니다.',
-    contactTitle: '실현하고 싶은 아이디어가 있나요?',
-    contactText: 'VANNDIK과 함께 새로운 가능성을 찾아보세요.',
-    contact: '문의하기', footer: '아이디어와 새로운 가능성을 위한 디지털 공간.'
-  },
-  zh: {
-    navHome: '首页', navAbout: '关于', navExplore: '探索', navContact: '联系',
-    eyebrow: '数字空间 • 创意 • 创新',
-    title: '优秀的创意值得拥有成长的空间。',
-    intro: '欢迎来到 VANNDIK。一个探索创意、作品、技术与全新可能性的数字空间。',
-    explore: '探索 VANNDIK', learn: '了解更多',
-    label: '为持续进化而打造',
-    sectionTitle: '一个空间，无限可能。',
-    sectionIntro: '我们打造连接创意、技术与真实需求的数字体验。',
-    card1: '创意', desc1: '将想法转化为有意义的体验。',
-    card2: '技术', desc2: '运用技术创造更好的解决方案。',
-    card3: '探索', desc3: '持续学习、成长并开启新的机会。',
-    contactTitle: '有想要实现的想法吗？',
-    contactText: '与 VANNDIK 开启对话，探索更多可能。',
-    contact: '联系我们', footer: '探索创意与全新可能性的数字空间。'
-  },
-  ar: {
-    navHome: 'الرئيسية', navAbout: 'من نحن', navExplore: 'استكشف', navContact: 'اتصل بنا',
-    eyebrow: 'مساحة رقمية • أفكار • ابتكار',
-    title: 'الأفكار العظيمة تستحق مساحة للنمو.',
-    intro: 'مرحباً بك في VANNDIK، مساحة رقمية لاستكشاف الأفكار والإبداع والتكنولوجيا والإمكانات الجديدة.',
-    explore: 'استكشف VANNDIK', learn: 'اكتشف المزيد',
-    label: 'مصمم للتطور المستمر',
-    sectionTitle: 'مساحة واحدة. إمكانات متعددة.',
-    sectionIntro: 'نصنع تجارب رقمية تربط الإبداع بالتكنولوجيا والاحتياجات الحقيقية.',
-    card1: 'الإبداع', desc1: 'تحويل الأفكار إلى تجارب ذات معنى.',
-    card2: 'التكنولوجيا', desc2: 'توظيف التكنولوجيا لصنع حلول أفضل.',
-    card3: 'الاستكشاف', desc3: 'التعلم والنمو وفتح فرص جديدة باستمرار.',
-    contactTitle: 'هل لديك فكرة تريد تحقيقها؟',
-    contactText: 'ابدأ حواراً واكتشف الإمكانات القادمة مع VANNDIK.',
-    contact: 'تواصل معنا', footer: 'مساحة رقمية للأفكار والإمكانات الجديدة.'
-  }
-};
 ---
 <!doctype html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#080b12" />
-    <meta name="description" content="VANNDIK — ruang digital untuk ide, karya, teknologi, dan kemungkinan baru." />
-    <title>VANNDIK — Premium Digital Experience</title>
-    <link rel="icon" type="image/png" href={vanndikLogo.src} />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div class="site-shell">
-      <header class="site-header">
-        <a class="wordmark" href="/" aria-label="VANNDIK home"><img class="brand-logo" src={vanndikLogo.src} alt="VANNDIK" /></a>
-        <nav class="desktop-nav" aria-label="Navigasi utama">
-          <a href="/" aria-current="page">Beranda</a>
-          <a href="/tentang/">Tentang</a>
-          <a href="/berita/">Berita</a>
-          <a href="/artikel/">Artikel</a>
-          <a href="/produk/">Produk</a>
-          <a href="/aplikasi/">Aplikasi</a>
-          <a href="/game/">Game</a>
-        </nav>
-        <div class="header-actions">
-          <div class="language-picker">
-            <button class="language-trigger" id="languageTrigger" type="button" aria-expanded="false" aria-label="Choose language">
-              <span class="globe-icon">◎</span><span id="currentLanguage">ID</span><span class="chevron">⌄</span>
-            </button>
-            <div class="language-menu" id="languageMenu" hidden>
-              {languages.map((language) => (
-                <button class="language-option" type="button" data-lang={language.code}>
-                  <span class="language-flag">{language.flag}</span><span>{language.label}</span><span class="language-code">{language.code.toUpperCase()}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <a class="header-cta" href="/produk/">Produk <span>↗</span></a>
-          <button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="description" content="VANNDIK — wawasan, artikel, teknologi, kreativitas, dan rekomendasi pilihan dalam satu ruang digital." />
+  <title>VANNDIK — Ide, Wawasan & Inspirasi</title>
+  <link rel="icon" type="image/png" href={vanndikLogo.src} />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div class="editorial-site">
+  <header class="editorial-header">
+    <a href="/" class="brand" aria-label="VANNDIK Beranda"><img src={vanndikLogo.src} alt="VANNDIK" /></a>
+    <nav class="main-nav" id="mainNavigation" aria-label="Navigasi utama">
+      <a class="active" href="/">Beranda</a><a href="/artikel/">Artikel</a><a href="/berita/">Berita</a><a href="/produk/">Produk</a><a href="/aplikasi/">Aplikasi</a><a href="/game/">Game</a><a href="/tentang/">Tentang</a>
+    </nav>
+    <div class="header-tools">
+      <div class="language-picker">
+        <button id="languageTrigger" type="button" aria-expanded="false" aria-label="Pilih bahasa"><span>◎</span><b id="currentLanguage">ID</b><small>⌄</small></button>
+        <div id="languageMenu" class="language-menu" hidden>
+          {languages.map(([code,flag,label]) => <button type="button" data-lang={code}><span>{flag}</span>{label}<small>{code.toUpperCase()}</small></button>)}
         </div>
-      </header>
-
-      <main>
-        <section class="hero" id="home">
-          <div class="hero-grid"></div>
-          <div class="hero-glow hero-glow-one"></div>
-          <div class="hero-glow hero-glow-two"></div>
-          <div class="hero-content">
-            <div class="eyebrow"><span class="eyebrow-dot"></span><span data-i18n="eyebrow">RUANG DIGITAL • IDE • INOVASI</span></div>
-            <h1 data-i18n="title">Ide hebat layak mendapat ruang untuk <span class="text-gradient">tumbuh.</span></h1>
-            <p class="hero-description" data-i18n="intro">Selamat datang di VANNDIK. Sebuah ruang digital untuk mengeksplorasi ide, karya, teknologi, dan kemungkinan baru.</p>
-            <div class="hero-actions">
-              <a class="button button-primary" href="#explore"><span data-i18n="explore">Jelajahi VANNDIK</span><span class="button-arrow">↗</span></a>
-              <a class="button button-quiet" href="#about"><span data-i18n="learn">Kenali lebih jauh</span><span class="quiet-arrow">↓</span></a>
-            </div>
-            <div class="hero-footnote"><span class="footnote-line"></span><span>INDEPENDENT DIGITAL BRAND</span></div>
-          </div>
-          <div class="hero-art" aria-hidden="true">
-            <div class="creative-window">
-              <div class="creative-window-top"><span></span><span></span><span></span><b>VANNDIK CREATIVE SPACE</b></div>
-              <div class="creative-preview">
-                <div class="preview-sun"></div><div class="preview-mountain mountain-back"></div><div class="preview-mountain mountain-front"></div>
-                <div class="preview-caption">IMAGINE<br/><strong>WHAT'S NEXT.</strong></div>
-                <div class="preview-stamp">CREATE<br/>01 / 04</div>
-              </div>
-              <div class="creative-window-bottom"><span><i></i> READY TO CREATE</span><span>01 — 04</span></div>
-            </div>
-            <div class="floating-tool tool-image"><span class="tool-symbol">✳</span><span><b>AI IMAGE</b><small>Visual creation</small></span></div>
-            <div class="floating-tool tool-video"><span class="tool-symbol">▶</span><span><b>AI VIDEO</b><small>Motion stories</small></span></div>
-            <div class="floating-note">IDEAS IN MOTION <span>↗</span></div>
-          </div>
-          <div class="hero-bottom"><span>01 / 03</span><span class="scroll-cue">SCROLL TO EXPLORE <span>↓</span></span><span>EST. VANNDIK</span></div>
-        </section>
-
-        <section class="intro-section section-wrap" id="about">
-          <div class="section-kicker"><span>01</span><span class="kicker-line"></span><span data-i18n="label">DIBANGUN UNTUK TERUS BERKEMBANG</span></div>
-          <div class="intro-layout">
-            <h2 data-i18n="sectionTitle">Satu ruang. <span class="text-gradient">Banyak kemungkinan.</span></h2>
-            <p data-i18n="sectionIntro">Kami membangun pengalaman digital yang menghubungkan kreativitas, teknologi, dan kebutuhan nyata.</p>
-          </div>
-        </section>
-
-        <section class="studio-section section-wrap" id="explore">
-          <div class="studio-heading">
-            <div><div class="section-kicker"><span>02</span><span class="kicker-line"></span><span>EXPLORE THE VANNDIK SPACE</span></div>
-              <h2>Temukan ruang untuk <span class="text-gradient">berkreasi.</span></h2>
-              <p>Jelajahi berbagai pengalaman digital dalam satu tempat. Pilih yang ingin kamu mulai hari ini.</p>
-            </div>
-            <a class="studio-view-all" href="/aplikasi/">Lihat semua aplikasi <span>↗</span></a>
-          </div>
-          <div class="studio-grid">
-            <a class="studio-card studio-card-large" href="/aplikasi/">
-              <div class="studio-card-art art-image"><span class="art-orb"></span><span class="art-shape shape-one"></span><span class="art-shape shape-two"></span><span class="art-label">01 / VISUAL LAB</span></div>
-              <div class="studio-card-copy"><div><span class="studio-category">CREATIVE TOOLS</span><h3>AI & Photo Studio</h3><p>Jelajahi alat kreatif untuk gambar, foto, dan visual digital.</p></div><span class="studio-arrow">↗</span></div>
-            </a>
-            <a class="studio-card" href="/produk/">
-              <div class="studio-card-art art-product"><span class="product-cube"></span><span class="art-label">02 / DISCOVER</span></div>
-              <div class="studio-card-copy"><div><span class="studio-category">CURATED FINDS</span><h3>Produk Pilihan</h3><p>Temukan produk menarik dan rekomendasi pilihan.</p></div><span class="studio-arrow">↗</span></div>
-            </a>
-            <a class="studio-card" href="/game/">
-              <div class="studio-card-art art-game"><span class="game-ring"></span><span class="game-dot"></span><span class="art-label">03 / PLAY MODE</span></div>
-              <div class="studio-card-copy"><div><span class="studio-category">PLAY & EXPLORE</span><h3>Game Zone</h3><p>Tempat untuk bermain, mencoba, dan bersantai.</p></div><span class="studio-arrow">↗</span></div>
-            </a>
-          </div>
-        </section>
-
-        <section class="inspiration-section">
-          <div class="inspiration-inner">
-            <div class="section-kicker"><span>03</span><span class="kicker-line"></span><span>MADE FOR CURIOUS MINDS</span></div>
-            <div class="inspiration-heading"><h2>Ide sederhana bisa menjadi <span class="text-gradient">sesuatu yang luar biasa.</span></h2><p>Ruang untuk menemukan inspirasi, membaca wawasan, dan mengikuti hal-hal baru.</p></div>
-            <div class="inspiration-links">
-              <a href="/artikel/"><span class="inspiration-icon">✳</span><span><small>READ & LEARN</small><b>Artikel & Wawasan</b></span><span class="inspiration-arrow">↗</span></a>
-              <a href="/berita/"><span class="inspiration-icon">◈</span><span><small>STAY UPDATED</small><b>Berita & Tren</b></span><span class="inspiration-arrow">↗</span></a>
-              <a href="/tentang/"><span class="inspiration-icon">◎</span><span><small>GET TO KNOW US</small><b>Tentang VANNDIK</b></span><span class="inspiration-arrow">↗</span></a>
-            </div>
-          </div>
-        </section>
-
-        <section class="feature-section section-wrap" id="explore">
-          <article class="feature-card feature-card-main">
-            <div class="feature-number">01 / THINK</div><div class="feature-icon">✳</div>
-            <h3 data-i18n="card1">Kreativitas</h3><p data-i18n="desc1">Mengubah gagasan menjadi pengalaman yang bermakna.</p><span class="feature-link">↗</span>
-          </article>
-          <article class="feature-card">
-            <div class="feature-number">02 / BUILD</div><div class="feature-icon">⌘</div>
-            <h3 data-i18n="card2">Teknologi</h3><p data-i18n="desc2">Memanfaatkan teknologi untuk solusi yang lebih baik.</p><span class="feature-link">↗</span>
-          </article>
-          <article class="feature-card">
-            <div class="feature-number">03 / GROW</div><div class="feature-icon">◌</div>
-            <h3 data-i18n="card3">Eksplorasi</h3><p data-i18n="desc3">Terus belajar, berkembang, dan membuka peluang baru.</p><span class="feature-link">↗</span>
-          </article>
-        </section>
-
-        <section class="contact-section section-wrap" id="contact">
-          <div class="contact-panel">
-            <div class="contact-orb"></div>
-            <div class="section-kicker"><span>02</span><span class="kicker-line"></span><span>LET'S CONNECT</span></div>
-            <h2 data-i18n="contactTitle">Punya ide untuk diwujudkan?</h2>
-            <p data-i18n="contactText">Mari mulai percakapan dan temukan kemungkinan berikutnya bersama VANNDIK.</p>
-            <a class="button button-primary" href="https://github.com/dickv940-star" target="_blank" rel="noreferrer"><span data-i18n="contact">Hubungi kami</span><span class="button-arrow">↗</span></a>
-          </div>
-        </section>
-      </main>
-
-      <footer class="site-footer">
-        <a class="wordmark footer-wordmark" href="/" aria-label="VANNDIK home"><img class="brand-logo footer-brand-logo" src={vanndikLogo.src} alt="VANNDIK" /></a>
-        <p data-i18n="footer">Ruang digital untuk ide dan kemungkinan baru.</p>
-        <div class="footer-meta"><span>© {new Date().getFullYear()} VANNDIK</span><a href="#home">BACK TO TOP ↑</a></div>
-      </footer>
+      </div>
+      <a class="header-cta" href="/tentang/">Kenali VANNDIK <span>↗</span></a>
+      <button class="mobile-toggle" id="mobileMenuToggle" type="button" aria-label="Buka menu" aria-expanded="false"><i></i><i></i></button>
     </div>
-    <script type="application/json" id="translations" set:html={JSON.stringify(copy)}></script>
-    <script is:inline>
-      const copy = JSON.parse(document.getElementById('translations')?.textContent || '{}');
-      const trigger = document.getElementById('languageTrigger');
-      const menu = document.getElementById('languageMenu');
-      const current = document.getElementById('currentLanguage');
-      const options = document.querySelectorAll('[data-lang]');
-      const mobileToggle = document.getElementById('mobileMenuToggle');
-      const nav = document.querySelector('.desktop-nav');
+  </header>
 
-      function setLanguage(code) {
-        const dictionary = copy[code] || copy.id;
-        document.documentElement.lang = code;
-        document.documentElement.dir = code === 'ar' ? 'rtl' : 'ltr';
-        current.textContent = code.toUpperCase();
-        document.querySelectorAll('[data-i18n]').forEach((element) => {
-          const key = element.dataset.i18n;
-          if (dictionary[key]) element.textContent = dictionary[key];
-        });
-        options.forEach((option) => option.classList.toggle('is-selected', option.dataset.lang === code));
-        localStorage.setItem('vanndik-language', code);
-        menu.hidden = true;
-        trigger.setAttribute('aria-expanded', 'false');
-      }
+  <main>
+    <section class="welcome">
+      <div class="welcome-copy">
+        <div class="eyebrow"><span></span> IDEAS · KNOWLEDGE · DIGITAL CULTURE</div>
+        <h1>Temukan ide.<br /><em>Perluas perspektif.</em></h1>
+        <p>Selamat datang di VANNDIK — ruang digital untuk membaca wawasan, mengikuti perkembangan teknologi, menemukan inspirasi, dan menjelajahi hal-hal baru.</p>
+        <div class="welcome-actions"><a class="primary-link" href="/artikel/">Mulai menjelajah <span>↗</span></a><a class="text-link" href="/tentang/">Tentang VANNDIK</a></div>
+      </div>
+      <div class="welcome-feature">
+        <div class="feature-image">
+          <div class="feature-image-grid"></div><div class="feature-circle"></div>
+          <div class="feature-image-caption"><span>VANNDIK JOURNAL</span><b>Curiosity<br />creates<br /><i>possibility.</i></b><small>READ · EXPLORE · CREATE</small></div>
+          <div class="feature-image-index">01 <span>/</span> 04</div>
+        </div>
+        <div class="feature-caption-row"><span>RUANG UNTUK IDE DAN WAWASAN</span><a href="/artikel/">JELAJAHI ARTIKEL ↗</a></div>
+      </div>
+    </section>
 
-      trigger.addEventListener('click', () => {
-        menu.hidden = !menu.hidden;
-        trigger.setAttribute('aria-expanded', String(!menu.hidden));
-      });
-      options.forEach((option) => option.addEventListener('click', () => setLanguage(option.dataset.lang)));
-      document.addEventListener('click', (event) => {
-        if (!event.target.closest('.language-picker')) {
-          menu.hidden = true;
-          trigger.setAttribute('aria-expanded', 'false');
-        }
-      });
-      mobileToggle.addEventListener('click', () => {
-        const open = nav.classList.toggle('is-open');
-        mobileToggle.setAttribute('aria-expanded', String(open));
-      });
-      nav.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => {
-        nav.classList.remove('is-open');
-        mobileToggle.setAttribute('aria-expanded', 'false');
-      }));
-      const savedLanguage = localStorage.getItem('vanndik-language');
-      if (savedLanguage && copy[savedLanguage]) setLanguage(savedLanguage);
-    </script>
-    <style>
-      /* VANNDIK creative-platform homepage refresh */
-      .hero{min-height:760px;background:radial-gradient(ellipse at 78% 43%,rgba(26,93,180,.2),transparent 36%),linear-gradient(115deg,#080b12 20%,#0a1220 100%)}
-      .hero-grid{opacity:.36}
-      .hero-content{width:52%;max-width:650px}
-      .hero-content h1{max-width:650px;font-size:clamp(48px,5.6vw,76px)}
-      .hero-art{right:clamp(4%,8vw,125px);width:min(43vw,560px);top:51%;transform:translateY(-48%)}
-      .creative-window{position:absolute;inset:8% 5%;padding:13px;border:1px solid rgba(135,177,239,.24);border-radius:15px;background:linear-gradient(145deg,rgba(22,35,56,.96),rgba(8,14,24,.97));box-shadow:0 35px 100px #0009,0 0 65px #1769ff18;transform:perspective(1100px) rotateY(-8deg) rotateX(3deg)}
-      .creative-window-top,.creative-window-bottom{height:28px;display:flex;align-items:center;gap:6px;color:#8b9db7;font-size:7px;letter-spacing:1.5px}
-      .creative-window-top span{width:5px;height:5px;border-radius:50%;background:#6d85a7}
-      .creative-window-top b{margin-left:auto;font-size:7px;font-weight:600}
-      .creative-preview{height:calc(100% - 56px);min-height:270px;position:relative;overflow:hidden;border-radius:8px;background:radial-gradient(ellipse at 70% 28%,#9fc9ee 0%,#517fae 17%,transparent 38%),linear-gradient(150deg,#1b3553 0%,#527a9c 44%,#d2a58b 100%)}
-      .preview-sun{position:absolute;width:34%;aspect-ratio:1;border-radius:50%;right:17%;top:13%;background:radial-gradient(circle at 35% 35%,#fff6df,#f4bd91 55%,#d88778);box-shadow:0 0 75px #ffd4ad88}
-      .preview-mountain{position:absolute;left:-10%;right:-10%;bottom:-20%;height:65%;clip-path:polygon(0 68%,22% 18%,39% 53%,60% 0,100% 65%,100% 100%,0 100%)}
-      .mountain-back{background:linear-gradient(130deg,#273c59,#647b89 60%,#a77e78);transform:translateY(-10%)}
-      .mountain-front{background:linear-gradient(120deg,#101d30,#24425b 60%,#526e7c);clip-path:polygon(0 58%,25% 15%,48% 63%,70% 22%,100% 70%,100% 100%,0 100%)}
-      .preview-caption{position:absolute;left:8%;bottom:11%;font-size:clamp(15px,2vw,24px);line-height:1.05;letter-spacing:3px;color:#f7f2e9;text-shadow:0 3px 15px #18273c}
-      .preview-caption strong{font-size:1.35em;font-weight:800}
-      .preview-stamp{position:absolute;right:7%;bottom:9%;font-size:7px;line-height:1.8;letter-spacing:1.6px;color:#f9e8d8;text-align:right}
-      .creative-window-bottom{justify-content:space-between;padding:0 5px}.creative-window-bottom i{display:inline-block;width:5px;height:5px;border-radius:50%;background:#69d6aa;margin-right:6px;box-shadow:0 0 10px #69d6aa}
-      .floating-tool{position:absolute;display:flex;align-items:center;gap:10px;padding:11px 14px;border:1px solid #7899c344;border-radius:9px;background:#0c1524eF;box-shadow:0 15px 35px #0006;backdrop-filter:blur(15px);color:#eaf1fc}
-      .floating-tool b,.floating-tool small{display:block}.floating-tool b{font-size:8px;letter-spacing:1.3px}.floating-tool small{font-size:8px;color:#8798b2;margin-top:4px}
-      .tool-symbol{width:27px;height:27px;display:grid;place-items:center;border-radius:7px;background:#1c3c69;color:#8ebaff;font-size:13px}
-      .tool-image{left:-4%;top:22%}.tool-video{right:-6%;bottom:20%}.floating-note{position:absolute;right:1%;top:4%;font-size:7px;letter-spacing:2px;color:#a9c6ee}.floating-note span{color:#68a5ff;margin-left:8px}
-      .studio-section{padding-top:112px;padding-bottom:115px}
-      .studio-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:40px;margin-bottom:32px}
-      .studio-heading h2,.inspiration-heading h2{font:800 clamp(34px,4vw,52px)/1.12 Manrope,sans-serif;letter-spacing:-2.6px;max-width:670px;margin:25px 0 12px}
-      .studio-heading p,.inspiration-heading p{color:#97a6ba;font-size:13px;line-height:1.8;max-width:520px;margin:0}
-      .studio-view-all{white-space:nowrap;color:#a9c8f5;font-size:11px;padding-bottom:5px}.studio-view-all span{color:#6ba4ff;margin-left:9px}
-      .studio-grid{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:16px}
-      .studio-card{overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#0d1420;transition:transform .28s,border-color .28s,box-shadow .28s}
-      .studio-card:hover{transform:translateY(-6px);border-color:#3976c4;box-shadow:0 22px 50px #0005}
-      .studio-card-art{height:230px;position:relative;overflow:hidden}
-      .studio-card-large .studio-card-art{height:270px}
-      .art-label{position:absolute;left:19px;bottom:17px;color:#e4edf9;font-size:8px;letter-spacing:1.8px}
-      .art-image{background:radial-gradient(circle at 58% 45%,#a9c6e2 0 8%,transparent 8.5%),radial-gradient(ellipse at 65% 70%,#e5b49b 0 13%,transparent 13.5%),linear-gradient(135deg,#172f52,#3e6791 52%,#c28e82)}
-      .art-image:before{content:'';position:absolute;inset:0;background:linear-gradient(130deg,transparent 35%,#d7e6ed33 36%,transparent 60%),radial-gradient(ellipse at 15% 90%,#0a1729 0 30%,transparent 31%)}
-      .art-orb{position:absolute;width:125px;height:125px;border-radius:50%;top:16%;right:19%;background:radial-gradient(circle at 35% 32%,#fff1d9,#f1b98d 65%,#c77c78);box-shadow:0 0 55px #f4c6a177}
-      .art-shape{position:absolute;bottom:-22%;width:70%;height:75%;border-radius:50% 50% 0 0;transform:rotate(-18deg)}
-      .shape-one{left:-8%;background:linear-gradient(130deg,#132b49,#315b7a)}.shape-two{right:-20%;background:linear-gradient(130deg,#293f5a,#101d30)}
-      .art-product{background:radial-gradient(ellipse at 50% 70%,#3768a4 0,transparent 52%),linear-gradient(135deg,#17253b,#0c1422)}
-      .product-cube{position:absolute;left:50%;top:47%;width:105px;height:105px;transform:translate(-50%,-50%) rotate(-12deg);border-radius:18px;background:linear-gradient(145deg,#dce8f7,#6e8db8 45%,#253f67);box-shadow:18px 22px 40px #0008,inset -12px -10px 20px #172a45}
-      .product-cube:after{content:'';position:absolute;inset:20px;border:1px solid #fff8;border-radius:10px}
-      .art-game{background:radial-gradient(circle at 50% 50%,#244d83,#111b30 48%,#0a111c)}
-      .game-ring{position:absolute;width:130px;height:130px;left:50%;top:45%;transform:translate(-50%,-50%) rotateX(60deg);border:12px solid #79aaff;border-radius:50%;box-shadow:0 0 35px #347bff88,inset 0 0 25px #347bff55}
-      .game-dot{position:absolute;width:15px;height:15px;border-radius:50%;left:62%;top:27%;background:#e3f1ff;box-shadow:0 0 22px #9fcaff}
-      .studio-card-copy{display:flex;justify-content:space-between;gap:15px;padding:21px 20px 23px}
-      .studio-category{font-size:8px;letter-spacing:1.6px;color:#6fa8ff}
-      .studio-card-copy h3{font:700 18px Manrope,sans-serif;margin:8px 0 6px;letter-spacing:-.4px}
-      .studio-card-copy p{font-size:11px;line-height:1.7;color:#8f9eb2;margin:0;max-width:260px}
-      .studio-arrow{font-size:18px;color:#83b5ff;align-self:flex-end}
-      .inspiration-section{padding:95px 24px;background:linear-gradient(110deg,#0d1726,#0a101a 65%,#101b2d);border-top:1px solid #8cb6ee17;border-bottom:1px solid #8cb6ee17}
-      .inspiration-inner{width:min(1120px,100%);margin:0 auto}
-      .inspiration-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:45px;margin:25px 0 35px}
-      .inspiration-heading h2{margin:0;max-width:620px}.inspiration-heading p{max-width:330px}
-      .inspiration-links{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line)}
-      .inspiration-links a{display:flex;align-items:center;gap:14px;padding:23px 18px;border-bottom:1px solid var(--line);transition:background .2s}
-      .inspiration-links a:hover{background:#ffffff08}
-      .inspiration-icon{width:38px;height:38px;display:grid;place-items:center;border:1px solid #315b91;border-radius:9px;color:#83b5ff;background:#142846;font-size:16px}
-      .inspiration-links small,.inspiration-links b{display:block}.inspiration-links small{font-size:7px;letter-spacing:1.3px;color:#7d91ad;margin-bottom:6px}.inspiration-links b{font-size:11px;font-weight:600;color:#e2eaf6}
-      .inspiration-arrow{margin-left:auto;color:#78adff}
-      @media(max-width:900px){.hero-content{width:58%}.hero-art{right:0;width:43vw}.studio-grid{grid-template-columns:1fr 1fr}.studio-card-large{grid-column:1/-1}.studio-card-large .studio-card-art{height:230px}.inspiration-heading{display:block}.inspiration-heading p{margin-top:15px}}
-      @media(max-width:680px){.hero{min-height:860px;padding-top:132px;padding-bottom:345px}.hero-content{width:100%}.hero-content h1{font-size:clamp(43px,12vw,61px)}.hero-art{width:min(92vw,440px);height:290px;right:50%;top:auto;bottom:82px;transform:translateX(50%)}.creative-window{inset:6% 8%;padding:9px}.creative-preview{min-height:190px}.floating-tool{padding:8px 10px}.tool-image{left:0;top:12%}.tool-video{right:0;bottom:10%}.floating-note{top:0;right:5%}.studio-section{padding-top:75px;padding-bottom:75px}.studio-heading{display:block}.studio-view-all{display:inline-block;margin-top:20px}.studio-grid{grid-template-columns:1fr;gap:12px}.studio-card-large{grid-column:auto}.studio-card-art,.studio-card-large .studio-card-art{height:210px}.studio-card-copy{padding:18px}.inspiration-section{padding:70px 22px}.inspiration-heading{display:block}.inspiration-heading h2{font-size:36px}.inspiration-links{grid-template-columns:1fr}.inspiration-links a{padding:17px 5px}}
-    </style>
-  </body>
+    <section class="quick-strip" aria-label="Jelajahi kategori">
+      <span class="strip-label">JELAJAHI VANNDIK</span>
+      <a href="/artikel/">Artikel & Wawasan <span>↗</span></a>
+      <a href="/berita/">Berita & Tren <span>↗</span></a>
+      <a href="/produk/">Produk Pilihan <span>↗</span></a>
+      <a href="/aplikasi/">Tools & Aplikasi <span>↗</span></a>
+    </section>
+
+    <section class="content-section latest-section">
+      <div class="section-heading">
+        <div><div class="eyebrow blue">THE JOURNAL</div><h2>Wawasan terbaru<span>.</span></h2><p>Artikel pilihan untuk menambah pengetahuan dan membuka sudut pandang baru.</p></div>
+        <a class="view-all" href="/artikel/">Lihat semua artikel <span>↗</span></a>
+      </div>
+      <div class="story-layout">
+        <a class="lead-story" href="/artikel/">
+          <div class="story-art lead-art"><span class="story-tag">EDITORIAL / 01</span><div class="lead-art-orbit"></div><b>THINK<br />BEYOND.</b><small>IDEAS START HERE</small></div>
+          <div class="story-info"><div class="story-meta"><span>VANNDIK JOURNAL</span><span>•</span><span>SEGERA HADIR</span></div><h3>Ide, teknologi, dan kreativitas untuk dunia yang terus berubah</h3><p>Ruang editorial VANNDIK untuk mengeksplorasi gagasan dan perkembangan digital.</p><span class="continue-link">Jelajahi koleksi <b>↗</b></span></div>
+        </a>
+        <div class="side-stories">
+          <a class="side-story" href="/artikel/"><div class="side-art side-tech"><span>01</span><b>AI<br />& TECH</b></div><div><span class="story-meta">TEKNOLOGI · SEGERA HADIR</span><h3>Mengenal inovasi yang membentuk masa depan</h3><span class="continue-link">Baca artikel <b>↗</b></span></div></a>
+          <a class="side-story" href="/artikel/"><div class="side-art side-create"><span>02</span><b>MAKE<br />IDEAS.</b></div><div><span class="story-meta">KREATIVITAS · SEGERA HADIR</span><h3>Inspirasi untuk mengembangkan ide menjadi karya</h3><span class="continue-link">Baca artikel <b>↗</b></span></div></a>
+          <a class="side-story" href="/artikel/"><div class="side-art side-growth"><span>03</span><b>GROW<br />SMART.</b></div><div><span class="story-meta">BISNIS DIGITAL · SEGERA HADIR</span><h3>Perspektif baru tentang peluang di era digital</h3><span class="continue-link">Baca artikel <b>↗</b></span></div></a>
+        </div>
+      </div>
+      <div class="editorial-note">KONTEN EDITORIAL SEDANG DISIAPKAN <span>—</span> Ikuti pembaruan VANNDIK untuk menemukan artikel terbaru.</div>
+    </section>
+
+    <section class="content-section explore-section">
+      <div class="section-heading">
+        <div><div class="eyebrow blue">EXPLORE MORE</div><h2>Jelajahi lebih jauh<span>.</span></h2><p>Temukan berbagai ruang yang dikembangkan di dalam ekosistem VANNDIK.</p></div>
+      </div>
+      <div class="explore-grid">
+        <a class="explore-card explore-news" href="/berita/"><div class="explore-visual"><span class="visual-index">01 / DISCOVER</span><div class="news-symbol">N<span>.</span></div><small>THE WORLD, IN CONTEXT</small></div><div class="explore-copy"><span>STAY INFORMED</span><h3>Berita & Tren</h3><p>Ikuti perkembangan teknologi, bisnis, dan berbagai topik menarik.</p><b>Jelajahi berita ↗</b></div></a>
+        <a class="explore-card explore-products" href="/produk/"><div class="explore-visual"><span class="visual-index">02 / CURATED</span><div class="product-symbol">V</div><small>THOUGHTFUL FINDS</small></div><div class="explore-copy"><span>DISCOVER PICKS</span><h3>Produk Pilihan</h3><p>Temukan rekomendasi dan pilihan produk dari berbagai kategori.</p><b>Lihat produk ↗</b></div></a>
+        <a class="explore-card explore-tools" href="/aplikasi/"><div class="explore-visual"><span class="visual-index">03 / CREATE</span><div class="tool-symbol">✳</div><small>TOOLS FOR CREATORS</small></div><div class="explore-copy"><span>MAKE SOMETHING</span><h3>Aplikasi & Tools</h3><p>Kenali rangkaian aplikasi kreatif yang sedang dikembangkan.</p><b>Jelajahi aplikasi ↗</b></div></a>
+      </div>
+    </section>
+
+    <section class="about-band">
+      <div class="about-band-inner">
+        <div class="about-mark">V.</div>
+        <div class="about-copy"><div class="eyebrow">ABOUT VANNDIK</div><h2>Ruang digital untuk<br /><em>rasa ingin tahu.</em></h2><p>VANNDIK menghubungkan ide, informasi, kreativitas, dan teknologi dalam satu pengalaman digital yang terus berkembang.</p><a href="/tentang/">Kenali perjalanan VANNDIK <span>↗</span></a></div>
+        <div class="about-aside"><span>OUR POINT OF VIEW</span><b>Stay curious.<br />Keep creating.<br /><i>Move forward.</i></b><small>VANNDIK · EST. 2026</small></div>
+      </div>
+    </section>
+
+    <section class="closing-section">
+      <div><div class="eyebrow blue">KEEP EXPLORING</div><h2>Selalu ada hal baru<br />untuk <em>ditemukan.</em></h2><p>Mulai dari satu artikel, satu ide, atau satu pengalaman baru.</p></div>
+      <a class="primary-link" href="/artikel/">Jelajahi VANNDIK <span>↗</span></a>
+    </section>
+  </main>
+
+  <footer class="editorial-footer">
+    <div class="footer-main"><a href="/" class="footer-brand"><img src={vanndikLogo.src} alt="VANNDIK" /></a><p>Ruang digital untuk ide, wawasan,<br />karya, dan kemungkinan baru.</p><div class="footer-links"><a href="/tentang/">Tentang</a><a href="/artikel/">Artikel</a><a href="/berita/">Berita</a><a href="/produk/">Produk</a><a href="/aplikasi/">Aplikasi</a></div></div>
+    <div class="footer-bottom"><span>© {new Date().getFullYear()} VANNDIK. ALL RIGHTS RESERVED.</span><a href="#top">KEMBALI KE ATAS ↑</a></div>
+  </footer>
+</div>
+<script is:inline>
+  const trigger=document.getElementById('languageTrigger');
+  const menu=document.getElementById('languageMenu');
+  const current=document.getElementById('currentLanguage');
+  const options=[...document.querySelectorAll('[data-lang]')];
+  const mobileToggle=document.getElementById('mobileMenuToggle');
+  const nav=document.getElementById('mainNavigation');
+  const saved=localStorage.getItem('vanndik-language')||'id';
+  function chooseLanguage(code){
+    localStorage.setItem('vanndik-language',code);
+    current.textContent=code.toUpperCase();
+    document.documentElement.lang=code;
+    document.documentElement.dir=code==='ar'?'rtl':'ltr';
+    options.forEach(option=>option.classList.toggle('selected',option.dataset.lang===code));
+    menu.hidden=true;trigger.setAttribute('aria-expanded','false');
+  }
+  chooseLanguage(saved);
+  trigger.addEventListener('click',()=>{menu.hidden=!menu.hidden;trigger.setAttribute('aria-expanded',String(!menu.hidden));});
+  options.forEach(option=>option.addEventListener('click',()=>chooseLanguage(option.dataset.lang)));
+  document.addEventListener('click',event=>{if(!event.target.closest('.language-picker')){menu.hidden=true;trigger.setAttribute('aria-expanded','false');}});
+  mobileToggle.addEventListener('click',()=>{const open=nav.classList.toggle('open');mobileToggle.setAttribute('aria-expanded',String(open));});
+  nav.querySelectorAll('a').forEach(link=>link.addEventListener('click',()=>{nav.classList.remove('open');mobileToggle.setAttribute('aria-expanded','false');}));
+</script>
+<style>
+  :root{--paper:#fff;--ink:#11151d;--sub:#687282;--hair:#e5e9ef;--accent:#1769ff}
+  html{scroll-behavior:smooth}body{background:var(--paper);color:var(--ink);font-family:'DM Sans',sans-serif}.editorial-site{overflow:hidden;background:#fff}.editorial-header{height:82px;padding:0 max(24px,calc((100% - 1180px)/2));display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e9edf2;background:#fff;position:relative;z-index:20}.brand img{display:block;width:auto;height:32px;max-width:145px;object-fit:contain}.main-nav{display:flex;align-items:center;gap:27px}.main-nav a{font-size:11px;color:#596373;transition:color .2s}.main-nav a:hover,.main-nav a.active{color:#111;font-weight:700}.main-nav a.active:after{content:'';display:block;height:2px;background:var(--accent);margin-top:8px}.header-tools{display:flex;align-items:center;gap:19px}.language-picker{position:relative}.language-picker>button{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid #e2e7ee;border-radius:5px;background:white;color:#303b4b;font-size:10px;cursor:pointer}.language-picker>button span{font-size:16px;color:#1769ff}.language-picker>button small{color:#788394}.language-menu{position:absolute;right:0;top:42px;width:215px;max-height:310px;overflow:auto;padding:6px;background:white;border:1px solid #e2e7ee;border-radius:7px;box-shadow:0 16px 45px #17243a1c}.language-menu[hidden]{display:none}.language-menu button{width:100%;display:flex;align-items:center;gap:9px;padding:9px;border:0;border-radius:4px;background:white;color:#303b4b;text-align:left;font-size:11px;cursor:pointer}.language-menu button:hover,.language-menu button.selected{background:#edf4ff}.language-menu button small{margin-left:auto;color:#8490a1;font-size:9px}.header-cta{font-size:10px;font-weight:700;color:#1c2736}.header-cta span{color:var(--accent);margin-left:7px}.mobile-toggle{display:none;border:0;background:none;padding:7px}.mobile-toggle i{display:block;width:20px;height:2px;margin:5px;background:#172131}
+  .welcome{width:min(1180px,calc(100% - 48px));margin:0 auto;padding:86px 0 70px;display:grid;grid-template-columns:.9fr 1.1fr;gap:65px;align-items:center}.welcome-copy{padding:10px 0}.eyebrow{font-size:9px;font-weight:700;letter-spacing:2px;color:#778394}.eyebrow>span:first-child{display:inline-block;width:7px;height:7px;margin-right:8px;border-radius:50%;background:#1769ff}.eyebrow.blue{color:#1769ff}.welcome h1{font:800 clamp(48px,5.4vw,70px)/1.04 Manrope,sans-serif;letter-spacing:-4px;margin:25px 0 22px;color:#11151d}.welcome h1 em,.about-copy h2 em,.closing-section h2 em{font-style:normal;color:#1769ff}.welcome-copy>p{max-width:460px;color:#657080;font-size:14px;line-height:1.9}.welcome-actions{display:flex;align-items:center;gap:25px;margin-top:30px}.primary-link{display:inline-flex;align-items:center;gap:25px;padding:14px 17px;background:#1769ff;color:white;font-size:11px;font-weight:700;border-radius:3px;transition:background .2s,transform .2s}.primary-link:hover{background:#0756e2;transform:translateY(-2px)}.primary-link span{font-size:16px}.text-link{font-size:11px;color:#455164}.welcome-feature{min-width:0}.feature-image{height:390px;position:relative;overflow:hidden;background:linear-gradient(130deg,#101b2d,#244d7b 48%,#8ca7c0)}.feature-image-grid{position:absolute;inset:0;background-image:linear-gradient(#ffffff13 1px,transparent 1px),linear-gradient(90deg,#ffffff13 1px,transparent 1px);background-size:42px 42px}.feature-circle{position:absolute;width:320px;height:320px;right:6%;top:7%;border:1px solid #d9e9ff85;border-radius:50%;box-shadow:0 0 0 35px #ffffff0b,0 0 0 80px #ffffff08}.feature-circle:after{content:'';position:absolute;inset:55px;border:1px dashed #e0edff77;border-radius:50%}.feature-image-caption{position:absolute;left:8%;top:15%;display:flex;flex-direction:column;gap:25px;color:white}.feature-image-caption span,.feature-image-caption small{font-size:8px;letter-spacing:2px;color:#d5e6fa}.feature-image-caption b{font:800 clamp(42px,5vw,63px)/.96 Manrope;letter-spacing:-3px}.feature-image-caption b i{font-style:normal;color:#91bdff}.feature-image-index{position:absolute;right:7%;bottom:7%;font:700 12px Manrope;color:#fff}.feature-image-index span{color:#a6c9f9}.feature-caption-row{display:flex;justify-content:space-between;gap:12px;padding:13px 0;border-bottom:1px solid var(--hair);font-size:8px;letter-spacing:1.3px;color:#8993a1}.feature-caption-row a{color:#1769ff;font-weight:700}
+  .quick-strip{display:flex;align-items:center;justify-content:center;gap:35px;padding:18px 24px;background:#f5f7fa;border-top:1px solid #e9edf2;border-bottom:1px solid #e9edf2}.strip-label{font-size:8px;font-weight:700;letter-spacing:1.5px;color:#8590a0}.quick-strip a{font-size:10px;color:#354153}.quick-strip a span{color:#1769ff;margin-left:6px}
+  .content-section{width:min(1180px,calc(100% - 48px));margin:0 auto;padding:88px 0}.section-heading{display:flex;justify-content:space-between;align-items:flex-end;gap:30px;margin-bottom:34px}.section-heading h2{font:800 38px/1.15 Manrope;letter-spacing:-2px;margin:12px 0 9px}.section-heading h2 span{color:#1769ff}.section-heading p{font-size:12px;color:#7a8492;margin:0;line-height:1.7}.view-all{white-space:nowrap;font-size:10px;font-weight:700;color:#1769ff;padding-bottom:4px}.view-all span{margin-left:10px}.story-layout{display:grid;grid-template-columns:1.05fr .95fr;gap:38px}.lead-story{display:block;min-width:0}.lead-art{height:315px;position:relative;overflow:hidden;background:linear-gradient(135deg,#182c49,#376a9d 58%,#b0a7a1)}.lead-art:before{content:'';position:absolute;inset:0;background-image:linear-gradient(#ffffff10 1px,transparent 1px),linear-gradient(90deg,#ffffff10 1px,transparent 1px);background-size:34px 34px}.story-tag{position:absolute;top:19px;left:20px;font-size:8px;letter-spacing:1.5px;color:#d5e6fa}.lead-art-orbit{position:absolute;width:250px;height:250px;right:8%;top:12%;border:1px solid #b6d5ff99;border-radius:50%;box-shadow:0 0 0 28px #ffffff0a,0 0 0 60px #ffffff08}.lead-art-orbit:after{content:'';position:absolute;inset:38px;border:1px dashed #d3e4ff88;border-radius:50%}.lead-art>b{position:absolute;left:8%;bottom:13%;font:800 50px/.92 Manrope;letter-spacing:-3px;color:#fff}.lead-art>small{position:absolute;right:7%;bottom:9%;font-size:7px;letter-spacing:1.5px;color:#e0edfc}.story-info{padding:19px 0 0}.story-meta{display:flex;gap:9px;align-items:center;font-size:8px;letter-spacing:1px;color:#1769ff}.story-meta span:last-child{color:#8b95a3}.story-info h3{font:700 22px/1.35 Manrope;letter-spacing:-.7px;margin:13px 0 8px;max-width:530px}.story-info p{font-size:11px;line-height:1.8;color:#7a8492}.continue-link{display:inline-flex;align-items:center;gap:17px;font-size:10px;font-weight:700;color:#273447;margin-top:7px}.continue-link b{font-size:15px;color:#1769ff}.side-stories{display:flex;flex-direction:column}.side-story{display:grid;grid-template-columns:140px 1fr;gap:18px;align-items:center;padding:0 0 18px;margin-bottom:18px;border-bottom:1px solid var(--hair)}.side-story:last-child{margin:0;padding:0;border:0}.side-art{height:112px;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}.side-art>span{position:absolute;top:10px;left:11px;font-size:7px;color:#fff;opacity:.8}.side-art>b{font:800 22px/.9 Manrope;letter-spacing:-1px;color:#fff;position:relative}.side-tech{background:linear-gradient(135deg,#1b3b66,#101c2e)}.side-tech:after{content:'';position:absolute;width:90px;height:90px;border:1px solid #9ac7ff;border-radius:50%;right:-12px;top:12px;box-shadow:0 0 0 15px #ffffff0a}.side-create{background:linear-gradient(135deg,#4a3b79,#17172c)}.side-create:after{content:'';position:absolute;width:100px;height:100px;background:linear-gradient(135deg,#c7a9ff,#4d71e7);border-radius:45% 55% 35% 65%;right:-18px;top:8px;transform:rotate(35deg)}.side-growth{background:linear-gradient(135deg,#285b51,#122a2b)}.side-growth:after{content:'';position:absolute;width:115px;height:75px;border-top:2px solid #a5ead2;border-right:2px solid #a5ead2;transform:skewY(-25deg);right:-20px;top:25px}.side-story>div:last-child .story-meta{font-size:7px}.side-story h3{font:700 14px/1.35 Manrope;margin:9px 0 3px}.side-story .continue-link{font-size:9px}.editorial-note{margin-top:28px;padding:14px 16px;background:#f5f8fc;border-left:2px solid #1769ff;color:#778394;font-size:9px;letter-spacing:.5px}.editorial-note span{color:#1769ff;margin:0 6px}
+  .explore-section{padding-top:25px;padding-bottom:100px}.explore-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}.explore-card{border:1px solid #e4e9f0;background:white;transition:transform .25s,box-shadow .25s}.explore-card:hover{transform:translateY(-5px);box-shadow:0 18px 45px #16294312}.explore-visual{height:190px;position:relative;overflow:hidden;display:grid;place-items:center}.visual-index{position:absolute;top:16px;left:17px;color:#fff;font-size:8px;letter-spacing:1.5px}.explore-visual>small{position:absolute;bottom:15px;left:17px;color:#d7e6f8;font-size:7px;letter-spacing:1.6px}.explore-news .explore-visual{background:linear-gradient(135deg,#193c69,#0d1b2e)}.news-symbol{font:800 88px Manrope;color:#e9f2ff;letter-spacing:-8px}.news-symbol span{color:#78adff}.explore-products .explore-visual{background:linear-gradient(135deg,#354b6a,#111c2c)}.product-symbol{width:94px;height:94px;display:grid;place-items:center;border:1px solid #b3d0f6;border-radius:25px;transform:rotate(-10deg);font:800 52px Manrope;color:#e8f2ff;box-shadow:0 0 45px #80b3ff55}.explore-tools .explore-visual{background:linear-gradient(135deg,#172b49,#365c85)}.tool-symbol{font-size:90px;color:#d8eaff;text-shadow:0 0 35px #8abaff88}.explore-copy{padding:21px}.explore-copy>span{font-size:8px;letter-spacing:1.6px;color:#1769ff}.explore-copy h3{font:700 19px Manrope;margin:9px 0}.explore-copy p{font-size:11px;line-height:1.8;color:#7a8492;min-height:40px}.explore-copy>b{font-size:10px;color:#26364c}.about-band{background:#0b111b;color:white;padding:85px 24px}.about-band-inner{width:min(1180px,100%);margin:auto;display:grid;grid-template-columns:110px 1.2fr .8fr;gap:50px;align-items:center}.about-mark{font:800 82px Manrope;letter-spacing:-9px;color:#72aaff}.about-copy .eyebrow{color:#8fbaff}.about-copy h2{font:800 45px/1.05 Manrope;letter-spacing:-2.5px;margin:18px 0}.about-copy h2 em{color:#76aaff}.about-copy p{font-size:12px;line-height:1.9;color:#9ba8ba;max-width:450px}.about-copy>a{display:inline-block;margin-top:10px;color:#9dc2fa;font-size:10px}.about-copy>a span{margin-left:10px}.about-aside{padding:27px;border:1px solid #ffffff20;background:linear-gradient(145deg,#111f32,#0c1421)}.about-aside>span,.about-aside small{display:block;font-size:8px;letter-spacing:1.5px;color:#8399b8}.about-aside b{display:block;margin:25px 0;font:800 27px/1.15 Manrope;letter-spacing:-1px}.about-aside b i{font-style:normal;color:#80b2ff}.closing-section{width:min(1180px,calc(100% - 48px));margin:auto;padding:82px 0;display:flex;align-items:center;justify-content:space-between;gap:25px}.closing-section h2{font:800 42px/1.08 Manrope;letter-spacing:-2px;margin:15px 0}.closing-section p{font-size:12px;color:#7a8492}.editorial-footer{background:#f5f7fa;padding:42px max(24px,calc((100% - 1180px)/2)) 20px}.footer-main{display:grid;grid-template-columns:180px 1fr 1fr;gap:35px;align-items:center;padding-bottom:35px}.footer-brand img{height:29px;width:auto;max-width:140px;object-fit:contain}.footer-main p{font-size:11px;line-height:1.8;color:#758092}.footer-links{display:flex;justify-content:flex-end;gap:18px;flex-wrap:wrap}.footer-links a{font-size:10px;color:#4e5b6e}.footer-bottom{display:flex;justify-content:space-between;border-top:1px solid #e0e5ec;padding-top:18px;font-size:8px;letter-spacing:1px;color:#8791a0}.footer-bottom a{color:#4d5b6e}
+  @media(max-width:950px){.editorial-header{padding:0 24px}.main-nav{gap:15px}.main-nav a{font-size:10px}.header-cta{display:none}.welcome{gap:30px}.feature-image{height:340px}.story-layout{gap:24px}.side-story{grid-template-columns:115px 1fr;gap:13px}.side-art{height:100px}.about-band-inner{grid-template-columns:70px 1fr .8fr;gap:25px}}
+  @media(max-width:700px){.editorial-header{height:70px;padding:0 20px}.brand img{height:27px;max-width:125px}.main-nav{display:none;position:absolute;left:0;right:0;top:69px;padding:20px 24px;background:#fff;border-bottom:1px solid var(--hair);box-shadow:0 15px 25px #0000000b;flex-direction:column;align-items:flex-start;gap:18px}.main-nav.open{display:flex}.main-nav a{font-size:13px}.main-nav a.active:after{display:none}.mobile-toggle{display:block}.header-tools{gap:10px}.welcome{width:calc(100% - 40px);padding:57px 0 48px;grid-template-columns:1fr;gap:32px}.welcome h1{font-size:52px;letter-spacing:-3px}.welcome-copy>p{font-size:13px}.feature-image{height:300px}.feature-image-caption b{font-size:49px}.quick-strip{justify-content:flex-start;overflow-x:auto;gap:22px;white-space:nowrap;padding:15px 20px}.strip-label{display:none}.quick-strip a{font-size:10px}.content-section{width:calc(100% - 40px);padding:62px 0}.section-heading{align-items:flex-start;flex-direction:column;gap:17px}.section-heading h2{font-size:32px}.story-layout{grid-template-columns:1fr;gap:30px}.lead-art{height:260px}.lead-art>b{font-size:43px}.side-story{grid-template-columns:115px 1fr}.side-art{height:98px}.explore-section{padding-top:5px;padding-bottom:65px}.explore-grid{grid-template-columns:1fr;gap:13px}.explore-visual{height:165px}.explore-copy p{min-height:0}.about-band{padding:65px 20px}.about-band-inner{grid-template-columns:1fr;gap:20px}.about-mark{font-size:60px}.about-copy h2{font-size:39px}.about-aside{max-width:390px}.closing-section{width:calc(100% - 40px);padding:60px 0;align-items:flex-start;flex-direction:column}.closing-section h2{font-size:38px}.editorial-footer{padding:35px 20px 18px}.footer-main{grid-template-columns:1fr 1fr;gap:18px}.footer-main p{grid-column:1/-1;grid-row:2}.footer-links{grid-column:1/-1;justify-content:flex-start;grid-row:3}.footer-bottom{font-size:7px;letter-spacing:.4px}}
+  @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</body>
 </html>
