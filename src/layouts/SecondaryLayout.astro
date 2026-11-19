@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import '../styles/animations.css';
+import vanndikLogo from '../../logo-512.png';
 
 const { title, description, active = '' } = Astro.props;
 const navItems = [
@@ -27,7 +28,7 @@ const languages = [
     <meta name="theme-color" content="#080b12" />
     <meta name="description" content={description} />
     <title>{title} — VANNDIK</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href={vanndikLogo.src} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -35,7 +36,7 @@ const languages = [
   <body>
     <div class="site-shell">
       <header class="site-header inner-header">
-        <a class="wordmark" href="/" aria-label="VANNDIK home">VANNDIK<span>.</span></a>
+        <a class="wordmark" href="/" aria-label="VANNDIK home"><img class="brand-logo" src={vanndikLogo.src} alt="VANNDIK" /></a>
         <nav class="desktop-nav" id="mainNavigation" aria-label="Navigasi utama">
           {navItems.map((item) => <a href={item.href} aria-current={active === item.href ? 'page' : undefined}>{item.label}</a>)}
         </nav>
@@ -56,7 +57,7 @@ const languages = [
         <slot />
       </main>
       <footer class="site-footer inner-footer">
-        <a class="wordmark footer-wordmark" href="/">VANNDIK<span>.</span></a>
+        <a class="wordmark footer-wordmark" href="/" aria-label="VANNDIK home"><img class="brand-logo footer-brand-logo" src={vanndikLogo.src} alt="VANNDIK" /></a>
         <p>Ruang digital untuk ide, karya, teknologi, dan kemungkinan baru.</p>
         <div class="footer-meta"><span>© {new Date().getFullYear()} VANNDIK</span><a href="#top">KEMBALI KE ATAS ↑</a></div>
       </footer>
@@ -116,7 +117,7 @@ const languages = [
       }
     </script>
     <style>
-      .inner-header{position:sticky;background:rgba(8,11,18,.88)}
+      .brand-logo{display:block;width:auto;height:38px;max-width:170px;object-fit:contain}.footer-brand-logo{height:32px}.inner-header{position:sticky;background:rgba(8,11,18,.88)}
       .inner-main{min-height:calc(100vh - 150px);padding:0 0 70px}
       .inner-footer{position:relative}
       .desktop-nav a[aria-current="page"]{color:#fff}
