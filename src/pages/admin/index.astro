@@ -1,0 +1,262 @@
+---
+const pageTitle = 'VANNDIK CMS';
+---
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05060a" />
+  <meta name="description" content="Panel admin resmi VANNDIK untuk mengelola konten dan tampilan website." />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/admin-icon.svg" type="image/svg+xml" />
+  <title>{pageTitle}</title>
+</head>
+<body>
+  <div id="authScreen" class="auth-shell">
+    <div class="auth-brand"><img src="/admin-icon.svg" alt="" /><span>VANNDIK <b>CMS</b></span></div>
+    <div class="auth-card">
+      <div class="auth-kicker">CONTROL YOUR DIGITAL ECOSYSTEM</div>
+      <h1 id="authTitle">Welcome back.</h1>
+      <p id="authDescription">Masuk ke ruang kendali website VANNDIK.</p>
+      <form id="loginForm">
+        <label>Email admin<input name="email" type="email" autocomplete="username" placeholder="admin@domain.com" required /></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" placeholder="Masukkan password" required /></label>
+        <button class="primary-btn" type="submit">Masuk ke CMS <span>→</span></button>
+        <button class="passkey-btn" id="passkeyLogin" type="button"><span>◉</span> Masuk dengan sidik jari / passkey</button>
+      </form>
+      <form id="setupForm" hidden>
+        <div class="setup-note">Aktivasi pertama kali. Buat akun owner utama untuk mengamankan CMS.</div>
+        <label>Kode aktivasi<input name="setupToken" type="password" autocomplete="off" placeholder="Masukkan kode aktivasi" required /></label>
+        <label>Nama admin<input name="displayName" type="text" autocomplete="name" placeholder="Nama administrator" required /></label>
+        <label>Email admin<input name="email" type="email" autocomplete="email" placeholder="Email untuk login" required /></label>
+        <label>Password baru<input name="password" type="password" autocomplete="new-password" minlength="12" placeholder="Minimal 12 karakter" required /></label>
+        <button class="primary-btn" type="submit">Buat akun owner <span>→</span></button>
+      </form>
+      <div id="authMessage" class="auth-message" role="status"></div>
+      <div class="auth-foot"><span><i></i> ENCRYPTED ADMIN SESSION</span><span>VANNDIK · 2026</span></div>
+    </div>
+    <p class="auth-caption">PRIVATE ADMIN AREA · AUTHORIZED ACCESS ONLY</p>
+  </div>
+
+  <div id="appShell" class="app-shell" hidden>
+    <aside class="sidebar" id="sidebar">
+      <a class="side-brand" href="/"><img src="/admin-icon.svg" alt="" /><span>VANNDIK <small>CONTROL CENTER</small></span></a>
+      <div class="side-label">WORKSPACE</div>
+      <nav id="mainNav">
+        <button class="nav-item active" data-view="overview"><span>⌂</span> Ringkasan</button>
+        <div class="side-label nav-group-label">CONTENT MANAGEMENT</div>
+        <button class="nav-item" data-view="article"><span>▤</span> Artikel <em id="nav-article">0</em></button>
+        <button class="nav-item" data-view="news"><span>◷</span> Berita <em id="nav-news">0</em></button>
+        <button class="nav-item" data-view="product"><span>◇</span> Produk Affiliate <em id="nav-product">0</em></button>
+        <button class="nav-item" data-view="game"><span>▣</span> Game <em id="nav-game">0</em></button>
+        <button class="nav-item" data-view="app"><span>▦</span> Aplikasi & Tools <em id="nav-app">0</em></button>
+        <div class="side-label nav-group-label">SITE CONTROL</div>
+        <button class="nav-item" data-view="themes"><span>◐</span> Tema & Tampilan</button>
+        <button class="nav-item" data-view="pages"><span>▧</span> Halaman & Navigasi</button>
+        <button class="nav-item" data-view="media"><span>▧</span> Media Library</button>
+        <button class="nav-item" data-view="security"><span>⌑</span> Keamanan Admin</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="system-status"><i></i><span><b>System online</b><small>Cloudflare · D1 Database</small></span></div>
+        <a class="visit-site" href="/" target="_blank" rel="noreferrer">Lihat website <span>↗</span></a>
+        <button class="profile-mini" id="profileButton"><span class="avatar">VW</span><span><b id="adminName">Administrator</b><small id="adminEmail">admin</small></span><span class="profile-more">···</span></button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div class="topbar-left"><button class="mobile-menu" id="mobileMenu" aria-label="Buka menu">☰</button><div><div class="top-eyebrow">VANNDIK / ADMINISTRATION</div><div class="top-title" id="topTitle">Ringkasan</div></div></div>
+        <div class="topbar-actions"><span class="secure-label"><i></i> SECURE SESSION</span><button class="install-btn" id="installButton" hidden>＋ Install App</button><a class="view-site-btn" href="/" target="_blank" rel="noreferrer">Website ↗</a></div>
+      </header>
+      <section id="view" class="view-content"></section>
+      <footer class="app-footer"><span>VANNDIK CMS <b>·</b> CONTROL CENTER</span><span>BUILT FOR CLARITY. DESIGNED FOR CONTROL.</span></footer>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+  <div id="toast" class="toast" role="status"></div>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+    :root{color-scheme:dark;--bg:#05060a;--panel:#0c111c;--panel2:#101827;--line:#202b3d;--text:#f4f6fb;--muted:#8492a8;--blue:#1769ff;--cyan:#42d9ff;--green:#39ff88;--purple:#a855f7}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px}button,input,textarea,select{font:inherit}button{cursor:pointer}a{color:inherit;text-decoration:none}[hidden]{display:none!important}
+    .auth-shell{min-height:100vh;display:grid;place-items:center;padding:32px 18px;background:radial-gradient(ellipse at 50% 15%,#173d7b44,transparent 48%),linear-gradient(135deg,#05060a,#080d18 60%,#090713)}.auth-brand{position:absolute;top:30px;left:36px;display:flex;align-items:center;gap:11px;font:800 15px Manrope;letter-spacing:1px}.auth-brand img{width:34px;height:34px}.auth-brand b{color:var(--cyan)}.auth-card{width:min(450px,100%);padding:38px;border:1px solid #2a3b57;border-radius:14px;background:#0b111deF;box-shadow:0 30px 100px #0008}.auth-kicker,.top-eyebrow,.side-label{font-size:9px;letter-spacing:1.8px;color:#6fbcff;font-weight:700}.auth-card h1{font:800 33px Manrope;letter-spacing:-1.5px;margin:13px 0 7px}.auth-card>p{margin:0 0 26px;color:var(--muted);font-size:12px}.auth-card form{display:grid;gap:15px}.auth-card label,.field{display:grid;gap:7px;color:#bac6d8;font-size:11px}.auth-card input,.field input,.field textarea,.field select{width:100%;min-width:0;border:1px solid #2b3850;border-radius:6px;background:#080e19;color:#f4f6fb;padding:12px 13px;outline:none}.auth-card input:focus,.field input:focus,.field textarea:focus,.field select:focus{border-color:#3d8aff;box-shadow:0 0 0 3px #1769ff20}.primary-btn{display:flex;justify-content:space-between;align-items:center;margin-top:4px;border:1px solid #438cff;border-radius:6px;padding:13px 15px;background:linear-gradient(100deg,#1769ff,#2558ca);color:#fff;font-weight:700;font-size:12px}.primary-btn span{font-size:17px}.passkey-btn{border:1px solid #2d405e;border-radius:6px;padding:12px;background:#101b2d;color:#dceaff;font-size:11px}.passkey-btn span{margin-right:8px;color:var(--cyan);font-size:17px}.auth-message{min-height:20px;margin-top:12px;color:#ff9c9c;font-size:11px}.auth-message.success{color:var(--green)}.auth-foot{display:flex;justify-content:space-between;gap:10px;margin-top:22px;padding-top:17px;border-top:1px solid #253044;color:#71819b;font-size:8px;letter-spacing:1px}.auth-foot i,.secure-label i,.system-status i{display:inline-block;width:6px;height:6px;margin-right:7px;border-radius:50%;background:var(--green);box-shadow:0 0 9px #39ff88}.auth-caption{position:absolute;bottom:20px;color:#596780;font-size:8px;letter-spacing:2px}.setup-note{padding:12px;border:1px solid #3b6b9b;border-radius:6px;background:#1769ff13;color:#b5d5ff;font-size:11px;line-height:1.6}
+    .app-shell{min-height:100vh}.sidebar{position:fixed;z-index:20;inset:0 auto 0 0;width:248px;display:flex;flex-direction:column;padding:23px 15px 15px;border-right:1px solid var(--line);background:#080c14}.side-brand{display:flex;align-items:center;gap:11px;padding:0 9px 26px;font:800 13px Manrope;letter-spacing:.8px}.side-brand img{width:37px;height:37px}.side-brand small{display:block;margin-top:4px;color:#687992;font:600 8px 'DM Sans';letter-spacing:1.8px}.side-label{padding:9px 10px 10px;color:#5f718d;font-size:8px}.nav-group-label{margin-top:19px}.sidebar nav{flex:1;overflow:auto}.nav-item{width:100%;display:flex;align-items:center;gap:11px;padding:10px 11px;margin:2px 0;border:1px solid transparent;border-radius:6px;background:transparent;color:#a1aec1;text-align:left;font-size:11px;transition:.18s}.nav-item>span{width:18px;color:#7e9cc6;font-size:16px;text-align:center}.nav-item em{margin-left:auto;color:#71829b;font-style:normal;font-size:9px}.nav-item:hover{background:#121d30;color:#fff}.nav-item.active{border-color:#28508b;background:#1769ff20;color:#fff}.nav-item.active>span{color:var(--cyan)}.sidebar-bottom{margin-top:15px}.system-status{display:flex;align-items:center;gap:9px;padding:12px;border:1px solid #26364b;border-radius:6px;background:#0c1420}.system-status b,.system-status small,.profile-mini b,.profile-mini small{display:block}.system-status b{font-size:10px}.system-status small{margin-top:4px;color:#71819a;font-size:9px}.visit-site{display:flex;justify-content:space-between;padding:13px 10px;color:#9baec8;font-size:10px}.profile-mini{width:100%;display:flex;align-items:center;gap:9px;padding:12px 4px 2px;border:0;border-top:1px solid var(--line);background:none;color:#e8eef9;text-align:left}.avatar{width:31px;height:31px;display:grid;place-items:center;border-radius:9px;background:linear-gradient(140deg,#1769ff,#7d55df);font:800 10px Manrope}.profile-mini b{font-size:10px}.profile-mini small{margin-top:3px;color:#73839b;font-size:9px}.profile-more{margin-left:auto;color:#8d9bb0;font-size:20px}
+    .main-area{min-height:100vh;margin-left:248px;display:flex;flex-direction:column}.topbar{height:75px;position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-bottom:1px solid var(--line);background:#080c14ed;backdrop-filter:blur(18px)}.topbar-left{display:flex;align-items:center;gap:12px}.top-eyebrow{font-size:8px;color:#6f809b}.top-title{margin-top:4px;font:700 15px Manrope}.topbar-actions{display:flex;align-items:center;gap:17px}.secure-label{color:#8b9ab0;font-size:8px;letter-spacing:1px}.install-btn,.view-site-btn{border:1px solid #30496b;border-radius:5px;padding:9px 12px;background:#12213a;color:#d7e9ff;font-size:10px}.view-site-btn{background:transparent;color:#9bacbf}.mobile-menu{display:none;border:1px solid #2c3c54;border-radius:5px;padding:7px 9px;background:#101827;color:white}.view-content{flex:1;width:100%;max-width:1450px;margin:0 auto;padding:30px 32px 45px}.app-footer{display:flex;justify-content:space-between;gap:12px;padding:17px 32px;border-top:1px solid var(--line);color:#596980;font-size:8px;letter-spacing:1.1px}.app-footer b{color:var(--cyan)}
+    .page-head{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:24px}.page-head h1{margin:8px 0 6px;font:800 26px Manrope;letter-spacing:-1px}.page-head p{margin:0;color:var(--muted);font-size:11px}.eyebrow{color:#64baff;font-size:8px;font-weight:700;letter-spacing:1.8px}.action-btn{border:1px solid #3777ce;border-radius:5px;padding:10px 14px;background:#1769ff;color:#fff;font-size:10px;font-weight:700}.action-btn.secondary{border-color:#2a3a52;background:#111a29;color:#cfdaeb}.stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}.stat-card{position:relative;overflow:hidden;padding:17px;border:1px solid #263349;border-radius:8px;background:linear-gradient(145deg,#101a2a,#0a0f19)}.stat-card:after{content:'';position:absolute;width:80px;height:80px;right:-24px;top:-26px;border:1px solid #1769ff33;border-radius:50%;box-shadow:0 0 0 12px #1769ff08}.stat-label{color:#8a9ab2;font-size:9px}.stat-value{margin:13px 0 4px;font:800 27px Manrope}.stat-sub{color:#687c99;font-size:8px}.stat-icon{position:absolute;right:14px;bottom:14px;color:#42d9ff;font-size:20px}.overview-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-top:16px}.panel{border:1px solid #253247;border-radius:8px;background:#0c121e}.panel-head{display:flex;align-items:center;justify-content:space-between;padding:16px 17px;border-bottom:1px solid #202c40}.panel-head h3{margin:0;font:700 12px Manrope}.panel-head span{color:#74849d;font-size:9px}.quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;padding:15px}.quick-card{display:flex;align-items:center;gap:11px;padding:13px;border:1px solid #26374e;border-radius:6px;background:#101a2a;color:#dfeaff;text-align:left}.quick-card:hover{border-color:#3976c4;background:#14233b}.quick-card>span:first-child{width:32px;height:32px;display:grid;place-items:center;border-radius:8px;background:#1769ff24;color:#5cdfff;font-size:17px}.quick-card b{display:block;font-size:10px}.quick-card small{display:block;margin-top:4px;color:#7f90a8;font-size:8px}.activity-list{padding:6px 16px}.activity-item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #1c2738}.activity-item:last-child{border:0}.activity-dot{width:7px;height:7px;border-radius:50%;background:#42d9ff;box-shadow:0 0 10px #42d9ff77}.activity-item b{display:block;font-size:10px}.activity-item small{display:block;margin-top:4px;color:#71829a;font-size:8px}.empty-state{padding:30px 15px;color:#8191a9;text-align:center;font-size:10px}
+    .table-tools{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px}.search-box{width:min(310px,100%);padding:10px 12px;border:1px solid #29374c;border-radius:5px;background:#0b111c;color:#f4f6fb;outline:0;font-size:10px}.filter-select{padding:9px 11px;border:1px solid #29374c;border-radius:5px;background:#0b111c;color:#b9c6d8;font-size:10px}.content-table{width:100%;border-collapse:collapse}.content-table th{padding:12px 14px;background:#0a101a;color:#74849d;text-align:left;font-size:8px;letter-spacing:1px;font-weight:600}.content-table td{padding:13px 14px;border-top:1px solid #202c40;color:#c8d3e3;font-size:10px}.content-table tr:hover td{background:#111a28}.content-title{font-weight:700;color:#edf4ff}.content-sub{margin-top:4px;color:#72839b;font-size:8px}.status{display:inline-block;padding:5px 8px;border:1px solid #32435b;border-radius:30px;color:#a5b4c8;font-size:8px}.status.published{border-color:#23774b66;background:#39ff8810;color:#63efa1}.status.draft{color:#d6b67b}.status.scheduled{color:#78c7ff}.row-actions{display:flex;gap:6px}.tiny-btn{border:1px solid #30415a;border-radius:4px;padding:6px 8px;background:#101a2a;color:#c6d6ed;font-size:8px}.tiny-btn.danger{color:#ff9a9a}.table-wrap{overflow-x:auto}
+    .theme-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px}.theme-preview{min-height:280px;display:flex;flex-direction:column;justify-content:space-between;padding:24px;border:1px solid #2d3d56;border-radius:9px;background:#070b13}.preview-nav{display:flex;justify-content:space-between;align-items:center;font:700 11px Manrope}.preview-logo{color:#fff}.preview-logo b{color:#42d9ff}.preview-hero{padding:25px 0}.preview-hero small{color:#42d9ff;font-size:8px;letter-spacing:2px}.preview-hero h2{max-width:320px;margin:12px 0;font:800 29px/1.1 Manrope}.preview-hero p{max-width:280px;color:#9ba9bd;font-size:10px;line-height:1.7}.preview-cta{display:inline-block;padding:9px 12px;border-radius:4px;background:#1769ff;font-size:9px}.theme-controls{padding:17px}.theme-controls h3{margin:0 0 18px;font:700 13px Manrope}.color-field{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid #202c40;color:#aebbd0;font-size:10px}.color-field input{width:42px;height:30px;padding:2px;border:1px solid #40516b;border-radius:5px;background:transparent}.page-select{width:100%;margin-bottom:14px;padding:10px;border:1px solid #2b3b53;border-radius:5px;background:#0a111d;color:#eaf1fc;font-size:10px}
+    .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.settings-card{padding:18px}.settings-card h3{margin:0 0 7px;font:700 13px Manrope}.settings-card>p{margin:0 0 17px;color:#8292a9;font-size:10px;line-height:1.6}.settings-card .field{margin-bottom:13px}.field textarea{min-height:90px;resize:vertical}.security-card{padding:20px}.security-row{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid #202c40}.security-row:last-child{border:0}.security-row b{display:block;font-size:11px}.security-row small{display:block;margin-top:5px;color:#7d8da5;font-size:9px}.media-warning{padding:16px;border:1px solid #8b6a2e66;border-radius:7px;background:#8b6a2e14;color:#d9c08e;font-size:10px;line-height:1.7}.media-drop{margin-top:18px;padding:35px 15px;border:1px dashed #40506a;border-radius:8px;text-align:center;color:#8192aa}.media-drop b{display:block;margin:9px 0;color:#e0e9f8;font-size:12px}.media-drop span{font-size:27px;color:#42d9ff}
+    .modal-backdrop{position:fixed;z-index:50;inset:0;display:grid;place-items:center;padding:20px;background:#02040bd9;backdrop-filter:blur(8px)}.modal{width:min(760px,100%);max-height:90vh;overflow:auto;border:1px solid #34455f;border-radius:10px;background:#0b111c;box-shadow:0 30px 100px #000a}.modal-head{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #28364b;background:#0b111c}.modal-head h3{margin:0;font:700 14px Manrope}.close-btn{border:0;background:none;color:#9baac0;font-size:22px}.modal-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:20px}.modal-form .wide{grid-column:1/-1}.modal-form textarea{min-height:130px}.modal-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:9px;padding-top:8px}.toast{position:fixed;z-index:80;right:24px;bottom:24px;max-width:min(380px,calc(100% - 48px));padding:13px 16px;border:1px solid #34547b;border-radius:7px;background:#101d30;color:#e5f2ff;box-shadow:0 12px 40px #0008;font-size:10px;opacity:0;transform:translateY(10px);pointer-events:none;transition:.25s}.toast.show{opacity:1;transform:translateY(0)}
+    @media(max-width:1100px){.stats-grid{grid-template-columns:repeat(3,1fr)}.overview-grid{grid-template-columns:1fr}.view-content{padding:25px 22px}.topbar{padding:0 22px}}
+    @media(max-width:760px){.sidebar{transform:translateX(-100%);transition:transform .25s;box-shadow:20px 0 60px #0008}.sidebar.open{transform:translateX(0)}.main-area{margin-left:0}.mobile-menu{display:block}.topbar{height:66px;padding:0 15px}.secure-label{display:none}.view-site-btn{display:none}.view-content{padding:22px 15px 35px}.app-footer{padding:14px 15px;font-size:7px}.app-footer span:last-child{display:none}.stats-grid{grid-template-columns:repeat(2,1fr);gap:8px}.stat-card{padding:13px}.stat-value{font-size:23px}.page-head{align-items:flex-start;flex-direction:column}.theme-layout,.settings-grid{grid-template-columns:1fr}.table-tools{flex-direction:column}.search-box{width:100%}.modal-form{grid-template-columns:1fr;padding:15px}.modal-form .wide{grid-column:auto}.modal-actions{grid-column:auto}.auth-card{padding:27px 22px}.auth-brand{top:18px;left:18px}.auth-caption{display:none}.topbar-actions{gap:7px}.install-btn{padding:8px;font-size:9px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+
+  <script>
+    import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
+
+    const $ = (selector, root = document) => root.querySelector(selector);
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+    const authScreen = $('#authScreen'), appShell = $('#appShell'), authMessage = $('#authMessage');
+    const view = $('#view'), modalRoot = $('#modalRoot'), toastEl = $('#toast');
+    const labels = {overview:'Ringkasan',article:'Artikel',news:'Berita',product:'Produk Affiliate',game:'Game',app:'Aplikasi & Tools',themes:'Tema & Tampilan',pages:'Halaman & Navigasi',media:'Media Library',security:'Keamanan Admin'};
+    let currentAdmin = null, currentType = 'article', settingsCache = {}, installPrompt = null, toastTimer;
+
+    async function api(path, options = {}) {
+      const response = await fetch('/api/cms/' + path, { credentials:'same-origin', ...options, headers:{ ...(options.body ? {'content-type':'application/json'} : {}), ...(options.headers || {}) } });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Permintaan gagal.');
+      return data;
+    }
+    function notify(message, isError = false) {
+      toastEl.textContent = message; toastEl.style.borderColor = isError ? '#9b4646' : '#34547b';
+      toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3200);
+    }
+    function authNotice(message, success = false) { authMessage.textContent = message || ''; authMessage.classList.toggle('success',success); }
+    function showAuth(setup = false) {
+      authScreen.hidden = false; appShell.hidden = true;
+      $('#loginForm').hidden = setup; $('#setupForm').hidden = !setup;
+      $('#authTitle').textContent = setup ? 'Create your access.' : 'Welcome back.';
+      $('#authDescription').textContent = setup ? 'Aktivasi pertama untuk mengunci ruang admin.' : 'Masuk ke ruang kendali website VANNDIK.';
+      $('#passkeyLogin').hidden = setup; authNotice('');
+    }
+    function showApp(admin) {
+      currentAdmin = admin; authScreen.hidden = true; appShell.hidden = false;
+      $('#adminName').textContent = admin.display_name || 'Administrator'; $('#adminEmail').textContent = admin.email;
+      $('#profileButton').title = 'Keluar dari CMS'; openView('overview');
+      loadStats();
+    }
+    async function boot() {
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('/admin-sw.js',{scope:'/admin/'}).catch(()=>{});
+      try {
+        const setup = await fetch('/api/cms/setup').then(r=>r.json());
+        if (setup.setupRequired) return showAuth(true);
+        try { const me = await api('me'); if (me.authenticated) return showApp(me.admin); } catch {}
+        showAuth(false);
+      } catch { showAuth(false); authNotice('Tidak dapat menghubungi server CMS. Coba muat ulang.'); }
+    }
+
+    $('#setupForm').addEventListener('submit', async event => {
+      event.preventDefault(); const form = new FormData(event.currentTarget);
+      try {
+        const data = await api('setup',{method:'POST',body:JSON.stringify(Object.fromEntries(form))});
+        showApp(data.admin); notify('Akun owner berhasil dibuat.');
+      } catch(error) { authNotice(error.message); }
+    });
+    $('#loginForm').addEventListener('submit', async event => {
+      event.preventDefault(); const form = new FormData(event.currentTarget);
+      try { const data = await api('login',{method:'POST',body:JSON.stringify(Object.fromEntries(form))}); showApp(data.admin); }
+      catch(error) { authNotice(error.message); }
+    });
+    $('#passkeyLogin').addEventListener('click', async () => {
+      const email = $('#loginForm [name=email]').value.trim();
+      if (!email) return authNotice('Isi email admin terlebih dahulu.');
+      try {
+        const options = await api('passkey/login/options',{method:'POST',body:JSON.stringify({email})});
+        const response = await startAuthentication({optionsJSON:options});
+        const result = await api('passkey/login/verify',{method:'POST',body:JSON.stringify({email,response})});
+        showApp(result.admin);
+      } catch(error) { authNotice(error.message || 'Login passkey dibatalkan.'); }
+    });
+    $('#profileButton').addEventListener('click', async () => {
+      if (!confirm('Keluar dari VANNDIK CMS?')) return;
+      try { await api('logout',{method:'POST',body:'{}'}); } catch {}
+      currentAdmin = null; showAuth(false);
+    });
+
+    function openView(name) {
+      $$('.nav-item').forEach(button => button.classList.toggle('active',button.dataset.view===name));
+      $('#topTitle').textContent = labels[name] || 'VANNDIK CMS';
+      $('#sidebar').classList.remove('open');
+      if (name === 'overview') renderOverview();
+      else if (['article','news','product','game','app'].includes(name)) { currentType=name; renderContent(name); }
+      else if (name === 'themes') renderThemes();
+      else if (name === 'pages') renderPages();
+      else if (name === 'media') renderMedia();
+      else if (name === 'security') renderSecurity();
+    }
+    $$('#mainNav [data-view]').forEach(button => button.addEventListener('click',()=>openView(button.dataset.view)));
+    $('#mobileMenu').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
+    $('#installButton').addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('#installButton').hidden=true;});
+    window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;$('#installButton').hidden=false;});
+
+    async function loadStats() {
+      try {
+        const data=await api('stats');
+        Object.keys(data.stats).filter(k=>['article','news','product','game','app'].includes(k)).forEach(k=>{const el=$('#nav-'+k);if(el)el.textContent=data.stats[k]||0;});
+      } catch {}
+    }
+    async function renderOverview() {
+      view.innerHTML='<div class="page-head"><div><div class="eyebrow">YOUR DIGITAL ECOSYSTEM</div><h1>Selamat datang, '+escapeHTML(currentAdmin?.display_name || 'Admin')+'.</h1><p>Semua kendali konten dan tampilan VANNDIK ada di satu tempat.</p></div><button class="action-btn" id="quickArticle">＋ Buat konten baru</button></div><div class="stats-grid" id="statsGrid"><div class="stat-card"><div class="stat-label">Memuat statistik</div><div class="stat-value">—</div></div></div><div class="overview-grid"><div class="panel"><div class="panel-head"><h3>Quick actions</h3><span>CREATE & MANAGE</span></div><div class="quick-grid"><button class="quick-card" data-create="article"><span>▤</span><span><b>Tulis artikel</b><small>Draft atau publikasi</small></span></button><button class="quick-card" data-create="news"><span>◷</span><span><b>Tambah berita</b><small>Update informasi terbaru</small></span></button><button class="quick-card" data-create="product"><span>◇</span><span><b>Tambah produk</b><small>Kelola tautan affiliate</small></span></button><button class="quick-card" data-create="game"><span>▣</span><span><b>Tambah game</b><small>Katalog permainan</small></span></button></div></div><div class="panel"><div class="panel-head"><h3>Aktivitas admin</h3><span>RECENT LOGS</span></div><div class="activity-list" id="activityList"><div class="empty-state">Memuat aktivitas...</div></div></div></div>';
+      $('#quickArticle').addEventListener('click',()=>openEditor('article'));
+      $$('[data-create]').forEach(button=>button.addEventListener('click',()=>openEditor(button.dataset.create)));
+      try {
+        const data=await api('stats');
+        const cards=[['Artikel',data.stats.article,'▤'],['Berita',data.stats.news,'◷'],['Affiliate',data.stats.product,'◇'],['Game',data.stats.game,'▣'],['Aplikasi & Tools',data.stats.app,'▦']];
+        $('#statsGrid').innerHTML=cards.map((c,i)=>'<div class="stat-card"><div class="stat-label">'+c[0]+'</div><div class="stat-value">'+c[1]+'</div><div class="stat-sub">TOTAL TERSIMPAN</div><span class="stat-icon">'+c[2]+'</span></div>').join('');
+        $('#activityList').innerHTML=data.activity.length?data.activity.map(a=>'<div class="activity-item"><i class="activity-dot"></i><span><b>'+escapeHTML(a.action.replaceAll('.',' '))+'</b><small>'+escapeHTML(new Date(a.created_at+'Z').toLocaleString('id-ID'))+'</small></span></div>').join(''):'<div class="empty-state">Belum ada aktivitas. Mulai kelola konten pertamamu.</div>';
+      } catch(error) { notify(error.message,true); }
+    }
+    function escapeHTML(value) { return String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    const typeNames={article:'Artikel',news:'Berita',product:'Produk Affiliate',game:'Game',app:'Aplikasi & Tools'};
+    async function renderContent(type,query='') {
+      view.innerHTML='<div class="page-head"><div><div class="eyebrow">CONTENT MANAGEMENT</div><h1>'+typeNames[type]+'</h1><p>Tambah, ubah, atur status, dan kelola konten '+typeNames[type].toLowerCase()+' VANNDIK.</p></div><button class="action-btn" id="addContent">＋ Tambah '+typeNames[type]+'</button></div><div class="table-tools"><input class="search-box" id="contentSearch" type="search" placeholder="Cari judul atau kategori..." value="'+escapeHTML(query)+'" /><select class="filter-select" id="statusFilter"><option value="">Semua status</option><option value="published">Published</option><option value="draft">Draft</option><option value="scheduled">Terjadwal</option><option value="archived">Arsip</option></select></div><div class="panel table-wrap"><table class="content-table"><thead><tr><th>JUDUL KONTEN</th><th>KATEGORI</th><th>STATUS</th><th>DIUBAH</th><th>AKSI</th></tr></thead><tbody id="contentRows"><tr><td colspan="5">Memuat...</td></tr></tbody></table></div>';
+      $('#addContent').addEventListener('click',()=>openEditor(type));
+      let all=[];
+      const draw=()=>{
+        const q=$('#contentSearch').value.toLowerCase(), status=$('#statusFilter').value;
+        const rows=all.filter(item=>(item.title+' '+item.category).toLowerCase().includes(q)&&(!status||item.status===status));
+        $('#contentRows').innerHTML=rows.length?rows.map(item=>'<tr><td><div class="content-title">'+escapeHTML(item.title)+'</div><div class="content-sub">/'+escapeHTML(item.slug)+'</div></td><td>'+escapeHTML(item.category||'—')+'</td><td><span class="status '+item.status+'">'+escapeHTML(item.status)+'</span></td><td>'+escapeHTML(item.updated_at||'—')+'</td><td><div class="row-actions"><button class="tiny-btn" data-edit="'+item.id+'">Edit</button><button class="tiny-btn danger" data-delete="'+item.id+'">Hapus</button></div></td></tr>').join(''):'<tr><td colspan="5"><div class="empty-state">Belum ada konten pada kategori ini.</div></td></tr>';
+        $$('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEditor(type,all.find(x=>x.id===b.dataset.edit))));
+        $$('[data-delete]').forEach(b=>b.addEventListener('click',async()=>{const item=all.find(x=>x.id===b.dataset.delete);if(!confirm('Hapus konten "'+item.title+'"?'))return;try{await api('content/'+item.id,{method:'DELETE',body:'{}'});notify('Konten dihapus.');await renderContent(type);loadStats();}catch(e){notify(e.message,true);}}));
+      };
+      $('#contentSearch').addEventListener('input',draw);$('#statusFilter').addEventListener('change',draw);
+      try{const data=await api('content?type='+type);all=data.items||[];draw();}catch(e){$('#contentRows').innerHTML='<tr><td colspan="5">'+escapeHTML(e.message)+'</td></tr>';}
+    }
+    function openEditor(type,item={}) {
+      const editing=!!item.id;
+      modalRoot.innerHTML='<div class="modal-backdrop"><div class="modal"><div class="modal-head"><h3>'+(editing?'Edit ':'Tambah ')+typeNames[type]+'</h3><button class="close-btn" id="closeModal">×</button></div><form class="modal-form" id="contentForm"><label class="field wide">Judul<input name="title" required maxlength="180" value="'+escapeHTML(item.title||'')+'" /></label><label class="field">Slug URL<input name="slug" value="'+escapeHTML(item.slug||'')+'" placeholder="dibuat-otomatis-dari-judul" /></label><label class="field">Kategori<input name="category" value="'+escapeHTML(item.category||'')+'" placeholder="Kategori konten" /></label><label class="field wide">Ringkasan<textarea name="excerpt" maxlength="600">'+escapeHTML(item.excerpt||'')+'</textarea></label><label class="field wide">Isi / deskripsi<textarea name="body">'+escapeHTML(item.body||'')+'</textarea></label><label class="field wide">URL gambar cover<input name="image_url" type="url" value="'+escapeHTML(item.image_url||'')+'" placeholder="https://... (unggah file tersedia setelah R2 aktif)" /></label><label class="field">Status<select name="status"><option value="draft">Draft</option><option value="published">Published</option><option value="scheduled">Terjadwal</option><option value="archived">Arsip</option></select></label><label class="field">Urutan tampil<input name="sort_order" type="number" min="0" value="'+(item.sort_order||0)+'" /></label><label class="field product-fields">Harga / label harga<input name="price" value="'+escapeHTML(item.price||'')+'" placeholder="Contoh: Rp 99.000" /></label><label class="field affiliate-fields">Link affiliate<input name="affiliate_url" type="url" value="'+escapeHTML(item.affiliate_url||'')+'" placeholder="https://..." /></label><label class="field target-fields wide">URL tujuan / demo game / aplikasi<input name="target_url" type="url" value="'+escapeHTML(item.target_url||'')+'" placeholder="https://..." /></label><label class="field"><span><input name="featured" type="checkbox" style="width:auto" '+(item.featured?'checked':'')+' /> Tampilkan sebagai unggulan</span></label><div class="modal-actions"><button class="action-btn secondary" type="button" id="cancelModal">Batal</button><button class="action-btn" type="submit">Simpan konten</button></div></form></div></div>';
+      const modal=$('.modal-backdrop',modalRoot), form=$('#contentForm',modalRoot);
+      $('select[name=status]',form).value=item.status||'draft';
+      $('.product-fields',form).hidden=type!=='product';$('.affiliate-fields',form).hidden=type!=='product';$('.target-fields',form).hidden=!['game','app'].includes(type);
+      const titleInput=$('input[name=title]',form),slugInput=$('input[name=slug]',form);
+      titleInput.addEventListener('input',()=>{if(!editing)slugInput.value=titleInput.value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');});
+      const close=()=>modalRoot.innerHTML='';$('#closeModal',modalRoot).addEventListener('click',close);$('#cancelModal',modalRoot).addEventListener('click',close);
+      form.addEventListener('submit',async event=>{event.preventDefault();const data=Object.fromEntries(new FormData(form));data.type=type;data.featured=$('input[name=featured]',form).checked;data.sort_order=Number(data.sort_order||0);try{await api(editing?'content/'+item.id:'content',{method:editing?'PUT':'POST',body:JSON.stringify(data)});close();notify('Konten berhasil disimpan.');await renderContent(type);loadStats();}catch(e){notify(e.message,true);}});
+    }
+
+    function parseSetting(key,fallback={}) { try{return JSON.parse(settingsCache[key]||'');}catch{return fallback;} }
+    async function loadSettings(){const data=await api('settings');settingsCache=data.settings||{};return settingsCache;}
+    async function saveSettings(settings){await api('settings',{method:'PUT',body:JSON.stringify({settings})});Object.assign(settingsCache,Object.fromEntries(Object.entries(settings).map(([k,v])=>[k,typeof v==='string'?v:JSON.stringify(v)])));notify('Pengaturan berhasil disimpan.');}
+    async function renderThemes(){
+      try{await loadSettings();}catch(e){notify(e.message,true);}
+      const global=parseSetting('theme.global',{mode:'dark',primary:'#1769FF',accent:'#42D9FF',background:'#05060A'});
+      view.innerHTML='<div class="page-head"><div><div class="eyebrow">DESIGN SYSTEM</div><h1>Tema & Tampilan</h1><p>Atur identitas visual global atau buat penyesuaian untuk setiap halaman.</p></div><button class="action-btn" id="saveTheme">Simpan tema</button></div><div class="theme-layout"><div class="theme-preview" id="themePreview"><div class="preview-nav"><span class="preview-logo">VANNDIK<span> .</span><b> DIGITAL</b></span><span>Beranda　Tentang　Artikel　Game</span></div><div class="preview-hero"><small>PREMIUM DIGITAL EXPERIENCE</small><h2>Membangun ide menjadi pengalaman digital.</h2><p>Jelajahi dunia digital dalam satu ekosistem yang terhubung.</p><span class="preview-cta">Jelajahi sekarang ↗</span></div><div class="preview-nav"><span>VANNDIK © 2026</span><span>BLACK / BLUE / CYAN</span></div></div><div class="panel theme-controls"><h3>Global design tokens</h3><label class="color-field">Warna utama <input id="themePrimary" type="color" value="'+escapeHTML(global.primary||'#1769FF')+'" /></label><label class="color-field">Warna aksen <input id="themeAccent" type="color" value="'+escapeHTML(global.accent||'#42D9FF')+'" /></label><label class="color-field">Warna latar <input id="themeBackground" type="color" value="'+escapeHTML(global.background||'#05060A')+'" /></label><label class="color-field">Mode tampilan <select id="themeMode" class="filter-select"><option value="dark">Dark premium</option><option value="light">Light minimal</option></select></label><div style="margin-top:18px;color:#8292a9;font-size:9px;line-height:1.7">Warna global menjadi dasar tema website. Tema per halaman dapat menyimpan override khusus.</div></div></div><div class="panel theme-controls" style="margin-top:14px"><h3>Penyesuaian per halaman</h3><select id="themePage" class="page-select"><option value="home">Beranda</option><option value="tentang">Tentang</option><option value="berita">Berita</option><option value="artikel">Artikel</option><option value="produk">Produk</option><option value="game">Game</option><option value="aplikasi">Aplikasi</option></select><div class="color-field">Warna utama halaman <input id="pagePrimary" type="color" value="#1769FF" /></div><div class="color-field">Warna aksen halaman <input id="pageAccent" type="color" value="#42D9FF" /></div><p style="color:#7d8da5;font-size:9px">Override disimpan terpisah untuk setiap halaman dan siap diterapkan ke tampilan publik pada integrasi tema.</p></div>';
+      $('#themeMode').value=global.mode||'dark';
+      const updatePreview=()=>{$('#themePreview').style.background=$('#themeBackground').value;$('.preview-cta').style.background=$('#themePrimary').value;$('.preview-hero small').style.color=$('#themeAccent').value;};
+      ['themePrimary','themeAccent','themeBackground'].forEach(id=>$('#'+id).addEventListener('input',updatePreview));
+      $('#themePage').addEventListener('change',()=>{const page=parseSetting('theme.'+$('#themePage').value,{});$('#pagePrimary').value=page.primary||global.primary||'#1769FF';$('#pageAccent').value=page.accent||global.accent||'#42D9FF';});
+      $('#themePage').dispatchEvent(new Event('change'));
+      $('#saveTheme').addEventListener('click',async()=>{const next={mode:$('#themeMode').value,primary:$('#themePrimary').value,accent:$('#themeAccent').value,background:$('#themeBackground').value};const key='theme.'+$('#themePage').value;const page={primary:$('#pagePrimary').value,accent:$('#pageAccent').value};try{await saveSettings({'theme.global':next,[key]:page});}catch(e){notify(e.message,true);}});
+    }
+    async function renderPages(){
+      try{await loadSettings();}catch(e){}
+      const nav=parseSetting('site.navigation',[]),footer=parseSetting('site.footer',{description:'Premium Digital Experience',copyright:'© 2026 VANNDIK'});
+      view.innerHTML='<div class="page-head"><div><div class="eyebrow">SITE CONFIGURATION</div><h1>Halaman & Navigasi</h1><p>Kelola menu utama, footer, informasi website, dan bahasa yang tersedia.</p></div><button class="action-btn" id="savePages">Simpan pengaturan</button></div><div class="settings-grid"><div class="panel settings-card"><h3>Navigasi utama</h3><p>Satu baris satu menu, format: Label | URL. Contoh: Beranda | /</p><label class="field">Daftar menu<textarea id="navText">'+escapeHTML((nav.length?nav:[['Beranda','/'],['Tentang','/tentang/'],['Berita','/berita/'],['Artikel','/artikel/'],['Produk','/produk/'],['Aplikasi','/aplikasi/'],['Game','/game/']]).map(x=>Array.isArray(x)?x.join(' | '):x).join('\n'))+'</textarea></label></div><div class="panel settings-card"><h3>Footer & identitas</h3><p>Atur deskripsi singkat dan copyright website.</p><label class="field">Deskripsi footer<textarea id="footerDesc">'+escapeHTML(footer.description||'')+'</textarea></label><label class="field">Copyright<input id="footerCopyright" value="'+escapeHTML(footer.copyright||'')+'" /></label></div><div class="panel settings-card"><h3>Bahasa website</h3><p>Bahasa yang tersedia untuk pengunjung.</p><label class="field">Kode bahasa dipisahkan koma<input id="languageList" value="'+escapeHTML(parseSetting('site.languages',['id','en','jv','su','ms','ja','ko','zh','ar']).join(', '))+'" /></label><small style="color:#7f8ea5;font-size:9px">id, en, jv, su, ms, ja, ko, zh, ar</small></div><div class="panel settings-card"><h3>Kontrol halaman</h3><p>Pengaturan konten dan desain per halaman dapat diakses melalui modul masing-masing.</p><div class="security-row"><span><b>7 halaman utama</b><small>Beranda, Tentang, Berita, Artikel, Produk, Aplikasi, Game</small></span><span class="status published">ACTIVE</span></div><div class="security-row"><span><b>Bahasa default</b><small>Bahasa Indonesia</small></span><span class="status">ID</span></div></div></div>';
+      $('#savePages').addEventListener('click',async()=>{const nav=$('#navText').value.split('\n').map(line=>line.split('|').map(x=>x.trim())).filter(x=>x[0]&&x[1]);const languages=$('#languageList').value.split(',').map(x=>x.trim()).filter(Boolean);try{await saveSettings({'site.navigation':nav,'site.footer':{description:$('#footerDesc').value,copyright:$('#footerCopyright').value},'site.languages':languages});}catch(e){notify(e.message,true);}});
+    }
+    function renderMedia(){
+      view.innerHTML='<div class="page-head"><div><div class="eyebrow">ASSET MANAGEMENT</div><h1>Media Library</h1><p>Kelola gambar cover, thumbnail game, produk, dan aset website.</p></div></div><div class="media-warning"><b>Storage belum diaktifkan.</b><br />Cloudflare R2 belum aktif pada akun ini. Untuk mengaktifkan unggah file langsung dari CMS, buka Cloudflare Dashboard → R2 Object Storage → Enable R2, lalu buat bucket. Sementara itu, konten dapat menggunakan URL gambar eksternal.</div><div class="panel media-drop"><span>⇧</span><b>Upload media akan tersedia setelah R2 aktif</b><p>JPG, PNG, WEBP, SVG · optimasi ukuran dan penyimpanan terpusat.</p><a class="action-btn secondary" href="https://dash.cloudflare.com/?to=/:account/r2/overview" target="_blank" rel="noreferrer">Buka Cloudflare R2 ↗</a></div>';
+    }
+    async function renderSecurity(){
+      view.innerHTML='<div class="page-head"><div><div class="eyebrow">ACCOUNT PROTECTION</div><h1>Keamanan Admin</h1><p>Kelola passkey, biometrik perangkat, dan sesi admin.</p></div></div><div class="panel security-card"><div class="security-row"><span><b>Password admin</b><small>Password disimpan dalam bentuk hash PBKDF2-SHA256, bukan teks asli.</small></span><span class="status published">PROTECTED</span></div><div class="security-row"><span><b>Passkey / biometrik</b><small>Gunakan sidik jari, Face ID, Windows Hello, PIN perangkat, atau security key yang kompatibel.</small></span><button class="action-btn" id="addPasskey">＋ Daftarkan perangkat ini</button></div><div id="passkeyList"><div class="empty-state">Memuat perangkat...</div></div></div><div class="panel security-card" style="margin-top:14px"><h3 style="margin:0 0 8px;font:700 13px Manrope">Tips keamanan</h3><p style="margin:0;color:#8796ac;font-size:10px;line-height:1.8">Gunakan password unik minimal 12 karakter. Daftarkan lebih dari satu passkey bila memungkinkan agar tetap bisa masuk jika salah satu perangkat hilang. Jangan bagikan kode aktivasi atau password.</p></div>';
+      $('#addPasskey').addEventListener('click',async()=>{try{const options=await api('passkey/register/options',{method:'POST',body:'{}'});const response=await startRegistration({optionsJSON:options});await api('passkey/register/verify',{method:'POST',body:JSON.stringify({response,deviceName:navigator.userAgent.includes('Android')?'Android device':navigator.userAgent.includes('iPhone')?'iPhone / iPad':'Laptop / desktop'})});notify('Passkey berhasil didaftarkan.');renderSecurity();}catch(e){notify(e.message||'Pendaftaran passkey dibatalkan.',true);}});
+      try{const data=await api('passkeys');$('#passkeyList').innerHTML=data.items.length?data.items.map(p=>'<div class="security-row"><span><b>'+escapeHTML(p.device_name||'Perangkat')+'</b><small>Terdaftar '+escapeHTML(p.created_at)+' · terakhir digunakan '+escapeHTML(p.last_used_at||'belum pernah')+'</small></span><button class="tiny-btn danger" data-remove-passkey="'+p.id+'">Hapus</button></div>').join(''):'<div class="empty-state">Belum ada passkey. Tambahkan perangkat untuk login biometrik.</div>';$$('[data-remove-passkey]').forEach(b=>b.addEventListener('click',async()=>{if(!confirm('Hapus passkey perangkat ini?'))return;try{await api('passkeys/'+b.dataset.removePasskey,{method:'DELETE',body:'{}'});notify('Passkey dihapus.');renderSecurity();}catch(e){notify(e.message,true);}}));}catch(e){notify(e.message,true);}
+    }
+
+    boot();
+  </script>
+</body>
+</html>
