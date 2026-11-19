@@ -32,6 +32,8 @@
         nav.appendChild(link);
       });
     }
+    const languages=settings['site.languages'];
+    if(Array.isArray(languages)&&languages.length){document.querySelectorAll('[data-lang]').forEach(button=>{button.hidden=!languages.includes(button.dataset.lang);});}
     const footer=settings['site.footer']||{};
     const footerDesc=document.querySelector('.site-footer>p,.footer-main>p');
     if(footer.description&&footerDesc)footerDesc.textContent=footer.description;
