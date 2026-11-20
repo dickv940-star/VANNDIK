@@ -328,10 +328,10 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
   await saveSeo(env,id,seo);await audit(env,admin,'affiliate.product.analyzed','product',id,{sourceHost:page.finalUrl.hostname,hasProductSchema:meta.hasProductSchema,hasImage:!!meta.image,hasPrice:!!meta.price});
   return {id,type:'product',title:meta.title,slug,excerpt,image_url:meta.image,category:finalCategory,subcategory:categoryInfo.subcategory,price:meta.price,affiliate_url:original.href,target_url:page.finalUrl.href,status:'draft',tags,seo_score:seo.seo_score,metadata:{descriptionFound:!!meta.description,imageFound:!!meta.image,priceFound:!!meta.price,productSchemaFound:meta.hasProductSchema,source,sourceCategory:meta.sourceCategory||meta.category||'',categoryAuto:categoryInfo.auto,sourceHost:page.finalUrl.hostname}};
 }
-const safeUrl = v => !v || /^https?:\\/\\//i.test(v) || v.startsWith('/');
+const safeUrl = v => !v || /^https?:\/\//i.test(v) || v.startsWith('/');
 function verifiedAffiliateProduct(item){
   let tags=[];try{tags=Array.isArray(item.tags)?item.tags:JSON.parse(item.tags||'[]');}catch{}
-  return item.type==='product'&&tags.includes('metadata-extracted')&&tags.includes('marketplace-page-read')&&!!String(item.title||'').trim()&&String(item.excerpt||'').trim().length>=25&&!!item.image_url&&/^https?:\\/\\//i.test(item.affiliate_url||'')&&/^https?:\\/\\//i.test(item.target_url||'');
+  return item.type==='product'&&tags.includes('metadata-extracted')&&tags.includes('marketplace-page-read')&&!!String(item.title||'').trim()&&String(item.excerpt||'').trim().length>=25&&!!item.image_url&&/^https?:\/\//i.test(item.affiliate_url||'')&&/^https?:\/\//i.test(item.target_url||'');
 }
 
 export async function onRequest({ request, env }) {
