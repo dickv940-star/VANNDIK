@@ -122,7 +122,7 @@ export async function onRequest({ request, env }) {
       await env.CMS_DB.prepare('DELETE FROM cms_google_growth_oauth_states WHERE expires_at<?').bind(new Date().toISOString()).run();
       await env.CMS_DB.prepare('INSERT INTO cms_google_growth_oauth_states(state,expires_at) VALUES(?,?)').bind(state, new Date(Date.now() + 10 * 60 * 1000).toISOString()).run();
       const auth = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-      auth.searchParams.set('client_id', env.GOOGLE_GROWTH_CLIENT_ID);
+      auth.searchParams.set('client_id', clientId(env));
       auth.searchParams.set('redirect_uri', REDIRECT_URI);
       auth.searchParams.set('response_type', 'code');
       auth.searchParams.set('scope', 'openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly');
