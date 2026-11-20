@@ -216,6 +216,111 @@ const pageTitle = 'VANNDIK CMS';
     .editorial-modal .field:has(textarea[name=excerpt]),.editorial-modal .field:has(input[name=image_url]),.editorial-modal .field:has(select[name=status]),.editorial-modal .field:has(input[name=featured]){grid-column:2!important}
     .editorial-modal .modal-actions{grid-column:1/-1!important;display:flex!important;justify-content:flex-end!important;gap:10px!important;padding-top:12px!important;border-top:1px solid #e1e8f1!important}
     @media(max-width:760px){.editorial-modal .modal-form{grid-template-columns:1fr!important;padding:14px!important}.editorial-modal .field,.editorial-modal .field.wide,.editorial-modal .field:has(textarea[name=body]),.editorial-modal .field:has(input[name=slug]),.editorial-modal .field:has(input[name=category]),.editorial-modal .field:has(input[name=published_at]),.editorial-modal .field:has(input[name=sort_order]),.editorial-modal .field:has(textarea[name=excerpt]),.editorial-modal .field:has(input[name=image_url]),.editorial-modal .field:has(select[name=status]),.editorial-modal .field:has(input[name=featured]){grid-column:1!important}.editorial-modal .field textarea[name=body]{min-height:300px!important}}
+  
+    /* VANNDIK CMS v3 — unified Magnific-inspired dark BI workspace */
+    :root{color-scheme:dark!important;--bg:#080d17;--panel:#101827;--panel2:#141f31;--line:#26364d;--text:#edf4ff;--muted:#8b9bb2;--blue:#347dff;--cyan:#35c8f4;--green:#35d49a}
+    body,.app-shell,.main-area{background:#080d17!important;color:#edf4ff!important}
+    .sidebar{background:linear-gradient(180deg,#0b1423 0%,#080e19 100%)!important;border-color:#24344b!important;box-shadow:10px 0 32px #0003!important}
+    .side-brand{color:#f4f8ff!important;border-color:#25364e!important}
+    .side-brand small,.side-label{color:#7186a5!important}
+    .nav-item{color:#a9bad1!important;border-radius:8px!important}
+    .nav-item>span{color:#8ea8cc!important}
+    .nav-item:hover{background:#17263b!important;color:#fff!important}
+    .nav-item.active{background:linear-gradient(100deg,#1769ff38,#1769ff12)!important;border-color:#2b6edb66!important;color:#fff!important;box-shadow:inset 3px 0 0 #42b8ff!important}
+    .nav-item.active>span{color:#5ed6ff!important}
+    .nav-item em{background:#1b2d47!important;color:#b9d7ff!important}
+    .system-status,.profile-mini{background:#111d2e!important;border-color:#293c57!important;color:#edf4ff!important}
+    .system-status small,.profile-mini small{color:#91a5c1!important}
+    .main-area{margin-left:268px!important;min-width:0!important}
+    .topbar{background:#0d1625f2!important;border-color:#26364d!important;box-shadow:0 5px 22px #0002!important}
+    .top-title{color:#f2f6ff!important}.top-eyebrow,.secure-label{color:#8b9db7!important}
+    .view-content{max-width:1550px!important}
+    .page-head h1,.blogger-head h1{color:#f1f6ff!important}
+    .page-head p,.blogger-head p{color:#91a2ba!important}
+    .eyebrow{color:#5cbcff!important}
+    .action-btn,.blogger-create{background:linear-gradient(110deg,#1769ff,#286fe2)!important;border:1px solid #438aff!important;color:#fff!important;box-shadow:0 6px 18px #1769ff2b!important}
+    .action-btn.secondary,.tiny-btn{background:#172438!important;border:1px solid #30445f!important;color:#c8d8ee!important}
+    .stats-grid{gap:14px!important}
+    .stat-card{background:linear-gradient(145deg,#142238,#0e1726)!important;border:1px solid #2a3e59!important;box-shadow:0 9px 26px #0002!important}
+    .stat-label,.stat-sub{color:#91a4bf!important}
+    .stat-value{color:#f4f8ff!important}
+    .stat-icon{color:#54d4ff!important}
+    .panel,.theme-controls,.settings-card,.security-card,.backup-card{background:#101a2a!important;border:1px solid #293b54!important;box-shadow:0 9px 28px #0002!important;color:#e7effb!important}
+    .panel-head{background:#111d2e!important;border-color:#293b54!important}
+    .panel-head h3,.theme-controls h3,.settings-card h3,.security-card h3,.backup-card h3{color:#edf4ff!important}
+    .panel-head span{color:#8297b4!important}
+    .quick-grid{background:#101a2a!important}
+    .quick-card{background:#142238!important;border-color:#2b405d!important;color:#e7f0ff!important}
+    .quick-card:hover{background:#1a2d48!important;border-color:#438aff!important}
+    .quick-card b{color:#eff6ff!important}.quick-card small{color:#91a5c0!important}
+    .activity-item{border-color:#26364b!important}.activity-item b{color:#e8f1ff!important}.activity-item small{color:#91a2b9!important}
+    .content-table{background:#101a2a!important}.content-table th{background:#142136!important;color:#91a5c0!important;border-color:#2a3b54!important}.content-table td{background:#101a2a!important;color:#c8d7eb!important;border-color:#26364b!important}.content-table tr:hover td{background:#17263b!important}.content-title{color:#f0f6ff!important}.content-sub{color:#8da0ba!important}
+    .search-box,.filter-select,.page-select,.field input,.field textarea,.field select,.blogger-search{background:#0b1422!important;border:1px solid #30435e!important;color:#edf4ff!important}
+    .search-box::placeholder,.blogger-search input::placeholder,.field input::placeholder,.field textarea::placeholder{color:#6f829e!important}
+    .field,.auth-card label{color:#b7c7dc!important}
+    .field input:focus,.field textarea:focus,.field select:focus,.search-box:focus{border-color:#438aff!important;box-shadow:0 0 0 3px #1769ff24!important}
+    .color-field{color:#b9c9de!important;border-color:#293b54!important}
+    .theme-preview{border-color:#31435d!important}
+    .security-row{border-color:#293b54!important}.security-row b{color:#edf4ff!important}.security-row small{color:#8da1bb!important}
+    .backup-includes span{color:#c3d2e6!important}.backup-step b{color:#edf4ff!important}.backup-step small{color:#91a4bd!important}
+    .backup-warning{background:#332a18!important;border-color:#756034!important;color:#e8cd91!important}
+    .backup-meta{border-color:#2b3c54!important;color:#8ea2bd!important}
+    .media-card{background:#111d2d!important;border-color:#2b3d56!important}.media-card-info b{color:#edf4ff!important}.media-card-info small{color:#8fa2bc!important}
+    .media-warning{background:#302719!important;border-color:#79613b!important;color:#e5ca91!important}
+    .media-drop{background:#0d1726!important;border-color:#405777!important;color:#9db0ca!important}.media-drop b{color:#edf4ff!important}
+    .app-footer{border-color:#26364d!important;color:#71849f!important}
+    .modal{background:#101a2a!important;color:#edf4ff!important;border-color:#344a68!important}
+    .modal-head{background:#111d2e!important;border-color:#2b3d56!important}.modal-head h3{color:#f0f6ff!important}
+    .modal-form{background:#101a2a!important}.close-btn{color:#afc0d7!important}
+    .blogger-head h1{font-size:29px!important}.blogger-head p{color:#91a2ba!important}
+    .blogger-tabs{border-color:#2c3e57!important}.blogger-tab{color:#91a3bd!important}.blogger-tab.active{color:#5dbdff!important;border-color:#398bff!important}
+    .blogger-search{border-radius:8px!important;color:#8ea3c0!important}.blogger-search input{color:#edf4ff!important}
+    .blogger-count{color:#91a3bb!important}
+    .blogger-list{background:#101a2a!important;border-color:#293b54!important}
+    .blogger-list-head{background:#142136!important;border-color:#293b54!important;color:#8fa4c0!important}
+    .blogger-post-row{background:#101a2a!important;border-color:#293b54!important}
+    .blogger-post-row:hover{background:#17263b!important}
+    .blogger-post-mark{background:#1b3150!important;color:#61bdff!important}
+    .blogger-post-title{color:#69baff!important}
+    .blogger-post-main p{color:#91a2ba!important}
+    .blogger-post-actions button{color:#6bbdff!important}
+    .blogger-post-actions span,.blogger-date{color:#91a2ba!important}
+    .blogger-label{background:#1a2b43!important;color:#b1c6e2!important}
+    .blogger-status{background:#1b2b41!important;color:#b3c4da!important}
+    .blogger-status.published{background:#123629!important;color:#65e2a8!important}
+    .blogger-status.draft{background:#3b301b!important;color:#edc979!important}
+    .blogger-status.scheduled{background:#172e49!important;color:#82c5ff!important}
+    .editorial-modal{background:#101a2a!important;border-color:#344a68!important}
+    .editorial-modal .modal-head{background:#111d2e!important;border-color:#2c3e58!important}
+    .editorial-modal .modal-head h3{color:#f0f6ff!important}
+    .editorial-modal .modal-form{background:#101a2a!important}
+    .editorial-modal .field{background:#0d1726!important;border-color:#30435e!important;color:#aebfd5!important}
+    .editorial-modal .field input,.editorial-modal .field textarea,.editorial-modal .field select{background:#0d1726!important;color:#edf4ff!important}
+    .editorial-modal input[name=title]{color:#f3f7ff!important}
+    .editorial-modal .modal-actions{border-color:#2c3e58!important}
+    .content-donut{width:164px;height:164px;display:grid;place-items:center;border-radius:50%;position:relative;box-shadow:0 0 35px #1769ff12}
+    .content-donut:before{content:'';position:absolute;inset:17px;border-radius:50%;background:#101a2a;border:1px solid #293b54}
+    .content-donut>div{position:relative;z-index:1;display:grid;gap:3px;text-align:center}
+    .content-donut strong{font:800 27px Manrope;color:#f2f7ff}
+    .content-donut small{font-size:9px;color:#91a4bf}
+    .analytics-panel{margin-top:16px!important}
+    .analytics-body{display:grid;grid-template-columns:210px minmax(0,1fr);align-items:center;gap:28px;padding:20px 24px}
+    .donut-wrap{display:grid;place-items:center;padding:8px}
+    .breakdown-list{display:grid;gap:15px}
+    .breakdown-row{display:grid;gap:7px}
+    .breakdown-label{display:flex;align-items:center;gap:9px;color:#bdcce0;font-size:10px}
+    .breakdown-label i{width:8px;height:8px;border-radius:3px;flex:0 0 8px}
+    .breakdown-label b{margin-left:auto;color:#f1f6ff;font-size:10px;font-variant-numeric:tabular-nums}
+    .breakdown-track{height:6px;overflow:hidden;border-radius:20px;background:#1d2b40}
+    .breakdown-track span{display:block;height:100%;border-radius:20px}
+    .auth-card{background:#0d1726!important;border-color:#2b405d!important;color:#edf4ff!important}
+    .auth-card h1{color:#f3f7ff!important}.auth-card>p{color:#91a3bc!important}
+    .auth-card input{background:#080f1b!important;border-color:#2d405a!important;color:#f2f7ff!important}
+    .auth-foot{border-color:#2b3d55!important;color:#8094b0!important}
+    .toast{background:#142238!important;border-color:#3a5b83!important;color:#eff6ff!important}
+    @media(max-width:1100px){.main-area{margin-left:268px!important}.view-content{padding:28px 24px!important}.topbar{padding-inline:24px!important}}
+    @media(max-width:760px){.main-area{margin-left:0!important}.analytics-body{grid-template-columns:1fr;gap:12px;padding:16px}.content-donut{width:145px;height:145px}.sidebar{width:268px!important}.view-content{padding:22px 15px 35px!important}.topbar{padding:0 15px!important}.blogger-list-head{display:none}.blogger-post-row{grid-template-columns:minmax(0,1fr) 110px!important}.blogger-post-main{grid-column:1/-1}.blogger-label{grid-column:1}.blogger-date{grid-column:1}.blogger-status{grid-column:2;grid-row:2}.blogger-row-edit{grid-column:2;grid-row:3}.editorial-modal .modal-form{grid-template-columns:1fr!important}.editorial-modal .field,.editorial-modal .field.wide,.editorial-modal .field:has(textarea[name=body]),.editorial-modal .field:has(input[name=slug]),.editorial-modal .field:has(input[name=category]),.editorial-modal .field:has(input[name=published_at]),.editorial-modal .field:has(input[name=sort_order]),.editorial-modal .field:has(textarea[name=excerpt]),.editorial-modal .field:has(input[name=image_url]),.editorial-modal .field:has(select[name=status]),.editorial-modal .field:has(input[name=featured]){grid-column:1!important}}
+
   </style>
 
   <script>
@@ -328,13 +433,17 @@ const pageTitle = 'VANNDIK CMS';
       } catch {}
     }
     async function renderOverview() {
-      view.innerHTML='<div class="page-head"><div><div class="eyebrow">YOUR DIGITAL ECOSYSTEM</div><h1>Selamat datang, '+escapeHTML(currentAdmin?.display_name || 'Admin')+'.</h1><p>Semua kendali konten dan tampilan VANNDIK ada di satu tempat.</p></div><button class="action-btn" id="quickArticle">＋ Buat konten baru</button></div><div class="stats-grid" id="statsGrid"><div class="stat-card"><div class="stat-label">Memuat statistik</div><div class="stat-value">—</div></div></div><div class="overview-grid"><div class="panel"><div class="panel-head"><h3>Quick actions</h3><span>CREATE & MANAGE</span></div><div class="quick-grid"><button class="quick-card" data-create="article"><span>▤</span><span><b>Tulis artikel</b><small>Draft atau publikasi</small></span></button><button class="quick-card" data-create="news"><span>◷</span><span><b>Tambah berita</b><small>Update informasi terbaru</small></span></button><button class="quick-card" data-create="product"><span>◇</span><span><b>Tambah produk</b><small>Kelola tautan affiliate</small></span></button><button class="quick-card" data-create="game"><span>▣</span><span><b>Tambah game</b><small>Katalog permainan</small></span></button><button class="quick-card" data-create="app"><span>▦</span><span><b>Tambah aplikasi / tools</b><small>Direktori aplikasi digital</small></span></button></div></div><div class="panel"><div class="panel-head"><h3>Aktivitas admin</h3><span>RECENT LOGS</span></div><div class="activity-list" id="activityList"><div class="empty-state">Memuat aktivitas...</div></div></div></div>';
+      view.innerHTML='<div class="page-head"><div><div class="eyebrow">YOUR DIGITAL ECOSYSTEM</div><h1>Selamat datang, '+escapeHTML(currentAdmin?.display_name || 'Admin')+'.</h1><p>Semua kendali konten dan tampilan VANNDIK ada di satu tempat.</p></div><button class="action-btn" id="quickArticle">＋ Buat konten baru</button></div><div class="stats-grid" id="statsGrid"><div class="stat-card"><div class="stat-label">Memuat statistik</div><div class="stat-value">—</div></div></div><div class="panel analytics-panel"><div class="panel-head"><h3>Distribusi konten</h3><span>CMS INVENTORY</span></div><div class="analytics-body"><div class="donut-wrap"><div class="content-donut" id="contentDonut"><div><strong id="contentTotal">0</strong><small>konten</small></div></div></div><div class="breakdown-list" id="contentBreakdown"><div class="empty-state">Memuat distribusi...</div></div></div></div><div class="overview-grid"><div class="panel"><div class="panel-head"><h3>Quick actions</h3><span>CREATE & MANAGE</span></div><div class="quick-grid"><button class="quick-card" data-create="article"><span>▤</span><span><b>Tulis artikel</b><small>Draft atau publikasi</small></span></button><button class="quick-card" data-create="news"><span>◷</span><span><b>Tambah berita</b><small>Update informasi terbaru</small></span></button><button class="quick-card" data-create="product"><span>◇</span><span><b>Tambah produk</b><small>Kelola tautan affiliate</small></span></button><button class="quick-card" data-create="game"><span>▣</span><span><b>Tambah game</b><small>Katalog permainan</small></span></button><button class="quick-card" data-create="app"><span>▦</span><span><b>Tambah aplikasi / tools</b><small>Direktori aplikasi digital</small></span></button></div></div><div class="panel"><div class="panel-head"><h3>Aktivitas admin</h3><span>RECENT LOGS</span></div><div class="activity-list" id="activityList"><div class="empty-state">Memuat aktivitas...</div></div></div></div>';
       $('#quickArticle').addEventListener('click',()=>openEditor('article'));
       $$('[data-create]').forEach(button=>button.addEventListener('click',()=>openEditor(button.dataset.create)));
       try {
         const data=await api('stats');
         const cards=[['Artikel',data.stats.article,'▤'],['Berita',data.stats.news,'◷'],['Affiliate',data.stats.product,'◇'],['Game',data.stats.game,'▣'],['Aplikasi & Tools',data.stats.app,'▦']];
         $('#statsGrid').innerHTML=cards.map((c,i)=>'<div class="stat-card"><div class="stat-label">'+c[0]+'</div><div class="stat-value">'+c[1]+'</div><div class="stat-sub">TOTAL TERSIMPAN</div><span class="stat-icon">'+c[2]+'</span></div>').join('');
+        const breakdown=[['Artikel','article','#3b82f6'],['Berita','news','#22d3ee'],['Affiliate','product','#8b5cf6'],['Game','game','#f59e0b'],['Aplikasi & Tools','app','#10b981']].map(([label,key,color])=>({label,value:Number(data.stats[key]||0),color}));
+        const total=breakdown.reduce((sum,item)=>sum+item.value,0);let cursor=0;const stops=breakdown.map(item=>{const start=total?cursor/total*100:0;cursor+=item.value;const end=total?cursor/total*100:0;return item.color+' '+start+'% '+end+'%';});
+        $('#contentTotal').textContent=total.toLocaleString('id-ID');$('#contentDonut').style.background=total?'conic-gradient('+stops.join(',')+')':'conic-gradient(#26364b 0% 100%)';
+        $('#contentBreakdown').innerHTML=breakdown.map(item=>'<div class="breakdown-row"><div class="breakdown-label"><i style="background:'+item.color+'"></i><span>'+item.label+'</span><b>'+item.value.toLocaleString('id-ID')+'</b></div><div class="breakdown-track"><span style="width:'+(total?item.value/total*100:0)+'%;background:'+item.color+'"></span></div></div>').join('');
         $('#activityList').innerHTML=data.activity.length?data.activity.map(a=>'<div class="activity-item"><i class="activity-dot"></i><span><b>'+escapeHTML(a.action.replaceAll('.',' '))+'</b><small>'+escapeHTML(new Date(a.created_at+'Z').toLocaleString('id-ID'))+'</small></span></div>').join(''):'<div class="empty-state">Belum ada aktivitas. Mulai kelola konten pertamamu.</div>';
       } catch(error) { notify(error.message,true); }
     }
