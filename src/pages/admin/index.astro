@@ -842,7 +842,7 @@ const pageTitle = 'VANNDIK CMS';
         }finally{button.disabled=false;button.textContent='✧ Periksa Produk';}
       });
       $('#productSearch').addEventListener('input',draw);
-      $('.affiliate-tab').forEach(tab=>tab.addEventListener('click',()=>{activeStatus=tab.dataset.productFilter;$('.affiliate-tab').forEach(x=>x.classList.toggle('active',x===tab));draw();}));
+      $$('.affiliate-tab').forEach(tab=>tab.addEventListener('click',()=>{activeStatus=tab.dataset.productFilter;$$('.affiliate-tab').forEach(x=>x.classList.toggle('active',x===tab));draw();}));
       try{const [data,attempts]=await Promise.all([api('content?type=product'),api('product/attempts')]);all=data.items||[];failedAttempts=attempts.items||[];draw();}
       catch(e){$('#affiliateRows').innerHTML='<div class="affiliate-empty"><b>Produk gagal dimuat</b><p>'+escapeHTML(e.message)+'</p><button class="action-btn secondary" id="affiliateRetry">Coba lagi</button></div>';$('#affiliateRetry').addEventListener('click',()=>renderAffiliateProducts(query));}
     }
