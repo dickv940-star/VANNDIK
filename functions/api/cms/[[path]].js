@@ -10,7 +10,7 @@ const random = (n = 32) => [...crypto.getRandomValues(new Uint8Array(n))].map(x 
 const sha = async value => to64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
 const pbkdf = async (password, salt) => {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
-  return to64(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: from64(salt), iterations: 310000, hash: 'SHA-256' }, key, 256));
+  return to64(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: from64(salt), iterations: 100000, hash: 'SHA-256' }, key, 256));
 };
 const equal = (a, b) => {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
