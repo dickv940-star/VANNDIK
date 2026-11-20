@@ -18,8 +18,8 @@ export async function onRequest({ request, env }) {
       referrer_host TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     )`).run();
     await env.CMS_DB.prepare('CREATE INDEX IF NOT EXISTS idx_affiliate_click_created ON affiliate_click_events(created_at)').run();
-    await env.CMS_DB.prepare('INSERT INTO affiliate_click_events(id,event_type,product_name,product_id,page_path,destination_host,marketplace,country,referrer_host) VALUES(?,?,?,?,?,?,?,?,?)')
-      .bind(crypto.randomUUID(), 'affiliate_click', clean(data.productName), clean(data.productId,100), clean(data.pagePath,300), host(destination), clean(data.marketplace,60), clean(request.headers.get('cf-ipcountry'),8), host(request.headers.get('referer') || '')).run();
+    await env.CMS_DB.prepare('INSERT INTO affiliate_click_events(id,event_type,product_name,product_id,page_path,destination_host,marketplace,country,referrer_host,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)')
+      .bind(crypto.randomUUID(), 'affiliate_click', clean(data.productName), clean(data.productId,100), clean(data.pagePath,300), host(destination), clean(data.marketplace,60), clean(request.headers.get('cf-ipcountry'),8), host(request.headers.get('referer') || ''), new Date().toISOString()).run();
     return json({ ok: true }, 202);
   } catch (error) {
     console.error('VANNDIK affiliate tracking', error);
