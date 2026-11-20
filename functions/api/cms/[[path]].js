@@ -247,7 +247,7 @@ export async function onRequest({ request, env }) {
       const sourceData={
         name:product.title,description:product.excerpt||'',details:product.body||'',
         category:product.category||'',observedPrice:product.price||'',
-        brand:(String(product.body||'').match(/(?:^|\\n\\n)Merek:\\s*([^\\n]+)/i)||[])[1]||'',
+        brand:(String(product.body||'').match(/(?:^|\n\n)Merek:\s*([^\n]+)/i)||[])[1]||'',
         marketplace:new URL(target.href).hostname,affiliateUrl:affiliate.href,productPage:target.href
       };
       const prompt=[
@@ -258,11 +258,11 @@ export async function onRequest({ request, env }) {
         'Kembalikan JSON valid saja dengan field: product_positioning (string), audience_hypothesis (string), key_benefits (array 3 string berdasarkan sumber), marketing_angle (string), short_copy (string maks 240 karakter), long_description (string 2-4 paragraf), seo_title (string maks 60 karakter), seo_description (string 70-160 karakter), seo_keywords (array 5-8 string), quality_notes (array string), market_validation (string).',
         'Copy harus informatif, natural, tidak berlebihan, dan tidak menambahkan fakta di luar sumber. Jangan menyebut komisi atau menjanjikan hasil.',
         'DATA SUMBER: '+JSON.stringify(sourceData)
-      ].join('\\n\\n');
+      ].join('\n\n');
       try{
         const generated=await env.AI.run(model,{prompt,max_tokens:950,temperature:0.25,top_p:0.85});
         const raw=String(generated?.response||generated?.result?.response||'').trim();
-        const jsonMatch=raw.match(/\\{[\\s\\S]*\\}/);
+        const jsonMatch=raw.match(/\{[\s\S]*\}/);
         if(!jsonMatch)throw new Error('Model tidak mengembalikan JSON yang dapat dibaca.');
         const parsed=JSON.parse(jsonMatch[0]);
         const shortCopy=String(parsed.short_copy||'').trim().slice(0,240);
@@ -280,7 +280,7 @@ export async function onRequest({ request, env }) {
           quality_notes:Array.isArray(parsed.quality_notes)?parsed.quality_notes.slice(0,8).map(x=>String(x).slice(0,240)):[],
           market_validation:String(parsed.market_validation||'Belum diverifikasi dari sumber pasar eksternal').slice(0,240)
         };
-        const bodyText=[product.body||'', 'Deskripsi produk untuk publikasi:',longDescription,result.marketing_angle?'Sudut pemasaran: '+result.marketing_angle:''].filter(Boolean).join('\\n\\n').slice(0,100000);
+        const bodyText=[product.body||'', 'Deskripsi produk untuk publikasi:',longDescription,result.marketing_angle?'Sudut pemasaran: '+result.marketing_angle:''].filter(Boolean).join('\n\n').slice(0,100000);
         const keywords=result.seo_keywords.join(', ');
         await env.CMS_DB.prepare('UPDATE cms_content SET excerpt=?,body=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(shortCopy,bodyText,productId).run();
         const seo=makeSeo({...product,excerpt:shortCopy,body:bodyText,seo_title:seoTitle,seo_description:seoDescription,seo_keywords:keywords,canonical_url:new URL('/produk/'+encodeURIComponent(product.slug)+'/','https://vanndik.pages.dev').href,og_image:product.image_url});
