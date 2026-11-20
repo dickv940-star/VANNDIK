@@ -140,8 +140,8 @@ export async function onRequest({ request, env }) {
       const data = await request.json();
       const site = String(data.searchConsoleSite || '').trim().slice(0, 500);
       const property = String(data.ga4PropertyId || '').trim().replace(/^properties\//, '').slice(0, 40);
-      if (site && !/^(sc-domain:[a-zA-z0-9.-]+|https?:\/\/.+)$/i.test(site)) return json({ error: 'Format properti Search Console tidak valid. Gunakan sc-domain:domain.com atau URL prefix lengkap.' }, 400);
-      if (property && !/^\\d+$/.test(property)) return json({ error: 'GA4 Property ID harus berupa angka.' }, 400);
+      if (site && !/^(sc-domain:[A-Za-z0-9.-]+|https?:\/\/.+)$/i.test(site)) return json({ error: 'Format properti Search Console tidak valid. Gunakan sc-domain:domain.com atau URL prefix lengkap.' }, 400);
+      if (property && !/^\d+$/.test(property)) return json({ error: 'GA4 Property ID harus berupa angka.' }, 400);
       await env.CMS_DB.prepare("UPDATE cms_google_growth_config SET search_console_site=?,ga4_property_id=?,updated_at=? WHERE id='primary'").bind(site, property, new Date().toISOString()).run();
       return json({ ok: true });
     }
