@@ -55,6 +55,7 @@ const pageTitle = 'VANNDIK CMS';
         <button class="nav-item" data-view="themes"><span>◐</span> Tema & Tampilan</button>
         <button class="nav-item" data-view="pages"><span>▧</span> Halaman & Navigasi</button>
         <button class="nav-item" data-view="media"><span>▧</span> Media Library</button>
+        <button class="nav-item" data-view="backup"><span>⇩</span> Backup & Restore</button>
         <button class="nav-item" data-view="security"><span>⌑</span> Keamanan Admin</button>
       </nav>
       <div class="sidebar-bottom">
@@ -91,6 +92,58 @@ const pageTitle = 'VANNDIK CMS';
     .modal-backdrop{position:fixed;z-index:50;inset:0;display:grid;place-items:center;padding:20px;background:#02040bd9;backdrop-filter:blur(8px)}.modal{width:min(760px,100%);max-height:90vh;overflow:auto;border:1px solid #34455f;border-radius:10px;background:#0b111c;box-shadow:0 30px 100px #000a}.modal-head{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #28364b;background:#0b111c}.modal-head h3{margin:0;font:700 14px Manrope}.close-btn{border:0;background:none;color:#9baac0;font-size:22px}.modal-form{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:20px}.modal-form .wide{grid-column:1/-1}.modal-form textarea{min-height:130px}.modal-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:9px;padding-top:8px}.toast{position:fixed;z-index:80;right:24px;bottom:24px;max-width:min(380px,calc(100% - 48px));padding:13px 16px;border:1px solid #34547b;border-radius:7px;background:#101d30;color:#e5f2ff;box-shadow:0 12px 40px #0008;font-size:10px;opacity:0;transform:translateY(10px);pointer-events:none;transition:.25s}.toast.show{opacity:1;transform:translateY(0)}
     @media(max-width:1100px){.stats-grid{grid-template-columns:repeat(3,1fr)}.overview-grid{grid-template-columns:1fr}.view-content{padding:25px 22px}.topbar{padding:0 22px}}
     @media(max-width:760px){.sidebar{transform:translateX(-100%);transition:transform .25s;box-shadow:20px 0 60px #0008}.sidebar.open{transform:translateX(0)}.main-area{margin-left:0}.mobile-menu{display:block}.topbar{height:66px;padding:0 15px}.secure-label{display:none}.view-site-btn{display:none}.view-content{padding:22px 15px 35px}.app-footer{padding:14px 15px;font-size:7px}.app-footer span:last-child{display:none}.stats-grid{grid-template-columns:repeat(2,1fr);gap:8px}.stat-card{padding:13px}.stat-value{font-size:23px}.page-head{align-items:flex-start;flex-direction:column}.theme-layout,.settings-grid{grid-template-columns:1fr}.table-tools{flex-direction:column}.search-box{width:100%}.modal-form{grid-template-columns:1fr;padding:15px}.modal-form .wide{grid-column:auto}.modal-actions{grid-column:auto}.auth-card{padding:27px 22px}.auth-brand{top:18px;left:18px}.auth-caption{display:none}.topbar-actions{gap:7px}.install-btn{padding:8px;font-size:9px}}
+
+    /* Dashboard refinement: calmer hierarchy, clearer spacing, and stronger responsive behavior */
+    .sidebar{width:260px;padding:25px 17px 17px;background:linear-gradient(180deg,#090e18 0%,#070b13 100%)}
+    .main-area{margin-left:260px}
+    .side-brand{padding-bottom:30px;font-size:14px}
+    .nav-item{min-height:39px;padding:10px 12px;font-size:11px}
+    .nav-item.active{box-shadow:inset 2px 0 0 var(--cyan)}
+    .topbar{height:78px;padding-inline:36px}
+    .view-content{padding:34px 36px 48px}
+    .page-head{margin-bottom:27px}
+    .page-head h1{font-size:28px;letter-spacing:-1.15px}
+    .page-head p{max-width:660px;line-height:1.65}
+    .stats-grid{gap:14px}
+    .stat-card{min-height:126px;padding:19px;border-radius:9px;background:linear-gradient(145deg,#111c2d,#0b111c)}
+    .stat-value{font-size:30px}
+    .panel{border-color:#26354b;border-radius:9px;box-shadow:0 8px 28px #00000012}
+    .panel-head{padding:17px 19px}
+    .quick-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:17px}
+    .quick-card{min-height:67px;padding:13px 14px}
+    .quick-card>span:first-child{flex:0 0 34px}
+    .activity-list{padding-inline:19px}
+    .activity-item{padding:14px 0}
+    .table-tools{align-items:center}
+    .search-box,.filter-select,.page-select,.field input,.field textarea,.field select{border-radius:7px}
+    .content-table th{padding:14px 16px}
+    .content-table td{padding:15px 16px;line-height:1.5}
+    .tiny-btn,.action-btn,.view-site-btn,.install-btn{border-radius:6px}
+    .action-btn{padding:11px 15px}
+    .theme-controls,.settings-card,.security-card{padding:21px}
+    .modal{border-radius:12px}
+    .modal-head{padding:18px 22px}
+    .modal-form{gap:16px;padding:22px}
+    .toast{font-size:11px}
+    .backup-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}
+    .backup-card{padding:22px}
+    .backup-card h3{margin:0 0 8px;font:700 14px Manrope}
+    .backup-card p{margin:0;color:#8999b0;font-size:10px;line-height:1.8}
+    .backup-includes{display:grid;gap:11px;margin-top:18px}
+    .backup-includes span{display:flex;align-items:center;gap:10px;color:#c4d2e5;font-size:10px}
+    .backup-check{display:grid;place-items:center;width:22px;height:22px;border:1px solid #28734d;border-radius:6px;background:#39ff8810;color:#62efa2}
+    .backup-warning{margin-top:14px;padding:13px 14px;border:1px solid #80652f66;border-radius:7px;background:#80652f12;color:#d9c18e;font-size:9px;line-height:1.8}
+    .backup-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:19px}
+    .backup-meta{margin-top:16px;padding-top:14px;border-top:1px solid #26354b;color:#7f91aa;font-size:9px;line-height:1.8}
+    .backup-steps{display:grid;gap:13px;margin-top:16px}
+    .backup-step{display:flex;gap:11px;align-items:flex-start}
+    .backup-step strong{display:grid;place-items:center;flex:0 0 24px;height:24px;border:1px solid #304d70;border-radius:7px;background:#1769ff18;color:#83caff;font-size:10px}
+    .backup-step b{display:block;color:#dce7f6;font-size:10px}
+    .backup-step small{display:block;margin-top:4px;color:#8495ac;font-size:9px;line-height:1.6}
+    .backup-history{margin-top:14px}
+    @media(max-width:1100px){.main-area{margin-left:260px}.view-content{padding:28px 24px}.topbar{padding-inline:24px}.backup-grid{grid-template-columns:1fr}}
+    @media(max-width:760px){.sidebar{width:260px}.main-area{margin-left:0}.topbar{height:68px;padding:0 15px}.view-content{padding:22px 15px 35px}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.quick-grid{grid-template-columns:1fr}.page-head h1{font-size:24px}.backup-card{padding:17px}.content-table{min-width:650px}}
+
     @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
   </style>
 
@@ -114,7 +167,7 @@ const pageTitle = 'VANNDIK CMS';
     });
     const authScreen = $('#authScreen'), appShell = $('#appShell'), authMessage = $('#authMessage');
     const view = $('#view'), modalRoot = $('#modalRoot'), toastEl = $('#toast');
-    const labels = {overview:'Ringkasan',article:'Artikel',news:'Berita',product:'Produk Affiliate',game:'Game',app:'Aplikasi & Tools',themes:'Tema & Tampilan',pages:'Halaman & Navigasi',media:'Media Library',security:'Keamanan Admin'};
+    const labels = {overview:'Ringkasan',article:'Artikel',news:'Berita',product:'Produk Affiliate',game:'Game',app:'Aplikasi & Tools',themes:'Tema & Tampilan',pages:'Halaman & Navigasi',media:'Media Library',backup:'Backup & Restore',security:'Keamanan Admin'};
     let currentAdmin = null, currentType = 'article', settingsCache = {}, installPrompt = null, toastTimer;
 
     async function api(path, options = {}) {
@@ -189,6 +242,7 @@ const pageTitle = 'VANNDIK CMS';
       else if (name === 'themes') renderThemes();
       else if (name === 'pages') renderPages();
       else if (name === 'media') renderMedia();
+      else if (name === 'backup') renderBackup();
       else if (name === 'security') renderSecurity();
     }
     $$('#mainNav [data-view]').forEach(button => button.addEventListener('click',()=>openView(button.dataset.view)));
@@ -203,7 +257,7 @@ const pageTitle = 'VANNDIK CMS';
       } catch {}
     }
     async function renderOverview() {
-      view.innerHTML='<div class="page-head"><div><div class="eyebrow">YOUR DIGITAL ECOSYSTEM</div><h1>Selamat datang, '+escapeHTML(currentAdmin?.display_name || 'Admin')+'.</h1><p>Semua kendali konten dan tampilan VANNDIK ada di satu tempat.</p></div><button class="action-btn" id="quickArticle">＋ Buat konten baru</button></div><div class="stats-grid" id="statsGrid"><div class="stat-card"><div class="stat-label">Memuat statistik</div><div class="stat-value">—</div></div></div><div class="overview-grid"><div class="panel"><div class="panel-head"><h3>Quick actions</h3><span>CREATE & MANAGE</span></div><div class="quick-grid"><button class="quick-card" data-create="article"><span>▤</span><span><b>Tulis artikel</b><small>Draft atau publikasi</small></span></button><button class="quick-card" data-create="news"><span>◷</span><span><b>Tambah berita</b><small>Update informasi terbaru</small></span></button><button class="quick-card" data-create="product"><span>◇</span><span><b>Tambah produk</b><small>Kelola tautan affiliate</small></span></button><button class="quick-card" data-create="game"><span>▣</span><span><b>Tambah game</b><small>Katalog permainan</small></span></button></div></div><div class="panel"><div class="panel-head"><h3>Aktivitas admin</h3><span>RECENT LOGS</span></div><div class="activity-list" id="activityList"><div class="empty-state">Memuat aktivitas...</div></div></div></div>';
+      view.innerHTML='<div class="page-head"><div><div class="eyebrow">YOUR DIGITAL ECOSYSTEM</div><h1>Selamat datang, '+escapeHTML(currentAdmin?.display_name || 'Admin')+'.</h1><p>Semua kendali konten dan tampilan VANNDIK ada di satu tempat.</p></div><button class="action-btn" id="quickArticle">＋ Buat konten baru</button></div><div class="stats-grid" id="statsGrid"><div class="stat-card"><div class="stat-label">Memuat statistik</div><div class="stat-value">—</div></div></div><div class="overview-grid"><div class="panel"><div class="panel-head"><h3>Quick actions</h3><span>CREATE & MANAGE</span></div><div class="quick-grid"><button class="quick-card" data-create="article"><span>▤</span><span><b>Tulis artikel</b><small>Draft atau publikasi</small></span></button><button class="quick-card" data-create="news"><span>◷</span><span><b>Tambah berita</b><small>Update informasi terbaru</small></span></button><button class="quick-card" data-create="product"><span>◇</span><span><b>Tambah produk</b><small>Kelola tautan affiliate</small></span></button><button class="quick-card" data-create="game"><span>▣</span><span><b>Tambah game</b><small>Katalog permainan</small></span></button><button class="quick-card" data-create="app"><span>▦</span><span><b>Tambah aplikasi / tools</b><small>Direktori aplikasi digital</small></span></button></div></div><div class="panel"><div class="panel-head"><h3>Aktivitas admin</h3><span>RECENT LOGS</span></div><div class="activity-list" id="activityList"><div class="empty-state">Memuat aktivitas...</div></div></div></div>';
       $('#quickArticle').addEventListener('click',()=>openEditor('article'));
       $$('[data-create]').forEach(button=>button.addEventListener('click',()=>openEditor(button.dataset.create)));
       try {
@@ -302,6 +356,24 @@ const pageTitle = 'VANNDIK CMS';
       if(params.get('drive')==='connected'){notify('Google Drive berhasil dihubungkan.');history.replaceState({},'',location.pathname);}
       if(params.has('drive_error')){const messages={wrong_google_account:'Login menggunakan akun dickv940@gmail.com.',consent_denied:'Izin Google Drive tidak diberikan.',oauth_not_configured:'Konfigurasi OAuth belum lengkap.',state_expired:'Sesi koneksi kedaluwarsa. Coba hubungkan kembali.',refresh_token_missing:'Google tidak mengirim refresh token. Coba hubungkan ulang dan setujui akses.',token_exchange_failed:'Google gagal memverifikasi OAuth client.'};notify(messages[params.get('drive_error')]||'Koneksi Google Drive gagal.',true);history.replaceState({},'',location.pathname);}
     }
+    async function renderBackup(){
+      view.innerHTML='<div class="page-head"><div><div class="eyebrow">DATA PROTECTION</div><h1>Backup & Restore</h1><p>Lindungi konten dan pengaturan VANNDIK dengan salinan data yang dapat disimpan di perangkat Anda.</p></div></div><div class="backup-grid"><div class="panel backup-card"><div class="eyebrow">EXPORT DATA</div><h3>Cadangkan data CMS</h3><p>Buat file backup JSON berisi konten website, konfigurasi tema, navigasi, bahasa, dan riwayat aktivitas admin.</p><div class="backup-includes"><span><i class="backup-check">✓</i> Artikel, berita, produk affiliate</span><span><i class="backup-check">✓</i> Game dan aplikasi / tools</span><span><i class="backup-check">✓</i> Tema global dan tema per halaman</span><span><i class="backup-check">✓</i> Navigasi, footer, dan bahasa</span><span><i class="backup-check">✓</i> Log aktivitas admin terbaru</span></div><div class="backup-actions"><button class="action-btn" id="exportBackup">↓ Unduh backup sekarang</button></div><div class="backup-meta" id="backupStatus">Backup belum dibuat pada sesi ini.</div></div><div class="panel backup-card"><div class="eyebrow">BACKUP GUIDELINE</div><h3>Strategi perlindungan data</h3><p>Gunakan backup berkala dan simpan salinan di lokasi terpisah dari website.</p><div class="backup-steps"><div class="backup-step"><strong>01</strong><span><b>Unduh backup rutin</b><small>Lakukan setiap kali ada perubahan konten penting atau minimal mingguan.</small></span></div><div class="backup-step"><strong>02</strong><span><b>Simpan dua salinan</b><small>Simpan satu di komputer dan satu lagi di Google Drive pribadi.</small></span></div><div class="backup-step"><strong>03</strong><span><b>Jaga akses admin</b><small>Jangan memasukkan password, passkey, atau token rahasia ke file backup.</small></span></div></div><div class="backup-warning"><b>Catatan penting:</b> file gambar dan media tetap berada di Google Drive folder VANNDIK Media. Backup ini berisi data dan URL media, bukan salinan file gambar. Kredensial admin, sesi login, passkey, dan token OAuth sengaja tidak diekspor.</div></div></div><div class="panel backup-card backup-history"><h3>Checklist backup</h3><p>Pastikan langkah berikut dilakukan setelah mengunduh file.</p><div class="backup-steps"><div class="backup-step"><strong>✓</strong><span><b>Periksa file JSON</b><small>Pastikan file tersimpan dan ukurannya tidak nol.</small></span></div><div class="backup-step"><strong>✓</strong><span><b>Simpan di lokasi aman</b><small>Gunakan folder backup khusus dan jangan unggah ke repositori publik.</small></span></div><div class="backup-step"><strong>✓</strong><span><b>Jangan hapus media sumber</b><small>Jaga folder Google Drive agar gambar yang direferensikan website tetap tersedia.</small></span></div></div></div>';
+      $('#exportBackup').addEventListener('click',async()=>{
+        const button=$('#exportBackup'),status=$('#backupStatus');
+        button.disabled=true;button.textContent='Menyiapkan backup...';status.textContent='Mengambil data CMS dengan sesi admin yang aktif...';
+        try{
+          const data=await api('backup/export');
+          const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+          const href=URL.createObjectURL(blob),link=document.createElement('a');
+          const date=new Date().toISOString().slice(0,10);
+          link.href=href;link.download='vanndik-cms-backup-'+date+'.json';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(href);
+          status.textContent='Backup berhasil dibuat: '+date+' · '+(data.data?.content?.length||0)+' konten · '+(data.data?.settings?.length||0)+' pengaturan.';
+          notify('File backup VANNDIK berhasil diunduh.');
+        }catch(error){status.textContent='Backup gagal: '+error.message;notify(error.message,true);}
+        finally{button.disabled=false;button.textContent='↓ Unduh backup sekarang';}
+      });
+    }
+
     async function renderSecurity(){
       view.innerHTML='<div class="page-head"><div><div class="eyebrow">ACCOUNT PROTECTION</div><h1>Keamanan Admin</h1><p>Kelola passkey, biometrik perangkat, dan sesi admin.</p></div></div><div class="panel security-card"><div class="security-row"><span><b>Password admin</b><small>Password disimpan dalam bentuk hash PBKDF2-SHA256, bukan teks asli.</small></span><span class="status published">PROTECTED</span></div><div class="security-row"><span><b>Passkey / biometrik</b><small>Gunakan sidik jari, Face ID, Windows Hello, PIN perangkat, atau security key yang kompatibel.</small></span><button class="action-btn" id="addPasskey">＋ Daftarkan perangkat ini</button></div><div id="passkeyList"><div class="empty-state">Memuat perangkat...</div></div></div><div class="panel security-card" style="margin-top:14px"><h3 style="margin:0 0 8px;font:700 13px Manrope">Tips keamanan</h3><p style="margin:0;color:#8796ac;font-size:10px;line-height:1.8">Gunakan password unik minimal 12 karakter. Daftarkan lebih dari satu passkey bila memungkinkan agar tetap bisa masuk jika salah satu perangkat hilang. Jangan bagikan kode aktivasi atau password.</p></div>';
       $('#addPasskey').addEventListener('click',async()=>{try{const options=await api('passkey/register/options',{method:'POST',body:'{}'});const response=await startRegistration({optionsJSON:options});await api('passkey/register/verify',{method:'POST',body:JSON.stringify({response,deviceName:navigator.userAgent.includes('Android')?'Android device':navigator.userAgent.includes('iPhone')?'iPhone / iPad':'Laptop / desktop'})});notify('Passkey berhasil didaftarkan.');renderSecurity();}catch(e){notify(e.message||'Pendaftaran passkey dibatalkan.',true);}});
