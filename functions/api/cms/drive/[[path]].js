@@ -137,7 +137,7 @@ export async function onRequest({request,env}){
       const data=await request.json(),raw=String(data.url||'');
       let imageUrl;try{imageUrl=new URL(raw)}catch{return json({error:'URL foto produk tidak valid.'},400);}
       const allowedHosts=['down-id.img.susercontent.com','down-id.img.shopee.com','cf.shopee.co.id','cf.shopee.com'];
-      if(imageUrl.protocol!=='https:'||!allowedHosts.includes(imageUrl.hostname.toLowerCase()))return json({error:'Sumber foto belum didukung. Hanya CDN gambar Shopee Indonesia yang diizinkan.'},400);
+      if(imageUrl.protocol!=='https:'||imageUrl.username||imageUrl.password||!imageUrl.pathname.startsWith('/file/')||!allowedHosts.includes(imageUrl.hostname.toLowerCase()))return json({error:'Sumber foto belum didukung. Hanya URL file CDN gambar Shopee Indonesia yang diizinkan.'},400);
       const conn=await connection(env);if(!conn?.refresh_token_enc)return json({error:'Hubungkan Google Drive terlebih dahulu.'},409);
       const response=await fetch(imageUrl.href,{method:'GET',redirect:'error',signal:AbortSignal.timeout(10000),headers:{accept:'image/avif,image/webp,image/png,image/jpeg,*/*;q=0.5','user-agent':'Mozilla/5.0 (compatible; VANNDIKMediaImporter/1.0)'}});
       if(!response.ok)return json({error:'Foto produk tidak dapat diambil dari CDN marketplace (HTTP '+response.status+').'},502);
