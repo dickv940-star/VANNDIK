@@ -1,5 +1,8 @@
 const COOKIE = 'vanndik_cms_session';
 const OWNER_EMAIL = 'dickv940@gmail.com';
+const clientId = env => env.GOOGLE_GROWTH_CLIENT_ID || env.GOOGLE_DRIVE_CLIENT_ID;
+const clientSecret = env => env.GOOGLE_GROWTH_CLIENT_SECRET || env.GOOGLE_DRIVE_CLIENT_SECRET;
+const tokenKey = env => env.GOOGLE_GROWTH_TOKEN_KEY || env.GOOGLE_DRIVE_TOKEN_KEY;
 const REDIRECT_URI = 'https://vanndik.pages.dev/api/cms/google-growth/callback';
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 const uid = () => crypto.randomUUID();
@@ -32,8 +35,8 @@ async function adminFor(request, env) {
     .bind(await sha(token), new Date().toISOString()).first();
 }
 async function cryptoKey(env) {
-  if (!env.GOOGLE_GROWTH_TOKEN_KEY) throw new Error('Secret GOOGLE_GROWTH_TOKEN_KEY belum diatur di Cloudflare.');
-  const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(env.GOOGLE_GROWTH_TOKEN_KEY));
+  if (!tokenKey(env)) throw new Error('Secret GOOGLE_DRIVE_TOKEN_KEY belum diatur di Cloudflare.');
+  const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(tokenKey(env)));
   return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }
 async function encrypt(value, env) {
@@ -53,9 +56,9 @@ function redirect(origin, params) {
 async function getAccessToken(env) {
   const conn = await env.CMS_DB.prepare("SELECT * FROM cms_google_growth_connection WHERE id='primary'").first();
   if (!conn?.refresh_token_enc) throw new Error('Akun Google belum terhubung.');
-  if (!env.GOOGLE_GROWTH_CLIENT_ID || !env.GOOGLE_GROWTH_CLIENT_SECRET) throw new Error('OAuth Google Growth belum dikonfigurasi di Cloudflare.');
+  if (!clientId(env) || !clientSecret(env)) throw new Error('OAuth Google Growth belum dikonfigurasi di Cloudflare.');
   const refresh = await decrypt(conn.refresh_token_enc, env);
-  const form = new URLSearchParams({ client_id: env.GOOGLE_GROWTH_CLIENT_ID, client_secret: env.GOOGLE_GROWTH_CLIENT_SECRET, refresh_token: refresh, grant_type: 'refresh_token' });
+  const form = new URLSearchParams({ client_id: clientId(env), client_secret: clientSecret(env), refresh_token: refresh, grant_type: 'refresh_token' });
   const response = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form });
   const data = await response.json();
   if (!response.ok || !data.access_token) throw new Error('Token Google gagal diperbarui. Hubungkan ulang akun Google.');
@@ -94,8 +97,8 @@ export async function onRequest({ request, env }) {
       const row = await env.CMS_DB.prepare('SELECT state FROM cms_google_growth_oauth_states WHERE state=? AND expires_at>?').bind(state, new Date().toISOString()).first();
       if (!row) return redirect(url.origin, { google_error: 'state_expired' });
       await env.CMS_DB.prepare('DELETE FROM cms_google_growth_oauth_states WHERE state=?').bind(state).run();
-      if (!env.GOOGLE_GROWTH_CLIENT_ID || !env.GOOGLE_GROWTH_CLIENT_SECRET) return redirect(url.origin, { google_error: 'oauth_not_configured' });
-      const form = new URLSearchParams({ code, client_id: env.GOOGLE_GROWTH_CLIENT_ID, client_secret: env.GOOGLE_GROWTH_CLIENT_SECRET, redirect_uri: REDIRECT_URI, grant_type: 'authorization_code' });
+      if (!clientId(env) || !clientSecret(env)) return redirect(url.origin, { google_error: 'oauth_not_configured' });
+      const form = new URLSearchParams({ code, client_id: clientId(env), client_secret: clientSecret(env), redirect_uri: REDIRECT_URI, grant_type: 'authorization_code' });
       const response = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form });
       const token = await response.json();
       if (!response.ok || !token.access_token) return redirect(url.origin, { google_error: 'token_exchange_failed' });
@@ -113,8 +116,8 @@ export async function onRequest({ request, env }) {
     if (!admin) return json({ error: 'Silakan login sebagai admin VANNDIK.' }, 401);
 
     if (path === 'connect' && method === 'GET') {
-      if (!env.GOOGLE_GROWTH_CLIENT_ID || !env.GOOGLE_GROWTH_CLIENT_SECRET || !env.GOOGLE_GROWTH_TOKEN_KEY)
-        return json({ error: 'Atur GOOGLE_GROWTH_CLIENT_ID, GOOGLE_GROWTH_CLIENT_SECRET, dan GOOGLE_GROWTH_TOKEN_KEY di Cloudflare Pages terlebih dahulu.' }, 503);
+      if (!clientId(env) || !clientSecret(env) || !tokenKey(env))
+        return json({ error: 'Konfigurasi Google Drive OAuth belum lengkap di Cloudflare Pages.' }, 503);
       const state = random();
       await env.CMS_DB.prepare('DELETE FROM cms_google_growth_oauth_states WHERE expires_at<?').bind(new Date().toISOString()).run();
       await env.CMS_DB.prepare('INSERT INTO cms_google_growth_oauth_states(state,expires_at) VALUES(?,?)').bind(state, new Date(Date.now() + 10 * 60 * 1000).toISOString()).run();
@@ -134,7 +137,7 @@ export async function onRequest({ request, env }) {
         env.CMS_DB.prepare("SELECT google_email,connected_at FROM cms_google_growth_connection WHERE id='primary'").first(),
         env.CMS_DB.prepare("SELECT search_console_site,ga4_property_id,updated_at FROM cms_google_growth_config WHERE id='primary'").first()
       ]);
-      return json({ configured: !!(env.GOOGLE_GROWTH_CLIENT_ID && env.GOOGLE_GROWTH_CLIENT_SECRET && env.GOOGLE_GROWTH_TOKEN_KEY), connected: !!conn, email: conn?.google_email || null, connectedAt: conn?.connected_at || null, searchConsoleSite: config?.search_console_site || '', ga4PropertyId: config?.ga4_property_id || '' });
+      return json({ configured: !!(clientId(env) && clientSecret(env) && tokenKey(env)), connected: !!conn, email: conn?.google_email || null, connectedAt: conn?.connected_at || null, searchConsoleSite: config?.search_console_site || '', ga4PropertyId: config?.ga4_property_id || '' });
     }
     if (path === 'config' && method === 'POST') {
       const data = await request.json();
