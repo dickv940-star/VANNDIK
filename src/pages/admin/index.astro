@@ -98,7 +98,7 @@ const pageTitle = 'VANNDIK CMS';
     import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 
     const $ = (selector, root = document) => root.querySelector(selector);
-    const $ = (selector, root = document) => [...root.querySelectorAll(selector)];
+    const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
     document.addEventListener('click', event => {
       const button = event.target.closest('[data-toggle-visibility]');
       if (!button) return;
