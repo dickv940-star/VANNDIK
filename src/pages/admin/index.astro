@@ -760,7 +760,7 @@ const pageTitle = 'VANNDIK CMS';
         let tags=[];try{tags=Array.isArray(item.tags)?item.tags:JSON.parse(item.tags||'[]')}catch{}
         try{
           const affiliate=new URL(item.affiliate_url),target=new URL(item.target_url);
-          return tags.includes('metadata-extracted')&&tags.includes('marketplace-page-read')&&!!item.title&&affiliate.protocol.startsWith('http')&&target.protocol.startsWith('http');
+          return tags.includes('metadata-extracted')&&tags.includes('marketplace-page-read')&&!!item.title&&String(item.excerpt||'').trim().length>=25&&!!item.image_url&&affiliate.protocol.startsWith('http')&&target.protocol.startsWith('http');
         }catch{return false;}
       };
       const draw=()=>{
@@ -775,7 +775,7 @@ const pageTitle = 'VANNDIK CMS';
         $('#affiliateLive').textContent=all.filter(x=>x.status==='published').length.toLocaleString('id-ID');
         $('#affiliateArchived').textContent=all.filter(x=>x.status==='archived').length.toLocaleString('id-ID');
         $('#affiliateCount').textContent=rows.length+' produk';
-        const failureCards=failedAttempts.map(attempt=>'<article class="affiliate-product-card affiliate-failed-card"><div class="affiliate-product-visual"><div class="affiliate-product-placeholder">⚠<small>NOT VERIFIED</small></div></div><div class="affiliate-product-info"><div class="affiliate-product-top"><span class="affiliate-state">Gagal diverifikasi</span><span class="affiliate-updated">'+escapeHTML(attempt.created_at||'')+'</span></div><h3>Link produk perlu pemeriksaan</h3><p class="affiliate-excerpt">'+escapeHTML(attempt.reason||'Halaman tujuan tidak dapat diverifikasi.')+'</p><div class="affiliate-link-row"><span class="affiliate-link-missing">'+escapeHTML(attempt.sourceUrl||'Link tidak valid')+'</span></div><small class="affiliate-updated">Dicatat sebagai gagal. Tidak ada data produk yang dibuat atau dipublikasikan.</small></div></article>').join('');
+        const failureCards=failedAttempts.map(attempt=>'<article class="affiliate-product-card affiliate-failed-card"><div class="affiliate-product-visual"><div class="affiliate-product-placeholder">⚠<small>NOT VERIFIED</small></div></div><div class="affiliate-product-info"><div class="affiliate-product-top"><span class="affiliate-state">Gagal diverifikasi</span><span class="affiliate-updated">'+escapeHTML(attempt.created_at||'')+'</span></div><h3>Link produk belum terverifikasi</h3><p class="affiliate-excerpt">'+escapeHTML(attempt.reason||'Halaman tujuan tidak dapat diverifikasi.')+'</p><div class="affiliate-link-row"><span class="affiliate-link-missing">'+escapeHTML(attempt.sourceUrl||'Link tidak valid')+'</span></div><small class="affiliate-updated">Tidak dimasukkan ke publikasi.</small><div class="affiliate-card-actions"><button class="affiliate-btn reject" data-attempt-delete="'+escapeHTML(attempt.id)+'">Hapus permanen</button></div></div></article>').join('');
         $('#affiliateRows').innerHTML=(failureCards)+(rows.length?rows.map(item=>{
           const status=item.status||'draft',verified=isVerified(item);
           const image=item.image_url?'<img class="affiliate-product-image" src="'+escapeHTML(item.image_url)+'" alt="'+escapeHTML(item.title||'Produk')+'" loading="lazy">':'<div class="affiliate-product-placeholder">◇<small>NO IMAGE</small></div>';
@@ -784,7 +784,7 @@ const pageTitle = 'VANNDIK CMS';
           const targetLink=item.target_url&&/^https?:\/\//i.test(item.target_url)?'<a class="affiliate-link" href="'+escapeHTML(item.target_url)+'" target="_blank" rel="noopener noreferrer">Halaman sumber ↗</a>':'';
           const brandMatch=String(item.body||'').match(/(?:^|\n\n)Merek:\s*([^\n]+)/i);
           const brand=brandMatch?'<span class="affiliate-brand">Merek: '+escapeHTML(brandMatch[1])+'</span>':'';
-          const actions=verified?(status==='draft'?'<button class="affiliate-btn approve" data-product-approve="'+item.id+'">✓ Tampilkan</button>':'')+'<button class="affiliate-btn reject" data-product-delete="'+item.id+'">Hapus permanen</button>':'<span class="affiliate-link-missing">Belum terverifikasi — tidak tersedia untuk publikasi</span>';
+          const actions=(verified&&status==='draft'?'<button class="affiliate-btn approve" data-product-approve="'+item.id+'">✓ Tampilkan</button>':'')+'<button class="affiliate-btn reject" data-product-delete="'+item.id+'">Hapus permanen</button>';
           let aiResult={};try{aiResult=JSON.parse(item.ai_result_json||'{}')}catch{}
           const aiComplete=item.ai_status==='completed';
           const aiFailed=item.ai_status==='failed';
@@ -808,10 +808,17 @@ const pageTitle = 'VANNDIK CMS';
           catch(e){notify(e.message,true);btn.disabled=false;btn.textContent='✓ Tampilkan';}
         }));
         $('#affiliateRows').querySelectorAll('[data-product-delete]').forEach(btn=>btn.addEventListener('click',async()=>{
-          const item=all.find(x=>String(x.id)===btn.dataset.productDelete);if(!item||!isVerified(item))return;
-          if(!confirm('Hapus permanen produk "'+item.title+'" dari CMS? Tindakan ini tidak dapat dibatalkan.'))return;
+          const item=all.find(x=>String(x.id)===btn.dataset.productDelete);if(!item)return;
+          if(!confirm('Hapus permanen produk "'+(item.title||'tanpa judul')+'" dari CMS? Tindakan ini tidak dapat dibatalkan.'))return;
           btn.disabled=true;
           try{await api('content/'+item.id,{method:'DELETE',body:'{}'});notify('Produk dihapus permanen.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();}
+          catch(e){notify(e.message,true);btn.disabled=false;}
+        }));
+        $('#affiliateRows').querySelectorAll('[data-attempt-delete]').forEach(btn=>btn.addEventListener('click',async()=>{
+          const attempt=failedAttempts.find(x=>String(x.id)===btn.dataset.attemptDelete);if(!attempt)return;
+          if(!confirm('Hapus permanen catatan impor gagal ini? Tindakan ini tidak dapat dibatalkan.'))return;
+          btn.disabled=true;
+          try{await api('product/attempts/'+encodeURIComponent(attempt.id),{method:'DELETE',body:'{}'});notify('Catatan gagal dihapus permanen.');failedAttempts=failedAttempts.filter(x=>String(x.id)!==String(attempt.id));draw();}
           catch(e){notify(e.message,true);btn.disabled=false;}
         }));
       };
@@ -832,6 +839,9 @@ const pageTitle = 'VANNDIK CMS';
               mediaMessage=' Foto utama otomatis disalin ke Google Drive VANNDIK.';
             }catch(importError){mediaMessage=' Foto sumber tetap ditautkan, tetapi penyalinan ke Drive belum berhasil: '+importError.message;}
           }
+          let aiMessage='';
+          try{await api('product/ai-process',{method:'POST',body:JSON.stringify({id:result.item.id})});aiMessage=' SEO dan deskripsi AI selesai dibuat otomatis.';}
+          catch(aiError){aiMessage=' Produk terverifikasi, tetapi optimasi AI belum selesai: '+aiError.message;}
           if(material){
             try{
               const form=new FormData();form.append('file',material,material.name);
@@ -841,7 +851,7 @@ const pageTitle = 'VANNDIK CMS';
             }catch(uploadError){mediaMessage+=' Upload foto pilihan gagal: '+uploadError.message;}
             $('#affiliateMaterialFile').value='';
           }
-          input.value='';feedback.textContent='Sumber berhasil dibaca: '+result.item.title+'. Produk terverifikasi dan menunggu persetujuan.'+mediaMessage;feedback.classList.add('success');
+          input.value='';feedback.textContent='Sumber berhasil dibaca: '+result.item.title+'. Produk menunggu persetujuan.'+mediaMessage+aiMessage;feedback.classList.add('success');
           notify('Produk berhasil diverifikasi dan masuk antrean.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();
           requestAnimationFrame(()=>{const card=$('[data-product-id="'+result.item.id+'"]');if(card)card.scrollIntoView({behavior:'smooth',block:'center'});});
         }catch(error){
