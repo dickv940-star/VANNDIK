@@ -159,27 +159,36 @@ function readShopeeApiProduct(payload,pageUrl){
   return {title,description,image,price,sourceCategory,brand:stripText(item.brand?.name||item.brand||''),rating:Number(rating.rating_star||0)||null,ratingCount:Array.isArray(rating.rating_count)?Number(rating.rating_count[0]||0):Number(rating.rating_count||rating.total_rating_count||0)||null,shopName:stripText(shop.name||shop.shop_name||''),hasProductSchema:true,source:'shopee-product-api'};
 }
 async function fetchShopeeProduct(pageUrl){
-  const ids=shopeeIds(pageUrl);if(!ids)return null;
+  const ids=shopeeIds(pageUrl);if(!ids)return {product:null,diagnostics:['product-id-not-found']};
   const endpoints=[
-    'https://shopee.co.id/api/v4/pdp/get_pc?shop_id='+encodeURIComponent(ids.shopId)+'&item_id='+encodeURIComponent(ids.itemId),
-    'https://shopee.co.id/api/v4/item/get?shopid='+encodeURIComponent(ids.shopId)+'&itemid='+encodeURIComponent(ids.itemId)
+    {name:'pdp/get_pc',url:'https://shopee.co.id/api/v4/pdp/get_pc?shop_id='+encodeURIComponent(ids.shopId)+'&item_id='+encodeURIComponent(ids.itemId)},
+    {name:'item/get',url:'https://shopee.co.id/api/v4/item/get?shopid='+encodeURIComponent(ids.shopId)+'&itemid='+encodeURIComponent(ids.itemId)}
   ];
+  const diagnostics=[];
   for(const endpoint of endpoints){
     let response;
     try{
-      response=await fetch(endpoint,{method:'GET',redirect:'follow',signal:AbortSignal.timeout(10000),headers:{
+      response=await fetch(endpoint.url,{method:'GET',redirect:'follow',signal:AbortSignal.timeout(10000),headers:{
         'accept':'application/json, text/plain, */*','accept-language':'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-        'referer':pageUrl.href,'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-        'x-requested-with':'XMLHttpRequest'
+        'referer':pageUrl.href,'origin':'https://shopee.co.id','user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'x-requested-with':'XMLHttpRequest','x-shopee-language':'id'
       }});
-    }catch{continue;}
-    if(!response.ok||!/(application\/json|text\/plain)/i.test(response.headers.get('content-type')||''))continue;
-    const length=Number(response.headers.get('content-length')||0);if(length>1200000)continue;
-    let payload;try{payload=await response.json();}catch{continue;}
+    }catch(error){diagnostics.push(endpoint.name+':network-'+String(error?.name||'error'));continue;}
+    const contentType=response.headers.get('content-type')||'';
+    if(!response.ok){diagnostics.push(endpoint.name+':HTTP-'+response.status+'-'+contentType.slice(0,45));continue;}
+    if(!/(application\/json|text\/plain)/i.test(contentType)){diagnostics.push(endpoint.name+':non-json-'+contentType.slice(0,45));continue;}
+    const length=Number(response.headers.get('content-length')||0);if(length>1200000){diagnostics.push(endpoint.name+':response-too-large');continue;}
+    let payload;try{payload=await response.json();}catch{diagnostics.push(endpoint.name+':invalid-json');continue;}
+    const data=payload?.data||payload;
+    const item=data?.item||data?.product||data;
+    const keys=item&&typeof item==='object'?Object.keys(item).slice(0,18).join(','):'no-item-object';
+    const code=String(payload?.error??'none').slice(0,35);
+    const message=String(payload?.error_msg??payload?.message??'').replace(/[^a-zA-Z0-9 _-]/g,'').slice(0,60);
     const product=readShopeeApiProduct(payload,pageUrl);
-    if(product?.title)return product;
+    if(product?.title)return {product,diagnostics:[endpoint.name+':ok']};
+    diagnostics.push(endpoint.name+':HTTP-'+response.status+'-error-'+code+(message?'-'+message:'')+'-keys-'+keys);
   }
-  return null;
+  return {product:null,diagnostics};
 }
 
 const decodeEntities=value=>String(value||'').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,Number(n)))).replace(/&#x([\da-f]+);/gi,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,parseInt(n,16)))).replace(/\\u0026/gi,'&').replace(/\\u003c/gi,'<').replace(/\\u003e/gi,'>');
@@ -208,12 +217,17 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
   if(duplicate)throw new Error('Link ini sudah ada di CMS sebagai "'+duplicate.title+'". Periksa antrean produk yang sudah ada.');
   const page=await fetchMarketplaceHtml(original);
   let meta=page.html?readProductMetadata(page.html,page.finalUrl):{title:'',description:'',image:'',price:'',category:'',brand:'',hasProductSchema:false};
-  let source='html-metadata';
+  let source='html-metadata',shopeeDiagnostics=[];
   if(page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id')){
-    const apiMeta=await fetchShopeeProduct(page.finalUrl);
+    const shopeeResult=await fetchShopeeProduct(page.finalUrl);
+    shopeeDiagnostics=shopeeResult.diagnostics||[];
+    const apiMeta=shopeeResult.product;
     if(apiMeta?.title){meta={...meta,...apiMeta,description:apiMeta.description||meta.description,image:apiMeta.image||meta.image,price:apiMeta.price||meta.price,category:apiMeta.sourceCategory||meta.category,brand:apiMeta.brand||meta.brand};source=apiMeta.source;}
   }
-  if(!meta.title||meta.title.length<3)throw new Error(page.blocked?'Shopee membatasi pembacaan otomatis (HTTP '+page.status+'), dan data produk API tidak tersedia. Coba lagi nanti; produk tidak disimpan.':'Nama produk belum ditemukan pada metadata maupun data produk Shopee. Produk tidak disimpan.');
+  if(!meta.title||meta.title.length<3){
+    const detail=shopeeDiagnostics.length?' Diagnostik: '+shopeeDiagnostics.join(' | ').slice(0,450):'';
+    throw new Error((page.blocked?'Shopee membatasi pembacaan halaman (HTTP '+page.status+').':'Nama produk belum ditemukan pada metadata halaman.')+' Endpoint data Shopee juga belum memberikan nama produk.'+detail+' Produk tidak disimpan.');
+  }
   const categoryInfo=classifyProduct(meta.title,meta.description,meta.sourceCategory||meta.category);
   const finalCategory=categoryInfo.category==='Lainnya'?(meta.category||categoryInfo.category):categoryInfo.category;
   const details=[meta.description,meta.brand?'Merek: '+meta.brand:'',meta.sourceCategory?'Kategori sumber: '+meta.sourceCategory:'', 'Subkategori VANNDIK: '+categoryInfo.subcategory,meta.shopName?'Toko: '+meta.shopName:'',meta.rating?'Rating sumber: '+meta.rating+(meta.ratingCount?' ('+meta.ratingCount+' penilaian)':''):'',meta.price?'Harga yang terbaca: '+meta.price:'','Sumber: '+page.finalUrl.href].filter(Boolean).join('\n\n');
