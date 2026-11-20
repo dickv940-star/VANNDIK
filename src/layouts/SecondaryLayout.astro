@@ -27,6 +27,14 @@ const languages = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#080b12" />
     <meta name="description" content={description} />
+    <!-- Google Analytics 4: VANNDIK -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-R4M2BPL37J"></script>
+    <script is:inline>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){window.dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-R4M2BPL37J');
+    </script>
     <title>{title} — VANNDIK</title>
     <link rel="icon" type="image/png" href={vanndikLogo.src} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
