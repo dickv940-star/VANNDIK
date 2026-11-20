@@ -6,9 +6,9 @@ export async function onRequest({env}) {
   try {
     if(env.CMS_DB){
       await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_content_seo (content_id TEXT PRIMARY KEY,seo_title TEXT NOT NULL DEFAULT '',seo_description TEXT NOT NULL DEFAULT '',seo_keywords TEXT NOT NULL DEFAULT '',canonical_url TEXT NOT NULL DEFAULT '',og_image TEXT NOT NULL DEFAULT '',seo_score INTEGER NOT NULL DEFAULT 0,seo_checks TEXT NOT NULL DEFAULT '{}',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
-      const rows=await env.CMS_DB.prepare("SELECT c.slug,c.updated_at,c.published_at,s.canonical_url FROM cms_content c LEFT JOIN cms_content_seo s ON s.content_id=c.id WHERE c.status='published' OR (c.status='scheduled' AND c.published_at IS NOT NULL AND datetime(c.published_at)<=CURRENT_TIMESTAMP) ORDER BY c.updated_at DESC LIMIT 5000").all();
+      const rows=await env.CMS_DB.prepare("SELECT c.slug,c.type,c.updated_at,c.published_at,s.canonical_url FROM cms_content c LEFT JOIN cms_content_seo s ON s.content_id=c.id WHERE c.status='published' OR (c.status='scheduled' AND c.published_at IS NOT NULL AND datetime(c.published_at)<=CURRENT_TIMESTAMP) ORDER BY c.updated_at DESC LIMIT 5000").all();
       for(const row of rows.results||[]){
-        const loc=row.canonical_url&&/^https:\/\//i.test(row.canonical_url)?row.canonical_url:BASE+'/konten/'+encodeURIComponent(row.slug)+'/';
+        const loc=row.canonical_url&&/^https:\/\//i.test(row.canonical_url)?row.canonical_url:BASE+(row.type==='product'?'/produk/':'/konten/')+encodeURIComponent(row.slug)+'/';
         urls.push({loc,lastmod:row.updated_at||row.published_at||undefined});
       }
     }
