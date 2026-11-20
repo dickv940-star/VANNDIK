@@ -88,7 +88,7 @@ async function fetchMarketplaceHtml(startUrl){
     try{response=await fetch(current.href,{method:'GET',redirect:'manual',signal,headers:{'accept':'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5','accept-language':'id-ID,id;q=0.9,en;q=0.8','user-agent':'Mozilla/5.0 (compatible; VANNDIKProductPreview/1.0; +https://vanndik.pages.dev/)'}});}
     catch(error){if(error?.name==='AbortError'||error?.name==='TimeoutError')throw new Error('Halaman marketplace terlalu lama merespons. Coba lagi beberapa saat.');throw new Error('Halaman marketplace tidak dapat diakses otomatis. Marketplace mungkin membatasi pembacaan bot.');}
     if([301,302,303,307,308].includes(response.status)){const location=response.headers.get('location');if(!location||hop===5)throw new Error('Tautan pengalihan terlalu panjang atau tidak lengkap.');current=new URL(location,current);continue;}
-    if(!response.ok)throw new Error('Marketplace menolak pembacaan halaman (HTTP '+response.status+'). Periksa link secara manual atau coba lagi nanti.');
+    if(!response.ok){if(current.hostname.toLowerCase().endsWith('shopee.co.id'))return {html:'',finalUrl:current,blocked:true,status:response.status};throw new Error('Marketplace menolak pembacaan halaman (HTTP '+response.status+'). Periksa link secara manual atau coba lagi nanti.');}
     const contentType=response.headers.get('content-type')||'';
     if(!/text\/html|application\/xhtml\+xml/i.test(contentType))throw new Error('Link tidak mengarah ke halaman produk HTML yang dapat dibaca.');
     if(Number(response.headers.get('content-length')||0)>1200000)throw new Error('Halaman terlalu besar untuk dianalisis secara gratis dan aman.');
@@ -101,6 +101,81 @@ async function fetchMarketplaceHtml(startUrl){
   }
   throw new Error('Tautan tidak berhasil diarahkan ke halaman produk.');
 }
+
+function shopeeIds(pageUrl){
+  const url=pageUrl instanceof URL?pageUrl:new URL(pageUrl);
+  let match=url.pathname.match(/\/product\/(\d+)\/(\d+)/i);
+  if(!match)match=url.pathname.match(/-i\.(\d+)\.(\d+)(?:\/|$)/i);
+  return match?{shopId:match[1],itemId:match[2]}:null;
+}
+function shopeeImageUrl(value){
+  if(!value)return '';
+  const raw=typeof value==='string'?value:(value.image_id||value.image_hash||value.url||'');
+  if(!raw)return '';
+  if(/^https?:\/\//i.test(raw))return raw;
+  return 'https://down-id.img.susercontent.com/file/'+encodeURIComponent(raw);
+}
+function classifyProduct(title,description,sourceCategory){
+  const text=(String(title||'')+' '+String(description||'')+' '+String(sourceCategory||'')).toLowerCase();
+  const rules=[
+    {category:'Peralatan Dapur',sub:'Alat Masak dan Perlengkapan Dapur',keys:['peralatan dapur','alat dapur','alat masak','rak piring','rak bumbu','rak dapur','panci','wajan','spatula','pisau dapur','saringan','talenan','kitchen','cookware','kitchenware']},
+    {category:'Pakaian Pria',sub:'Atasan, Bawahan dan Fashion Pria',keys:['pakaian pria','baju pria','kaos pria','kemeja pria','celana pria','jaket pria','fashion pria','men clothing','menswear','men fashion']},
+    {category:'Pakaian Wanita',sub:'Atasan, Bawahan dan Fashion Wanita',keys:['pakaian wanita','baju wanita','dress','blouse','rok wanita','celana wanita','fashion wanita','women clothing','womenswear','women fashion']},
+    {category:'Rumah dan Dekorasi',sub:'Rak Dinding dan Penyimpanan',keys:['rak dinding','rak sudut','rak buku','rak tempel','rak serbaguna','dekorasi rumah','furnitur','furniture','home living','home decor','perabot rumah']},
+    {category:'Elektronik dan Gadget',sub:'Perangkat Elektronik dan Aksesori',keys:['elektronik','gadget','handphone','smartphone','laptop','charger','earphone','headphone','keyboard','mouse','elektronik rumah']},
+    {category:'Kecantikan dan Perawatan',sub:'Skincare, Kosmetik dan Perawatan Tubuh',keys:['skincare','kosmetik','makeup','serum wajah','sunscreen','perawatan kulit','beauty','parfum','body care']},
+    {category:'Ibu, Bayi dan Anak',sub:'Perlengkapan Bayi dan Anak',keys:['perlengkapan bayi','popok','diaper','stroller','mainan anak','baju anak','baby','kids','balita']},
+    {category:'Olahraga dan Outdoor',sub:'Peralatan Olahraga dan Aktivitas Luar Ruang',keys:['olahraga','fitness','gym','yoga','sepeda','camping','outdoor','hiking','sport']},
+    {category:'Otomotif',sub:'Aksesori dan Perlengkapan Kendaraan',keys:['otomotif','motor','mobil','helm','sparepart','aksesoris mobil','aksesoris motor','automotive']},
+    {category:'Makanan dan Minuman',sub:'Bahan Makanan dan Minuman',keys:['makanan','minuman','snack','kopi','teh','bumbu masak','food','beverage']}
+  ];
+  for(const rule of rules)if(rule.keys.some(key=>text.includes(key)))return {category:rule.category,subcategory:rule.sub,auto:true};
+  if(/rumah|home|living|furniture|perabot|dekorasi/.test(text))return {category:'Rumah dan Dekorasi',subcategory:'Perlengkapan Rumah',auto:true};
+  return {category:'Lainnya',subcategory:'Perlu klasifikasi lanjutan',auto:false};
+}
+function readShopeeApiProduct(payload,pageUrl){
+  if(!payload||typeof payload!=='object'||Number(payload.error||0)!==0)return null;
+  const data=payload.data||payload;
+  const item=data.item||data.product||data;
+  if(!item||typeof item!=='object')return null;
+  const title=stripText(item.title||item.name||item.item_name||'').slice(0,180);
+  if(title.length<3)return null;
+  const description=stripText(item.description||item.description_info?.text||item.description_info?.description||'').slice(0,6000);
+  const imageList=Array.isArray(item.images)?item.images:(Array.isArray(data.product_images?.images)?data.product_images.images:[]);
+  const image=shopeeImageUrl(item.image||imageList[0]||'');
+  const categories=Array.isArray(item.fe_categories)?item.fe_categories:Array.isArray(item.categories)?item.categories:[];
+  const sourceCategory=categories.map(x=>typeof x==='string'?x:(x.display_name||x.name||'')).filter(Boolean).join(' > ')||stripText(item.category||'');
+  const priceObject=item.price&&typeof item.price==='object'?item.price:{};
+  let rawPrice=priceObject.single_value??item.price??item.price_min??data.product_price?.price?.single_value??'';
+  if(rawPrice&&typeof rawPrice==='object')rawPrice=rawPrice.single_value??rawPrice.value??'';
+  let price='';
+  if(rawPrice!==''&&Number.isFinite(Number(rawPrice))){
+    let amount=Number(rawPrice);
+    if(amount>10000000)amount=amount/1000000;
+    try{price=new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(amount);}catch{price='Rp'+Math.round(amount).toLocaleString('id-ID');}
+  }
+  const rating=item.item_rating||data.product_review||{};
+  const shop=data.shop_detailed||data.shop||{};
+  return {title,description,image,price,sourceCategory,brand:stripText(item.brand?.name||item.brand||''),rating:Number(rating.rating_star||0)||null,ratingCount:Array.isArray(rating.rating_count)?Number(rating.rating_count[0]||0):Number(rating.rating_count||rating.total_rating_count||0)||null,shopName:stripText(shop.name||shop.shop_name||''),hasProductSchema:true,source:'shopee-product-api'};
+}
+async function fetchShopeeProduct(pageUrl){
+  const ids=shopeeIds(pageUrl);if(!ids)return null;
+  const endpoint=new URL('https://shopee.co.id/api/v4/pdp/get_pc');
+  endpoint.searchParams.set('shop_id',ids.shopId);endpoint.searchParams.set('item_id',ids.itemId);
+  let response;
+  try{
+    response=await fetch(endpoint.href,{method:'GET',redirect:'follow',signal:AbortSignal.timeout(10000),headers:{
+      'accept':'application/json, text/plain, */*','accept-language':'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+      'referer':pageUrl.href,'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      'x-requested-with':'XMLHttpRequest'
+    }});
+  }catch{return null;}
+  if(!response.ok||!/(application\/json|text\/plain)/i.test(response.headers.get('content-type')||''))return null;
+  const length=Number(response.headers.get('content-length')||0);if(length>1200000)return null;
+  let payload;try{payload=await response.json();}catch{return null;}
+  return readShopeeApiProduct(payload,pageUrl);
+}
+
 const decodeEntities=value=>String(value||'').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,Number(n)))).replace(/&#x([\da-f]+);/gi,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,parseInt(n,16)))).replace(/\\u0026/gi,'&').replace(/\\u003c/gi,'<').replace(/\\u003e/gi,'>');
 const stripText=value=>decodeEntities(String(value||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ')).trim();
 function htmlAttributes(tag){const attrs={};for(const match of tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g))attrs[match[1].toLowerCase()]=decodeEntities(match[2]??match[3]??match[4]??'');return attrs;}
@@ -125,18 +200,27 @@ function readProductMetadata(html,pageUrl){
 async function analyzeAffiliateProduct(env,admin,rawUrl){
   const original=validateProductUrl(rawUrl),duplicate=await env.CMS_DB.prepare("SELECT id,title FROM cms_content WHERE type='product' AND affiliate_url=? LIMIT 1").bind(original.href).first();
   if(duplicate)throw new Error('Link ini sudah ada di CMS sebagai "'+duplicate.title+'". Periksa antrean produk yang sudah ada.');
-  const page=await fetchMarketplaceHtml(original),meta=readProductMetadata(page.html,page.finalUrl);
-  if(!meta.title||meta.title.length<3)throw new Error('Nama produk tidak berhasil dibaca dari halaman tujuan. Marketplace mungkin memblokir metadata. Tidak ada data yang disimpan.');
+  const page=await fetchMarketplaceHtml(original);
+  let meta=page.html?readProductMetadata(page.html,page.finalUrl):{title:'',description:'',image:'',price:'',category:'',brand:'',hasProductSchema:false};
+  let source='html-metadata';
+  if(page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id')){
+    const apiMeta=await fetchShopeeProduct(page.finalUrl);
+    if(apiMeta?.title){meta={...meta,...apiMeta};source=apiMeta.source;}
+  }
+  if(!meta.title||meta.title.length<3)throw new Error(page.blocked?'Shopee membatasi pembacaan otomatis (HTTP '+page.status+'), dan data produk API tidak tersedia. Coba lagi nanti; produk tidak disimpan.':'Nama produk belum ditemukan pada metadata maupun data produk Shopee. Produk tidak disimpan.');
+  const categoryInfo=classifyProduct(meta.title,meta.description,meta.sourceCategory||meta.category);
+  const finalCategory=categoryInfo.category==='Lainnya'?(meta.category||categoryInfo.category):categoryInfo.category;
+  const details=[meta.description,meta.brand?'Merek: '+meta.brand:'',meta.sourceCategory?'Kategori sumber: '+meta.sourceCategory:'', 'Subkategori VANNDIK: '+categoryInfo.subcategory,meta.shopName?'Toko: '+meta.shopName:'',meta.rating?'Rating sumber: '+meta.rating+(meta.ratingCount?' ('+meta.ratingCount+' penilaian)':''):'',meta.price?'Harga yang terbaca: '+meta.price:'','Sumber: '+page.finalUrl.href].filter(Boolean).join('\n\n');
   const id=uid(),baseSlug=meta.title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,72)||'produk';
   let slug=baseSlug,suffix=1;while(await env.CMS_DB.prepare('SELECT id FROM cms_content WHERE slug=? LIMIT 1').bind(slug).first())slug=(baseSlug.slice(0,78)+'-'+suffix++).slice(0,90);
-  const excerpt=meta.description||'Deskripsi produk tidak tersedia pada metadata halaman sumber. Periksa halaman marketplace sebelum menampilkan produk.';
-  const bodyText=[meta.description,meta.brand?'Merek: '+meta.brand:'',meta.category?'Kategori: '+meta.category:'',meta.price?'Harga yang terbaca: '+meta.price:'','Sumber: '+page.finalUrl.href].filter(Boolean).join('\n\n');
-  const tags=JSON.stringify(['metadata-extracted','marketplace-page-read',page.finalUrl.hostname]);
-  const data=clean({type:'product',title:meta.title,slug,excerpt,body:bodyText,image_url:meta.image,category:meta.category,tags:['metadata-extracted','marketplace-page-read',page.finalUrl.hostname],status:'draft',affiliate_url:original.href,target_url:page.finalUrl.href,price:meta.price});
+  const excerpt=meta.description||'Deskripsi lengkap tidak tersedia dari sumber otomatis. Periksa detail produk di marketplace sebelum publikasi.';
+  const bodyText=details;
+  const tags=JSON.stringify(['metadata-extracted','marketplace-page-read',source,'auto-category-classified',page.finalUrl.hostname]);
+  const data=clean({type:'product',title:meta.title,slug,excerpt,body:bodyText,image_url:meta.image,category:finalCategory,tags:['metadata-extracted','marketplace-page-read',source,'auto-category-classified',page.finalUrl.hostname],status:'draft',affiliate_url:original.href,target_url:page.finalUrl.href,price:meta.price});
   await env.CMS_DB.prepare('INSERT INTO cms_content(id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,data.type,data.title,data.slug,data.excerpt,data.body,data.image_url,data.category,data.tags,data.status,data.affiliate_url,data.target_url,data.price,data.featured,data.sort_order,null).run();
   const seo=makeSeo({...data,seo_description:meta.description,canonical_url:new URL('/produk/'+encodeURIComponent(slug)+'/','https://vanndik.pages.dev').href,og_image:meta.image});
   await saveSeo(env,id,seo);await audit(env,admin,'affiliate.product.analyzed','product',id,{sourceHost:page.finalUrl.hostname,hasProductSchema:meta.hasProductSchema,hasImage:!!meta.image,hasPrice:!!meta.price});
-  return {id,type:'product',title:meta.title,slug,excerpt,image_url:meta.image,category:meta.category,price:meta.price,affiliate_url:original.href,target_url:page.finalUrl.href,status:'draft',tags,seo_score:seo.seo_score,metadata:{descriptionFound:!!meta.description,imageFound:!!meta.image,priceFound:!!meta.price,productSchemaFound:meta.hasProductSchema,sourceHost:page.finalUrl.hostname}};
+  return {id,type:'product',title:meta.title,slug,excerpt,image_url:meta.image,category:finalCategory,subcategory:categoryInfo.subcategory,price:meta.price,affiliate_url:original.href,target_url:page.finalUrl.href,status:'draft',tags,seo_score:seo.seo_score,metadata:{descriptionFound:!!meta.description,imageFound:!!meta.image,priceFound:!!meta.price,productSchemaFound:meta.hasProductSchema,source,sourceCategory:meta.sourceCategory||meta.category||'',categoryAuto:categoryInfo.auto,sourceHost:page.finalUrl.hostname}};
 }
 const safeUrl = v => !v || /^https?:\/\//i.test(v) || v.startsWith('/');
 
