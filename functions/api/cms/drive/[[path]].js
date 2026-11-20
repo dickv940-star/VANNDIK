@@ -132,6 +132,41 @@ export async function onRequest({request,env}){
       const items=(data.files||[]).filter(f=>String(f.mimeType||'').startsWith('image/')).map(f=>({...f,imageUrl:'https://drive.google.com/uc?export=view&id='+f.id}));
       return json({items});
     }
+
+    if(path==='import-image'&&method==='POST'){
+      const data=await request.json(),raw=String(data.url||'');
+      let imageUrl;try{imageUrl=new URL(raw)}catch{return json({error:'URL foto produk tidak valid.'},400);}
+      const allowedHosts=['down-id.img.susercontent.com','down-id.img.shopee.com','cf.shopee.co.id','cf.shopee.com'];
+      if(imageUrl.protocol!=='https:'||imageUrl.username||imageUrl.password||!imageUrl.pathname.startsWith('/file/')||!allowedHosts.includes(imageUrl.hostname.toLowerCase()))return json({error:'Sumber foto belum didukung. Hanya URL file CDN gambar Shopee Indonesia yang diizinkan.'},400);
+      const conn=await connection(env);if(!conn?.refresh_token_enc)return json({error:'Hubungkan Google Drive terlebih dahulu.'},409);
+      const response=await fetch(imageUrl.href,{method:'GET',redirect:'error',signal:AbortSignal.timeout(10000),headers:{accept:'image/avif,image/webp,image/png,image/jpeg,*/*;q=0.5','user-agent':'Mozilla/5.0 (compatible; VANNDIKMediaImporter/1.0)'}});
+      if(!response.ok)return json({error:'Foto produk tidak dapat diambil dari CDN marketplace (HTTP '+response.status+').'},502);
+      const mime=(response.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();
+      const extensions={'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif','image/avif':'avif'};
+      if(!extensions[mime])return json({error:'CDN tidak mengembalikan format gambar yang didukung.'},415);
+      if(Number(response.headers.get('content-length')||0)>8*1024*1024)return json({error:'Foto produk melebihi batas 8 MB.'},413);
+      const reader=response.body?.getReader();if(!reader)return json({error:'Data foto tidak dapat dibaca.'},502);
+      const chunks=[];let total=0;
+      try{while(true){const part=await reader.read();if(part.done)break;total+=part.value.byteLength;if(total>8*1024*1024){await reader.cancel();return json({error:'Foto produk melebihi batas 8 MB.'},413);}chunks.push(part.value);}}
+      catch{try{await reader.cancel()}catch{}return json({error:'Pengunduhan foto produk terputus.'},502);}
+      if(!total)return json({error:'Foto produk kosong.'},422);
+      const bytes=new Uint8Array(total);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+      const token=await accessToken(env,conn);
+      const base=String(data.fileName||'produk-vanndik').normalize('NFKD').replace(/[^a-zA-Z0-9_-]+/g,'-').slice(0,70)||'produk-vanndik';
+      const metadata={name:base+'.'+extensions[mime],mimeType:mime,parents:[conn.folder_id]};
+      const boundary='vanndik_'+uid().replaceAll('-','');
+      const head='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: '+mime+'\r\n\r\n';
+      const tail='\r\n--'+boundary+'--';
+      const payload=new Blob([head,bytes,tail],{type:'multipart/related; boundary='+boundary});
+      const uploadedResponse=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,size',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'multipart/related; boundary='+boundary},body:payload});
+      const uploaded=await uploadedResponse.json().catch(()=>({}));
+      if(!uploadedResponse.ok||!uploaded.id)throw new Error(uploaded.error?.message||'Gagal menyimpan foto produk ke Google Drive.');
+      try{await driveRequest(token,'/files/'+uploaded.id+'/permissions?fields=id',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'anyone',role:'reader'})});}
+      catch(error){await fetch('https://www.googleapis.com/drive/v3/files/'+uploaded.id,{method:'DELETE',headers:{Authorization:'Bearer '+token}}).catch(()=>{});throw new Error('Foto tersimpan tetapi akses tampil publik gagal. Periksa kebijakan berbagi Google Drive.');}
+      await env.CMS_DB.prepare("INSERT INTO cms_audit_logs(id,admin_id,action,target_type,target_id,details) VALUES(?,?,?,?,?,?)").bind(uid(),admin.id,'media.marketplace_imported','media',uploaded.id,JSON.stringify({name:uploaded.name,size:uploaded.size,sourceHost:imageUrl.hostname})).run();
+      return json({ok:true,item:{...uploaded,imageUrl:'https://drive.google.com/uc?export=view&id='+uploaded.id}},201);
+    }
+
     if(path==='upload'&&method==='POST'){
       const conn=await connection(env);if(!conn?.refresh_token_enc)return json({error:'Hubungkan Google Drive terlebih dahulu.'},409);
       const form=await request.formData(),file=form.get('file');
