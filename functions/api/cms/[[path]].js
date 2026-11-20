@@ -79,10 +79,10 @@ async function fetchMarketplaceHtml(startUrl){
   let current=startUrl;
   for(let hop=0;hop<=5;hop++){
     validateProductUrl(current.href);
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);let response;
-    try{response=await fetch(current.href,{method:'GET',redirect:'manual',signal:controller.signal,headers:{'accept':'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5','accept-language':'id-ID,id;q=0.9,en;q=0.8','user-agent':'Mozilla/5.0 (compatible; VANNDIKProductPreview/1.0; +https://vanndik.pages.dev/)'}});}
-    catch(error){if(error?.name==='AbortError')throw new Error('Halaman marketplace terlalu lama merespons. Coba lagi beberapa saat.');throw new Error('Halaman marketplace tidak dapat diakses otomatis. Marketplace mungkin membatasi pembacaan bot.');}
-    finally{clearTimeout(timer);}
+    // Keep the same deadline active while streaming the response body, not only until headers arrive.
+    const signal=AbortSignal.timeout(12000);let response;
+    try{response=await fetch(current.href,{method:'GET',redirect:'manual',signal,headers:{'accept':'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5','accept-language':'id-ID,id;q=0.9,en;q=0.8','user-agent':'Mozilla/5.0 (compatible; VANNDIKProductPreview/1.0; +https://vanndik.pages.dev/)'}});}
+    catch(error){if(error?.name==='AbortError'||error?.name==='TimeoutError')throw new Error('Halaman marketplace terlalu lama merespons. Coba lagi beberapa saat.');throw new Error('Halaman marketplace tidak dapat diakses otomatis. Marketplace mungkin membatasi pembacaan bot.');}
     if([301,302,303,307,308].includes(response.status)){const location=response.headers.get('location');if(!location||hop===5)throw new Error('Tautan pengalihan terlalu panjang atau tidak lengkap.');current=new URL(location,current);continue;}
     if(!response.ok)throw new Error('Marketplace menolak pembacaan halaman (HTTP '+response.status+'). Periksa link secara manual atau coba lagi nanti.');
     const contentType=response.headers.get('content-type')||'';
