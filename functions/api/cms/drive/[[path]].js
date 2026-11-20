@@ -28,6 +28,10 @@ async function decrypt(value,env){
   const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv},await keyFor(env),cipher);
   return new TextDecoder().decode(plain);
 }
+async function ensureDriveTables(env){
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_drive_connection (id TEXT PRIMARY KEY, google_email TEXT NOT NULL, refresh_token_enc TEXT NOT NULL, folder_id TEXT NOT NULL, connected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_drive_oauth_states (state TEXT PRIMARY KEY, expires_at TEXT NOT NULL)").run();
+}
 async function connection(env){
   return env.CMS_DB.prepare("SELECT * FROM cms_drive_connection WHERE id='primary'").first();
 }
@@ -65,6 +69,7 @@ export async function onRequest({request,env}){
   const method=request.method.toUpperCase();
   try{
     if(!env.CMS_DB)return json({error:'Database CMS belum terhubung.'},503);
+    await ensureDriveTables(env);
     if(method!=='GET'){
       const origin=request.headers.get('origin');
       if(origin&&origin!==url.origin)return json({error:'Origin tidak diizinkan.'},403);
