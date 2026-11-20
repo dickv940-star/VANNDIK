@@ -228,6 +228,69 @@ function readProductMetadata(html,pageUrl){
   const category=stripText(product.category||meta['product:category']||meta['article:section']||'').slice(0,80),brandValue=product.brand&&typeof product.brand==='object'?product.brand.name:product.brand;
   return {title,description,image,price,category,brand:stripText(brandValue||'').slice(0,80),hasProductSchema:products.length>0};
 }
+
+function decodeGoogleMarkup(value){
+  return decodeEntities(String(value||'').replace(/\\u003a/gi,':').replace(/\\u002f/gi,'/').replace(/\\u003d/gi,'=').replace(/\\u0026/gi,'&').replace(/\\x3d/gi,'=').replace(/\\\//g,'/'));
+}
+function googleUnwrapResult(value){
+  const raw=decodeGoogleMarkup(value);
+  try{const parsed=new URL(raw,'https://www.google.com');if(parsed.hostname==='www.google.com'||parsed.hostname==='google.com'){const target=parsed.searchParams.get('q')||parsed.searchParams.get('url');if(target)return new URL(target);}return parsed;}catch{return null;}
+}
+function googleResultCards(html,expectedIds){
+  const results=[];
+  for(const match of String(html||'').matchAll(/<a\b[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi)){
+    const target=googleUnwrapResult(match[2]);if(!target||target.hostname!=='shopee.co.id')continue;
+    const ids=shopeeIds(target,'');if(!ids||ids.shopId!==expectedIds.shopId||ids.itemId!==expectedIds.itemId)continue;
+    const title=stripText(match[3]).replace(/\s*[|–—-]\s*Shopee.*$/i,'').slice(0,180);if(title.length<4)continue;
+    const area=html.slice(Math.max(0,match.index-900),Math.min(html.length,match.index+match[0].length+1800));
+    const snippetMatch=area.match(/<div\b[^>]*class=["'][^"']*(?:VwiC3b|aCOpRe|IsZvec|lyLwlc)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+    const snippet=stripText(snippetMatch?.[1]||'').slice(0,700);
+    if(!results.some(x=>x.url===target.href))results.push({url:target.href,title,snippet});
+  }
+  return results.slice(0,5);
+}
+function shopeeImageCandidates(html){
+  const source=decodeGoogleMarkup(html),values=[];
+  for(const match of source.matchAll(/https?:\/\/(?:down-id\.img\.susercontent\.com|img\.susercontent\.com|cf\.shopee\.co\.id)\/[^"'\\\s<>]+/gi)){
+    const value=match[0].replace(/&amp;.*/i,'').replace(/[),;]+$/,'');
+    try{const u=new URL(value);if(['down-id.img.susercontent.com','img.susercontent.com','cf.shopee.co.id'].includes(u.hostname)&&!values.includes(u.href))values.push(u.href);}catch{}
+  }
+  return values.slice(0,8);
+}
+function googleOriginalImageCandidates(html){
+  const source=decodeGoogleMarkup(html),values=[];
+  const patterns=[/"ou"\s*:\s*"(https?:[^"]+)"/gi,/data-ou\s*=\s*["'](https?:[^"']+)["']/gi,/imgurl=([^&"'\\s]+)/gi];
+  for(const pattern of patterns)for(const match of source.matchAll(pattern)){
+    let raw=match[1];try{raw=decodeURIComponent(raw);}catch{}
+    try{const u=new URL(raw);if(['down-id.img.susercontent.com','img.susercontent.com','cf.shopee.co.id'].includes(u.hostname)&&!values.includes(u.href))values.push(u.href);}catch{}
+  }
+  return values.slice(0,8);
+}
+async function fetchGoogleHtml(query,images=false){
+  const url=new URL('https://www.google.com/search');url.searchParams.set('q',query);url.searchParams.set('hl','id');url.searchParams.set('gl','id');url.searchParams.set('num','10');if(images)url.searchParams.set('tbm','isch');
+  let response;try{response=await fetch(url.href,{headers:{'accept':'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8','accept-language':'id-ID,id;q=0.9,en;q=0.7','user-agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'},signal:AbortSignal.timeout(10000),redirect:'follow'});}catch(error){throw new Error('Google Search tidak dapat diakses dari server saat ini ('+String(error?.name||'network')+').');}
+  if(!response.ok)throw new Error('Google Search membatasi permintaan server (HTTP '+response.status+').');
+  const html=await response.text();if(html.length>1800000)throw new Error('Respons Google Search melebihi batas pemeriksaan aman.');
+  if(/unusual traffic|our systems have detected|sorry\/index|consent\.google\.com/i.test(html)&&!/<a\b[^>]*href/i.test(html))throw new Error('Google meminta verifikasi browser sebelum hasil pencarian dapat dibaca.');
+  return html;
+}
+async function researchShopeeOnGoogle(pageUrl,html){
+  const ids=shopeeIds(pageUrl,html);if(!ids)throw new Error('ID toko dan produk Shopee belum dapat dipastikan dari link tujuan.');
+  const diagnostics=[],query='site:shopee.co.id/product/'+ids.shopId+'/'+ids.itemId+' "'+ids.itemId+'"';
+  let searchHtml='';try{searchHtml=await fetchGoogleHtml(query);}catch(error){diagnostics.push(String(error.message||error).slice(0,180));}
+  let result=searchHtml?googleResultCards(searchHtml,ids)[0]:null;
+  if(!result&&searchHtml){try{const retry=await fetchGoogleHtml('site:shopee.co.id "'+ids.shopId+'" "'+ids.itemId+'"');result=googleResultCards(retry,ids)[0]||null;}catch(error){diagnostics.push(String(error.message||error).slice(0,180));}}
+  if(!result)throw new Error('Google belum mengembalikan halaman Shopee dengan ID toko dan produk yang cocok persis. '+diagnostics.join(' '));
+  let productHtml='';try{const page=await fetchMarketplaceHtml(new URL(result.url));productHtml=page.html||'';}catch(error){diagnostics.push('halaman-produk: '+String(error.message||error).slice(0,150));}
+  let image=shopeeImageCandidates(productHtml)[0]||shopeeImageCandidates(html)[0]||'';
+  if(!image){try{const imageHtml=await fetchGoogleHtml('site:down-id.img.susercontent.com/file "'+result.title+'" Shopee',true);image=googleOriginalImageCandidates(imageHtml)[0]||'';}catch(error){diagnostics.push('gambar-google: '+String(error.message||error).slice(0,150));}}
+  const productMeta=productHtml?readProductMetadata(productHtml,new URL(result.url)):{};
+  const description=productMeta.description||result.snippet||'';
+  if(!image)throw new Error('Google menemukan halaman produk yang cocok ('+result.title+'), tetapi foto asli produk dari sumber Shopee belum berhasil diverifikasi. '+diagnostics.join(' '));
+  if(description.length<25)throw new Error('Google menemukan halaman produk yang cocok ('+result.title+'), tetapi deskripsi produk belum cukup untuk diverifikasi. '+diagnostics.join(' '));
+  return {title:result.title,description,image,price:productMeta.price||'',category:productMeta.category||'',brand:productMeta.brand||'',hasProductSchema:!!productMeta.hasProductSchema,source:'google-search-exact-shopee-id',targetUrl:result.url,shopId:ids.shopId,itemId:ids.itemId,diagnostics};
+}
+
 async function analyzeAffiliateProduct(env,admin,rawUrl){
   const original=validateProductUrl(rawUrl),duplicate=await env.CMS_DB.prepare("SELECT id,title FROM cms_content WHERE type='product' AND affiliate_url=? LIMIT 1").bind(original.href).first();
   if(duplicate)throw new Error('Link ini sudah ada di CMS sebagai "'+duplicate.title+'". Periksa antrean produk yang sudah ada.');
@@ -240,9 +303,16 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
     const apiMeta=shopeeResult.product;
     if(apiMeta?.title){meta={...meta,...apiMeta,description:apiMeta.description||meta.description,image:apiMeta.image||meta.image,price:apiMeta.price||meta.price,category:apiMeta.sourceCategory||meta.category,brand:apiMeta.brand||meta.brand};source=apiMeta.source;}
   }
-  if(!meta.title||meta.title.length<3){
-    const detail=shopeeDiagnostics.length?' Diagnostik: '+shopeeDiagnostics.join(' | ').slice(0,450):'';
-    throw new Error((page.blocked?'Shopee membatasi pembacaan halaman (HTTP '+page.status+').':'Nama produk belum ditemukan pada metadata halaman.')+' Endpoint data Shopee juga belum memberikan nama produk.'+detail+' Produk tidak disimpan.');
+  if(!meta.title||meta.title.length<3||!meta.description||meta.description.length<25||!meta.image){
+    if(page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id')){
+      const googleMeta=await researchShopeeOnGoogle(page.finalUrl,page.html||'');
+      meta={...meta,...googleMeta,description:googleMeta.description||meta.description,image:googleMeta.image||meta.image,price:googleMeta.price||meta.price,category:googleMeta.category||meta.category,brand:googleMeta.brand||meta.brand};
+      source=googleMeta.source;page.finalUrl=new URL(googleMeta.targetUrl);
+    }
+  }
+  if(!meta.title||meta.title.length<3||!meta.description||meta.description.length<25||!meta.image){
+    const detail=shopeeDiagnostics.length?' Diagnostik: '+shopeeDiagnostics.join(' | ').slice(0,300):'';
+    throw new Error('Produk belum lengkap dan tidak dapat diverifikasi. Wajib tersedia judul, deskripsi yang memadai, dan foto produk asli. '+detail+' Produk tidak disimpan.');
   }
   const categoryInfo=classifyProduct(meta.title,meta.description,meta.sourceCategory||meta.category);
   const finalCategory=categoryInfo.category==='Lainnya'?(meta.category||categoryInfo.category):categoryInfo.category;
@@ -251,7 +321,7 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
   let slug=baseSlug,suffix=1;while(await env.CMS_DB.prepare('SELECT id FROM cms_content WHERE slug=? LIMIT 1').bind(slug).first())slug=(baseSlug.slice(0,78)+'-'+suffix++).slice(0,90);
   const excerpt=meta.description||'Deskripsi lengkap tidak tersedia dari sumber otomatis. Periksa detail produk di marketplace sebelum publikasi.';
   const bodyText=details;
-  const tags=JSON.stringify(['metadata-extracted','marketplace-page-read',source,'auto-category-classified',page.finalUrl.hostname]);
+  const tags=JSON.stringify(['metadata-extracted','marketplace-page-read',source,'auto-category-classified',page.finalUrl.hostname,...(source==='google-search-exact-shopee-id'?['google-search-exact-match']:[])]);
   const data=clean({type:'product',title:meta.title,slug,excerpt,body:bodyText,image_url:meta.image,category:finalCategory,tags:['metadata-extracted','marketplace-page-read',source,'auto-category-classified',page.finalUrl.hostname],status:'draft',affiliate_url:original.href,target_url:page.finalUrl.href,price:meta.price});
   await env.CMS_DB.prepare('INSERT INTO cms_content(id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,data.type,data.title,data.slug,data.excerpt,data.body,data.image_url,data.category,data.tags,data.status,data.affiliate_url,data.target_url,data.price,data.featured,data.sort_order,null).run();
   const seo=makeSeo({...data,seo_description:meta.description,canonical_url:new URL('/produk/'+encodeURIComponent(slug)+'/','https://vanndik.pages.dev').href,og_image:meta.image});
@@ -429,6 +499,14 @@ export async function onRequest({ request, env }) {
         await audit(env,admin,'affiliate.product.ai_failed','product',productId,{model,reason:String(error?.message||'AI gagal').slice(0,400)});
         return json({error:'Proses AI gagal: '+String(error?.message||'Coba lagi nanti.').slice(0,350)},502);
       }
+    }
+    if (path.startsWith('product/attempts/') && method === 'DELETE') {
+      const attemptId=decodeURIComponent(path.slice('product/attempts/'.length));
+      if(!attemptId||attemptId.length>100)return json({error:'ID catatan tidak valid.'},400);
+      const removed=await env.CMS_DB.prepare("DELETE FROM cms_audit_logs WHERE id=? AND action='affiliate.product.failed'").bind(attemptId).run();
+      if(!removed.meta?.changes)return json({error:'Catatan gagal tidak ditemukan.'},404);
+      await audit(env,admin,'affiliate.product.failure_deleted','product',attemptId);
+      return json({ok:true});
     }
     if (path === 'product/attempts' && method === 'GET') {
       const rows=await env.CMS_DB.prepare("SELECT id,details,created_at FROM cms_audit_logs WHERE action='affiliate.product.failed' ORDER BY created_at DESC LIMIT 20").all();
