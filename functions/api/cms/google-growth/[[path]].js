@@ -77,7 +77,7 @@ function dateDaysAgo(days) { const d = new Date(); d.setUTCDate(d.getUTCDate() -
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
-  const path = url.pathname.replace(/^\\/api\\/cms\\/google-growth\\/?/, '').replace(/\\/$/, '');
+  const path = url.pathname.replace(/^\/api\/cms\/google-growth\/?/, '').replace(/\/$/, '');
   const method = request.method.toUpperCase();
   try {
     if (!env.CMS_DB) return json({ error: 'Database CMS belum terhubung.' }, 503);
@@ -139,8 +139,8 @@ export async function onRequest({ request, env }) {
     if (path === 'config' && method === 'POST') {
       const data = await request.json();
       const site = String(data.searchConsoleSite || '').trim().slice(0, 500);
-      const property = String(data.ga4PropertyId || '').trim().replace(/^properties\\//, '').slice(0, 40);
-      if (site && !/^(sc-domain:[a-zA-z0-9.-]+|https?:\\/\\/.+)$/i.test(site)) return json({ error: 'Format properti Search Console tidak valid. Gunakan sc-domain:domain.com atau URL prefix lengkap.' }, 400);
+      const property = String(data.ga4PropertyId || '').trim().replace(/^properties\//, '').slice(0, 40);
+      if (site && !/^(sc-domain:[a-zA-z0-9.-]+|https?:\/\/.+)$/i.test(site)) return json({ error: 'Format properti Search Console tidak valid. Gunakan sc-domain:domain.com atau URL prefix lengkap.' }, 400);
       if (property && !/^\\d+$/.test(property)) return json({ error: 'GA4 Property ID harus berupa angka.' }, 400);
       await env.CMS_DB.prepare("UPDATE cms_google_growth_config SET search_console_site=?,ga4_property_id=?,updated_at=? WHERE id='primary'").bind(site, property, new Date().toISOString()).run();
       return json({ ok: true });
