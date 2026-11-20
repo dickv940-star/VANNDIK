@@ -163,6 +163,42 @@ const pageTitle = 'VANNDIK CMS';
     .app-footer{border-color:#e1e8f1!important;color:#8a99ad!important}.modal{background:#fff!important;color:#20344e!important;border:1px solid #dfe7f1!important;box-shadow:0 25px 90px #0c1d3560!important}.modal-head{border-color:#e8edf4!important}.modal-head h2,.modal-head h3{color:#1b2e48!important}.modal-form{background:#fff!important}.toast{box-shadow:0 10px 35px #10233c30!important}.mobile-menu{color:#26415f!important;background:#eef4fb!important;border:1px solid #dce6f2!important;border-radius:7px!important}
     @media(max-width:1100px){.sidebar{width:268px!important}.main-area{margin-left:268px!important}.view-content{padding:28px 24px!important}.topbar{padding:0 24px!important}}
     @media(max-width:760px){.sidebar{width:268px!important;transform:translateX(-100%)!important}.sidebar.open{transform:translateX(0)!important}.main-area{margin-left:0!important}.topbar{height:68px!important;padding:0 15px!important}.view-content{padding:22px 15px 35px!important}.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important}.stat-card{padding:14px!important;min-height:112px!important}.stat-value{font-size:25px!important}.page-head{align-items:flex-start!important;flex-direction:column!important}.page-head h1{font-size:24px!important}.quick-grid{grid-template-columns:1fr!important}.overview-grid{grid-template-columns:1fr!important}.backup-grid{grid-template-columns:1fr!important}.content-table{min-width:650px!important}.panel{max-width:100%!important}}
+
+    /* Editorial workspace inspired by Google Blogger */
+    .blogger-head{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:26px}
+    .blogger-head h1{margin:7px 0 5px;color:#17243a;font:800 29px Manrope;letter-spacing:-1px}
+    .blogger-head p{margin:0;color:#75859b;font-size:12px;line-height:1.7}
+    .blogger-create{border:0;border-radius:7px;padding:12px 18px;background:#1769ff;color:#fff;font-size:11px;font-weight:700;box-shadow:0 5px 14px #1769ff25}
+    .blogger-tabs{display:flex;align-items:center;gap:24px;overflow-x:auto;border-bottom:1px solid #dfe6ef;margin-bottom:18px}
+    .blogger-tab{flex:0 0 auto;padding:13px 2px 12px;border:0;border-bottom:3px solid transparent;background:transparent;color:#718198;font-size:11px}
+    .blogger-tab.active{border-bottom-color:#1769ff;color:#1769ff;font-weight:700}
+    .blogger-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}
+    .blogger-search{width:min(440px,100%);display:flex;align-items:center;gap:10px;padding:0 13px;border:1px solid #dce5ef;border-radius:7px;background:#fff;color:#8292a8}
+    .blogger-search span{font-size:21px}.blogger-search input{width:100%;padding:11px 0;border:0;outline:0;background:transparent;color:#263b56;font:inherit;font-size:11px}
+    .blogger-count{color:#8190a5;font-size:10px}
+    .blogger-list{overflow:hidden}
+    .blogger-list-head,.blogger-post-row{display:grid;grid-template-columns:minmax(280px,1fr) 140px 155px 125px 58px;align-items:center;gap:14px;padding:13px 19px}
+    .blogger-list-head{background:#f7f9fc;border-bottom:1px solid #e8edf4;color:#8493a7;font-size:8px;font-weight:700;letter-spacing:1px}
+    .blogger-post-row{min-height:93px;border-bottom:1px solid #edf1f6;background:#fff}
+    .blogger-post-row:last-child{border-bottom:0}
+    .blogger-post-row:hover{background:#fbfdff}
+    .blogger-post-main{display:flex;align-items:flex-start;gap:12px;min-width:0}
+    .blogger-post-mark{flex:0 0 34px;height:34px;display:grid;place-items:center;border-radius:8px;background:#edf4ff;color:#1769ff;font-size:17px}
+    .blogger-post-main>div{min-width:0}
+    .blogger-post-title{display:block;max-width:100%;padding:0;border:0;background:transparent;color:#1769c2;text-align:left;font-size:12px;font-weight:700;line-height:1.5;cursor:pointer}
+    .blogger-post-title:hover{text-decoration:underline}
+    .blogger-post-main p{margin:4px 0 6px;color:#8290a3;font-size:9px;line-height:1.5}
+    .blogger-post-actions{display:flex;align-items:center;gap:11px}
+    .blogger-post-actions button{padding:0;border:0;background:none;color:#1769c2;font-size:9px;cursor:pointer}
+    .blogger-post-actions button.is-danger{color:#d14b4b}
+    .blogger-post-actions span{overflow:hidden;color:#9aa6b6;font-size:8px;text-overflow:ellipsis;white-space:nowrap}
+    .blogger-label{justify-self:start;max-width:130px;overflow:hidden;padding:5px 9px;border-radius:4px;background:#f0f4f9;color:#61748e;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+    .blogger-date{color:#718198;font-size:9px;line-height:1.5}
+    .blogger-status{justify-self:start;padding:5px 8px;border-radius:4px;background:#f0f3f7;color:#74849a;font-size:8px;white-space:nowrap}
+    .blogger-status.published{background:#e9f7ef;color:#16834d}.blogger-status.draft{background:#fff5df;color:#9a6a14}.blogger-status.scheduled{background:#eaf3ff;color:#2469b7}
+    .blogger-row-edit{justify-self:end}
+    @media(max-width:950px){.blogger-list-head{display:none}.blogger-post-row{grid-template-columns:minmax(0,1fr) 110px;gap:8px 12px}.blogger-post-main{grid-column:1/-1}.blogger-label{grid-column:1}.blogger-date{grid-column:1}.blogger-status{grid-column:2;grid-row:2}.blogger-row-edit{grid-column:2;grid-row:3}.blogger-post-actions{flex-wrap:wrap}}
+    @media(max-width:600px){.blogger-head{align-items:flex-start;flex-direction:column}.blogger-head h1{font-size:25px}.blogger-create{width:100%}.blogger-toolbar{align-items:flex-start;flex-direction:column}.blogger-search{width:100%}.blogger-post-row{padding:14px}.blogger-date{font-size:8px}}
   </style>
 
   <script>
@@ -288,18 +324,28 @@ const pageTitle = 'VANNDIK CMS';
     function escapeHTML(value) { return String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
     const typeNames={article:'Artikel',news:'Berita',product:'Produk Affiliate',game:'Game',app:'Aplikasi & Tools'};
     async function renderContent(type,query='') {
-      view.innerHTML='<div class="page-head"><div><div class="eyebrow">CONTENT MANAGEMENT</div><h1>'+typeNames[type]+'</h1><p>Tambah, ubah, atur status, dan kelola konten '+typeNames[type].toLowerCase()+' VANNDIK.</p></div><button class="action-btn" id="addContent">＋ Tambah '+typeNames[type]+'</button></div><div class="table-tools"><input class="search-box" id="contentSearch" type="search" placeholder="Cari judul atau kategori..." value="'+escapeHTML(query)+'" /><select class="filter-select" id="statusFilter"><option value="">Semua status</option><option value="published">Published</option><option value="draft">Draft</option><option value="scheduled">Terjadwal</option><option value="archived">Arsip</option></select></div><div class="panel table-wrap"><table class="content-table"><thead><tr><th>JUDUL KONTEN</th><th>KATEGORI</th><th>STATUS</th><th>DIUBAH</th><th>AKSI</th></tr></thead><tbody id="contentRows"><tr><td colspan="5">Memuat...</td></tr></tbody></table></div>';
+      const isEditorial = type==='article' || type==='news';
+      view.innerHTML = isEditorial
+        ? '<div class="blogger-head"><div><div class="eyebrow">BLOGGER-STYLE CONTENT STUDIO</div><h1>'+typeNames[type]+'</h1><p>Kelola postingan, draft, label, dan publikasi dalam satu ruang editorial.</p></div><button class="blogger-create" id="addContent">＋ Postingan baru</button></div><div class="blogger-tabs" role="tablist"><button class="blogger-tab active" data-blog-filter="">Semua postingan</button><button class="blogger-tab" data-blog-filter="published">Dipublikasikan</button><button class="blogger-tab" data-blog-filter="draft">Draft</button><button class="blogger-tab" data-blog-filter="scheduled">Terjadwal</button><button class="blogger-tab" data-blog-filter="archived">Arsip</button></div><div class="blogger-toolbar"><label class="blogger-search"><span>⌕</span><input id="contentSearch" type="search" placeholder="Cari postingan..." value="'+escapeHTML(query)+'" /></label><span class="blogger-count" id="bloggerCount">Memuat postingan...</span></div><div class="blogger-list panel"><div class="blogger-list-head"><span>POSTINGAN</span><span>LABEL</span><span>TANGGAL</span><span>STATUS</span><span>AKSI</span></div><div id="contentRows"><div class="empty-state">Memuat postingan...</div></div></div>'
+        : '<div class="page-head"><div><div class="eyebrow">CONTENT MANAGEMENT</div><h1>'+typeNames[type]+'</h1><p>Tambah, ubah, atur status, dan kelola konten '+typeNames[type].toLowerCase()+' VANNDIK.</p></div><button class="action-btn" id="addContent">＋ Tambah '+typeNames[type]+'</button></div><div class="table-tools"><input class="search-box" id="contentSearch" type="search" placeholder="Cari judul atau kategori..." value="'+escapeHTML(query)+'" /><select class="filter-select" id="statusFilter"><option value="">Semua status</option><option value="published">Published</option><option value="draft">Draft</option><option value="scheduled">Terjadwal</option><option value="archived">Arsip</option></select></div><div class="panel table-wrap"><table class="content-table"><thead><tr><th>JUDUL KONTEN</th><th>KATEGORI</th><th>STATUS</th><th>DIUBAH</th><th>AKSI</th></tr></thead><tbody id="contentRows"><tr><td colspan="5">Memuat...</td></tr></tbody></table></div>';
       $('#addContent').addEventListener('click',()=>openEditor(type));
-      let all=[];
+      let all=[],activeStatus='';
       const draw=()=>{
-        const q=$('#contentSearch').value.toLowerCase(), status=$('#statusFilter').value;
-        const rows=all.filter(item=>(item.title+' '+item.category).toLowerCase().includes(q)&&(!status||item.status===status));
-        $('#contentRows').innerHTML=rows.length?rows.map(item=>'<tr><td><div class="content-title">'+escapeHTML(item.title)+'</div><div class="content-sub">/'+escapeHTML(item.slug)+'</div></td><td>'+escapeHTML(item.category||'—')+'</td><td><span class="status '+item.status+'">'+escapeHTML(item.status)+'</span></td><td>'+escapeHTML(item.updated_at||'—')+'</td><td><div class="row-actions"><button class="tiny-btn" data-edit="'+item.id+'">Edit</button><button class="tiny-btn danger" data-delete="'+item.id+'">Hapus</button></div></td></tr>').join(''):'<tr><td colspan="5"><div class="empty-state">Belum ada konten pada kategori ini.</div></td></tr>';
+        const q=$('#contentSearch').value.toLowerCase(), status=isEditorial?activeStatus:$('#statusFilter').value;
+        const rows=all.filter(item=>(item.title+' '+item.category+' '+(item.excerpt||'')).toLowerCase().includes(q)&&(!status||item.status===status));
+        if(isEditorial){
+          $('#bloggerCount').textContent=rows.length+' postingan';
+          $('#contentRows').innerHTML=rows.length?rows.map(item=>'<article class="blogger-post-row"><div class="blogger-post-main"><span class="blogger-post-mark">▤</span><div><button class="blogger-post-title" data-edit="'+item.id+'">'+escapeHTML(item.title||'(Tanpa judul)')+'</button><p>'+escapeHTML(item.excerpt||'Belum ada ringkasan.').slice(0,145)+'</p><div class="blogger-post-actions"><button data-edit="'+item.id+'">Edit</button><button data-delete="'+item.id+'" class="is-danger">Hapus</button><span>/'+escapeHTML(item.slug||'')+'</span></div></div></div><span class="blogger-label">'+escapeHTML(item.category||'Tanpa label')+'</span><span class="blogger-date">'+escapeHTML(item.published_at||item.updated_at||'—')+'</span><span class="blogger-status '+escapeHTML(item.status)+'">'+escapeHTML(({published:'Dipublikasikan',draft:'Draft',scheduled:'Terjadwal',archived:'Arsip'})[item.status]||item.status)+'</span><span class="blogger-row-edit"><button class="tiny-btn" data-edit="'+item.id+'">Edit</button></span></article>').join(''):'<div class="empty-state">Belum ada postingan pada filter ini. Klik “Postingan baru” untuk mulai menulis.</div>';
+        }else{
+          $('#contentRows').innerHTML=rows.length?rows.map(item=>'<tr><td><div class="content-title">'+escapeHTML(item.title)+'</div><div class="content-sub">/'+escapeHTML(item.slug)+'</div></td><td>'+escapeHTML(item.category||'—')+'</td><td><span class="status '+item.status+'">'+escapeHTML(item.status)+'</span></td><td>'+escapeHTML(item.updated_at||'—')+'</td><td><div class="row-actions"><button class="tiny-btn" data-edit="'+item.id+'">Edit</button><button class="tiny-btn danger" data-delete="'+item.id+'">Hapus</button></div></td></tr>').join(''):'<tr><td colspan="5"><div class="empty-state">Belum ada konten pada kategori ini.</div></td></tr>';
+        }
         $$('[data-edit]').forEach(b=>b.addEventListener('click',()=>openEditor(type,all.find(x=>x.id===b.dataset.edit))));
-        $$('[data-delete]').forEach(b=>b.addEventListener('click',async()=>{const item=all.find(x=>x.id===b.dataset.delete);if(!confirm('Hapus konten "'+item.title+'"?'))return;try{await api('content/'+item.id,{method:'DELETE',body:'{}'});notify('Konten dihapus.');await renderContent(type);loadStats();}catch(e){notify(e.message,true);}}));
+        $$('[data-delete]').forEach(b=>b.addEventListener('click',async()=>{const item=all.find(x=>x.id===b.dataset.delete);if(!item||!confirm('Hapus konten "'+item.title+'"?'))return;try{await api('content/'+item.id,{method:'DELETE',body:'{}'});notify('Konten dihapus.');await renderContent(type);loadStats();}catch(e){notify(e.message,true);}}));
       };
-      $('#contentSearch').addEventListener('input',draw);$('#statusFilter').addEventListener('change',draw);
-      try{const data=await api('content?type='+type);all=data.items||[];draw();}catch(e){$('#contentRows').innerHTML='<tr><td colspan="5">'+escapeHTML(e.message)+'</td></tr>';}
+      $('#contentSearch').addEventListener('input',draw);
+      if(isEditorial){$$('[data-blog-filter]').forEach(tab=>tab.addEventListener('click',()=>{activeStatus=tab.dataset.blogFilter;$$('[data-blog-filter]').forEach(x=>x.classList.toggle('active',x===tab));draw();}));}
+      else $('#statusFilter').addEventListener('change',draw);
+      try{const data=await api('content?type='+type);all=data.items||[];draw();}catch(e){$('#contentRows').innerHTML='<div class="empty-state">'+escapeHTML(e.message)+'</div>';}
     }
     function openEditor(type,item={}) {
       const editing=!!item.id;
