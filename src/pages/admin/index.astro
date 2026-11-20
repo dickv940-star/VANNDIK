@@ -42,22 +42,33 @@ const pageTitle = 'VANNDIK CMS';
   <div id="appShell" class="app-shell" hidden>
     <aside class="sidebar" id="sidebar">
       <a class="side-brand" href="/"><img src="/admin-icon.svg" alt="" /><span>VANNDIK <small>CONTROL CENTER</small></span></a>
-      <div class="side-label">WORKSPACE</div>
-      <nav id="mainNav">
-        <button class="nav-item active" data-view="overview"><span>⌂</span> Ringkasan</button>
-        <div class="side-label nav-group-label">CONTENT MANAGEMENT</div>
-        <button class="nav-item" data-view="article"><span>▤</span> Artikel <em id="nav-article">0</em></button>
-        <button class="nav-item" data-view="news"><span>◷</span> Berita <em id="nav-news">0</em></button>
-        <button class="nav-item" data-view="product"><span>◇</span> Produk Affiliate <em id="nav-product">0</em></button>
-        <button class="nav-item" data-view="game"><span>▣</span> Game <em id="nav-game">0</em></button>
-        <button class="nav-item" data-view="app"><span>▦</span> Aplikasi & Tools <em id="nav-app">0</em></button>
-        <div class="side-label nav-group-label">SITE CONTROL</div>
-        <button class="nav-item" data-view="themes"><span>◐</span> Tema & Tampilan</button>
-        <button class="nav-item" data-view="pages"><span>▧</span> Halaman & Navigasi</button>
-        <button class="nav-item" data-view="media"><span>▧</span> Media Library</button>
-        <button class="nav-item" data-view="backup"><span>⇩</span> Backup & Restore</button>
-        <button class="nav-item" data-view="security"><span>⌑</span> Keamanan Admin</button>
+      <div class="side-label">BLOG WORKSPACE</div>
+      <nav id="mainNav" aria-label="Navigasi CMS">
+        <button class="nav-item active" data-view="overview"><span>⌂</span><span class="nav-copy">Ringkasan<small>Dashboard utama</small></span></button>
+        <div class="nav-section">
+          <div class="side-label nav-group-label">POSTINGAN</div>
+          <button class="nav-item" data-view="article"><span>▤</span><span class="nav-copy">Artikel<small>Semua postingan</small></span><em id="nav-article">0</em></button>
+          <button class="nav-item" data-view="news"><span>◷</span><span class="nav-copy">Berita<small>Update & informasi</small></span><em id="nav-news">0</em></button>
+        </div>
+        <div class="nav-section">
+          <div class="side-label nav-group-label">KATALOG</div>
+          <button class="nav-item" data-view="product"><span>◇</span><span class="nav-copy">Produk Affiliate<small>Produk & tautan komisi</small></span><em id="nav-product">0</em></button>
+          <button class="nav-item" data-view="game"><span>▣</span><span class="nav-copy">Game<small>Direktori game</small></span><em id="nav-game">0</em></button>
+          <button class="nav-item" data-view="app"><span>▦</span><span class="nav-copy">Aplikasi & Tools<small>Direktori aplikasi</small></span><em id="nav-app">0</em></button>
+        </div>
+        <div class="nav-section">
+          <div class="side-label nav-group-label">TATA LETAK & TAMPILAN</div>
+          <button class="nav-item" data-view="pages"><span>▧</span><span class="nav-copy">Halaman & Navigasi<small>Menu dan struktur situs</small></span></button>
+          <button class="nav-item" data-view="themes"><span>◐</span><span class="nav-copy">Tema & Tampilan<small>Desain global & per halaman</small></span></button>
+        </div>
+        <div class="nav-section">
+          <div class="side-label nav-group-label">PENGELOLAAN</div>
+          <button class="nav-item" data-view="media"><span>▧</span><span class="nav-copy">Media Library<small>Google Drive</small></span></button>
+          <button class="nav-item" data-view="backup"><span>⇩</span><span class="nav-copy">Backup & Restore<small>Cadangan data CMS</small></span></button>
+          <button class="nav-item" data-view="security"><span>⌑</span><span class="nav-copy">Keamanan Admin<small>Akun & passkey</small></span></button>
+        </div>
       </nav>
+      <button class="sidebar-create" id="sidebarCreate">＋ Buat postingan</button>
       <div class="sidebar-bottom">
         <div class="system-status"><i></i><span><b>System online</b><small>Cloudflare · D1 Database</small></span></div>
         <a class="visit-site" href="/" target="_blank" rel="noreferrer">Lihat website <span>↗</span></a>
@@ -375,7 +386,21 @@ const pageTitle = 'VANNDIK CMS';
     @media(max-width:900px){.composer-form{grid-template-columns:minmax(0,1fr) 260px!important}.blogger-post-row{grid-template-columns:minmax(220px,1.5fr) minmax(90px,.6fr) minmax(110px,.7fr) 90px 58px}}
     @media(max-width:760px){.cms-composer{width:calc(100vw - 16px)!important;max-height:calc(100vh - 16px)!important}.composer-form{grid-template-columns:1fr!important;padding:12px!important}.composer-side{grid-row:1}.body-editor{min-height:260px}.blogger-post-row{grid-template-columns:minmax(0,1fr) auto;gap:9px;padding:14px}.blogger-post-main{grid-column:1/-1}.blogger-label{grid-column:1}.blogger-date{grid-column:1}.blogger-status{grid-column:2;grid-row:2}.blogger-row-edit{grid-column:2;grid-row:3}.blogger-post-main p{max-width:100%}.blogger-list-head{display:none}}
 
-  </style>
+      /* Blogger-inspired information architecture across the complete CMS */
+    .sidebar{padding-bottom:16px!important}
+    .sidebar nav{padding-bottom:10px}
+    .nav-section{margin-top:8px;padding-top:5px;border-top:1px solid #1d2d43}
+    .nav-group-label{margin-top:5px!important;padding:10px 12px 6px!important;color:#6f86a6!important;font-size:8px!important;letter-spacing:1.45px!important}
+    .nav-item{min-height:43px!important;gap:10px!important;align-items:center!important}
+    .nav-item>span:first-child{flex:0 0 19px!important;width:19px!important}
+    .nav-copy{display:flex!important;flex:1;flex-direction:column;gap:3px;min-width:0;color:inherit;font-size:10px;font-weight:600}
+    .nav-copy small{color:#7f93af;font-size:8px;font-weight:400;letter-spacing:0}
+    .nav-item.active .nav-copy small{color:#a9c8f2}
+    .sidebar-create{width:calc(100% - 8px);display:flex;align-items:center;justify-content:center;gap:8px;margin:9px 4px 13px;padding:11px 12px;border:1px solid #438aff;border-radius:7px;background:linear-gradient(110deg,#1769ff,#286fe2);color:#fff;font-size:10px;font-weight:700;box-shadow:0 6px 18px #1769ff2b}
+    .sidebar-create:hover{filter:brightness(1.12)}
+    .sidebar-bottom{margin-top:auto}
+    @media(max-width:760px){.sidebar-create{margin-bottom:10px}}
+\n  </style>
 
   <script>
     import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
@@ -475,7 +500,8 @@ const pageTitle = 'VANNDIK CMS';
       else if (name === 'backup') renderBackup();
       else if (name === 'security') renderSecurity();
     }
-    $$('#mainNav [data-view]').forEach(button => button.addEventListener('click',()=>openView(button.dataset.view)));
+    $('#mainNav [data-view]').forEach(button => button.addEventListener('click',()=>openView(button.dataset.view)));
+    $('#sidebarCreate').addEventListener('click',()=>{openView('article');openEditor('article');});
     $('#mobileMenu').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
     $('#installButton').addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('#installButton').hidden=true;});
     window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;$('#installButton').hidden=false;});
