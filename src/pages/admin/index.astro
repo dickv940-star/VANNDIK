@@ -79,7 +79,7 @@ const pageTitle = 'VANNDIK CMS';
     <main class="main-area">
       <header class="topbar">
         <div class="topbar-left"><button class="mobile-menu" id="mobileMenu" aria-label="Buka menu">☰</button><div><div class="top-eyebrow">VANNDIK / ADMINISTRATION</div><div class="top-title" id="topTitle">Ringkasan</div></div></div>
-        <div class="topbar-actions"><span class="secure-label"><i></i> SECURE SESSION</span><button class="install-btn" id="installButton" hidden>＋ Install App</button><a class="view-site-btn" href="/" target="_blank" rel="noreferrer">Website ↗</a></div>
+        <div class="topbar-actions"><span class="secure-label"><i></i> SECURE SESSION</span><button class="install-btn" id="installButton" type="button">＋ Install App</button><button class="install-btn" id="updateButton" type="button" hidden>↻ Update tersedia</button><a class="view-site-btn" href="/" target="_blank" rel="noreferrer">Website ↗</a></div>
       </header>
       <section id="view" class="view-content"></section>
       <footer class="app-footer"><span>VANNDIK CMS <b>·</b> CONTROL CENTER</span><span>BUILT FOR CLARITY. DESIGNED FOR CONTROL.</span></footer>
@@ -527,7 +527,18 @@ const pageTitle = 'VANNDIK CMS';
       loadStats();
     }
     async function boot() {
-      if ('serviceWorker' in navigator) navigator.serviceWorker.register('/admin-sw.js',{scope:'/admin/'}).catch(()=>{});
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.register('/admin-sw.js', { scope: '/admin/' });
+          watchServiceWorker(registration);
+          registration.update().catch(() => {});
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') registration.update().catch(() => {});
+          });
+        } catch (error) {
+          console.warn('CMS offline/update worker unavailable:', error);
+        }
+      }
       try {
         const setup = await fetch('/api/cms/setup').then(r=>r.json());
         if (setup.setupRequired) return showAuth(true);
@@ -579,8 +590,64 @@ const pageTitle = 'VANNDIK CMS';
     $$( '#mainNav [data-view]' ).forEach(button => button.addEventListener('click',()=>openView(button.dataset.view)));
     $('#sidebarCreate').addEventListener('click',()=>{openView('article');openEditor('article');});
     $('#mobileMenu').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
-    $('#installButton').addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('#installButton').hidden=true;});
-    window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;$('#installButton').hidden=false;});
+    const installButton = $('#installButton');
+    const updateButton = $('#updateButton');
+    let waitingWorker = null, reloadAfterUpdate = false;
+    const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    function syncInstallButton() {
+      installButton.hidden = isStandalone();
+    }
+    syncInstallButton();
+    window.addEventListener('appinstalled', () => {
+      installPrompt = null;
+      installButton.hidden = true;
+      notify('VANNDIK CMS berhasil dipasang sebagai aplikasi.');
+    });
+    window.addEventListener('beforeinstallprompt', event => {
+      event.preventDefault();
+      installPrompt = event;
+      installButton.hidden = false;
+    });
+    installButton.addEventListener('click', async () => {
+      if (installPrompt) {
+        installPrompt.prompt();
+        const choice = await installPrompt.userChoice;
+        installPrompt = null;
+        if (choice?.outcome === 'accepted') installButton.hidden = true;
+        return;
+      }
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const instructions = isIOS
+        ? 'Untuk memasang di iPhone/iPad: ketuk tombol Bagikan di Safari, lalu pilih “Add to Home Screen” / “Tambahkan ke Layar Utama”.'
+        : 'Jika tombol instalasi belum muncul, buka menu browser (⋮ atau ⋯), lalu pilih “Install app” atau “Install VANNDIK CMS”. Pastikan browser mendukung instalasi PWA.';
+      notify(instructions);
+    });
+    function watchServiceWorker(registration) {
+      const revealUpdate = worker => {
+        waitingWorker = worker;
+        updateButton.hidden = !worker;
+      };
+      if (registration.waiting && navigator.serviceWorker.controller) revealUpdate(registration.waiting);
+      registration.addEventListener('updatefound', () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) revealUpdate(registration.waiting || worker);
+        });
+      });
+      updateButton.addEventListener('click', () => {
+        if (!waitingWorker) return;
+        reloadAfterUpdate = true;
+        waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+        updateButton.disabled = true;
+        updateButton.textContent = 'Memperbarui…';
+      }, { once: true });
+    }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloadAfterUpdate) window.location.reload();
+      });
+    }
 
     async function loadStats() {
       try {
