@@ -252,13 +252,14 @@ export async function onRequest({ request, env }) {
       let affiliate,target;
       try{affiliate=validateProductUrl(product.affiliate_url);target=validateProductUrl(product.target_url)}catch{return json({error:'Produk belum terverifikasi. Agen AI hanya berjalan pada produk dengan tautan sumber yang valid.'},409);}
       if(!tags.includes('metadata-extracted')||!tags.includes('marketplace-page-read')||!product.title)return json({error:'Produk belum lolos verifikasi sumber.'},409);
+      if(product.status!=='draft')return json({error:'Agen AI hanya dapat mengubah produk draft. Produk yang sudah tayang harus melalui alur revisi dan persetujuan baru.'},409);
       if(!env.AI||typeof env.AI.run!=='function')return json({error:'Workers AI belum terhubung. Tambahkan binding Workers AI bernama AI pada Cloudflare Pages > Settings > Bindings, lalu deploy ulang. Tidak ada layanan berbayar yang digunakan sebagai pengganti.'},503);
       const existing=await env.CMS_DB.prepare('SELECT status,result_json FROM cms_product_ai_work WHERE product_id=?').bind(productId).first();
       if(existing?.status==='completed')return json({ok:true,alreadyCompleted:true,result:JSON.parse(existing.result_json||'{}')});
       const day=new Date().toISOString().slice(0,10);
       const quota=await env.CMS_DB.prepare("INSERT INTO cms_ai_daily_usage(day,jobs) VALUES(?,1) ON CONFLICT(day) DO UPDATE SET jobs=jobs+1 WHERE jobs<4").bind(day).run();
       if(!quota.meta?.changes)return json({error:'Batas gratis harian VANNDIK tercapai (4 proses produk per hari). Kuota lokal reset pukul 00.00 UTC; kuota Cloudflare juga dapat membatasi penggunaan lebih awal.'},429);
-      const model='@cf/meta/llama-3.2-3b-instruct';
+      const model='@cf/google/gemma-4-26b-a4b-it';
       const sourceData={
         name:product.title,description:product.excerpt||'',details:product.body||'',
         category:product.category||'',observedPrice:product.price||'',
@@ -275,7 +276,7 @@ export async function onRequest({ request, env }) {
         'DATA SUMBER: '+JSON.stringify(sourceData)
       ].join('\n\n');
       try{
-        const generated=await env.AI.run(model,{prompt,max_tokens:950,temperature:0.25,top_p:0.85});
+        const generated=await env.AI.run(model,{prompt,max_tokens:1400,temperature:0.25,top_p:0.85});
         const raw=String(generated?.response||generated?.result?.response||'').trim();
         const jsonMatch=raw.match(/\{[\s\S]*\}/);
         if(!jsonMatch)throw new Error('Model tidak mengembalikan JSON yang dapat dibaca.');
