@@ -216,7 +216,17 @@ export async function onRequest({ request, env }) {
       const data=await body(request);
       if(!data.url||String(data.url).length>2000)return json({error:'Masukkan satu link affiliate yang valid (maksimal 2.000 karakter).'},400);
       try{const item=await analyzeAffiliateProduct(env,admin,String(data.url));return json({ok:true,item},201);}
-      catch(error){return json({error:error?.message||'Analisis produk gagal.'},422);}
+      catch(error){
+        let sourceUrl=String(data.url).slice(0,2000);
+        try{const parsed=new URL(sourceUrl);if(!['http:','https:'].includes(parsed.protocol))sourceUrl='';}catch{sourceUrl='';}
+        try{await audit(env,admin,'affiliate.product.failed','product','',{sourceUrl,reason:String(error?.message||'Verifikasi produk gagal.').slice(0,500)});}catch{}
+        return json({error:error?.message||'Analisis produk gagal.'},422);
+      }
+    }
+    if (path === 'product/attempts' && method === 'GET') {
+      const rows=await env.CMS_DB.prepare("SELECT id,details,created_at FROM cms_audit_logs WHERE action='affiliate.product.failed' ORDER BY created_at DESC LIMIT 20").all();
+      const items=(rows.results||[]).map(row=>{let details={};try{details=JSON.parse(row.details||'{}')}catch{}return {id:row.id,sourceUrl:details.sourceUrl||'',reason:details.reason||'Perlu pemeriksaan',created_at:row.created_at};});
+      return json({items});
     }
     if (path === 'backup/export' && method === 'GET') {
       const [content, settings, activity] = await Promise.all([
