@@ -328,7 +328,11 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
   await saveSeo(env,id,seo);await audit(env,admin,'affiliate.product.analyzed','product',id,{sourceHost:page.finalUrl.hostname,hasProductSchema:meta.hasProductSchema,hasImage:!!meta.image,hasPrice:!!meta.price});
   return {id,type:'product',title:meta.title,slug,excerpt,image_url:meta.image,category:finalCategory,subcategory:categoryInfo.subcategory,price:meta.price,affiliate_url:original.href,target_url:page.finalUrl.href,status:'draft',tags,seo_score:seo.seo_score,metadata:{descriptionFound:!!meta.description,imageFound:!!meta.image,priceFound:!!meta.price,productSchemaFound:meta.hasProductSchema,source,sourceCategory:meta.sourceCategory||meta.category||'',categoryAuto:categoryInfo.auto,sourceHost:page.finalUrl.hostname}};
 }
-const safeUrl = v => !v || /^https?:\/\//i.test(v) || v.startsWith('/');
+const safeUrl = v => !v || /^https?:\\/\\//i.test(v) || v.startsWith('/');
+function verifiedAffiliateProduct(item){
+  let tags=[];try{tags=Array.isArray(item.tags)?item.tags:JSON.parse(item.tags||'[]');}catch{}
+  return item.type==='product'&&tags.includes('metadata-extracted')&&tags.includes('marketplace-page-read')&&!!String(item.title||'').trim()&&String(item.excerpt||'').trim().length>=25&&!!item.image_url&&/^https?:\\/\\//i.test(item.affiliate_url||'')&&/^https?:\\/\\//i.test(item.target_url||'');
+}
 
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
@@ -441,7 +445,7 @@ export async function onRequest({ request, env }) {
       let tags=[];try{tags=JSON.parse(product.tags||'[]')}catch{}
       let affiliate,target;
       try{affiliate=validateProductUrl(product.affiliate_url);target=validateProductUrl(product.target_url)}catch{return json({error:'Produk belum terverifikasi. Agen AI hanya berjalan pada produk dengan tautan sumber yang valid.'},409);}
-      if(!tags.includes('metadata-extracted')||!tags.includes('marketplace-page-read')||!product.title)return json({error:'Produk belum lolos verifikasi sumber.'},409);
+      if(!tags.includes('metadata-extracted')||!tags.includes('marketplace-page-read')||!product.title||!product.image_url||String(product.excerpt||'').trim().length<25)return json({error:'Produk belum lengkap. Judul, deskripsi, dan foto produk wajib terverifikasi sebelum Agen AI berjalan.'},409);
       if(product.status!=='draft')return json({error:'Agen AI hanya dapat mengubah produk draft. Produk yang sudah tayang harus melalui alur revisi dan persetujuan baru.'},409);
       if(!env.AI||typeof env.AI.run!=='function')return json({error:'Workers AI belum terhubung. Tambahkan binding Workers AI bernama AI pada Cloudflare Pages > Settings > Bindings, lalu deploy ulang. Tidak ada layanan berbayar yang digunakan sebagai pengganti.'},503);
       const existing=await env.CMS_DB.prepare('SELECT status,result_json FROM cms_product_ai_work WHERE product_id=?').bind(productId).first();
@@ -552,6 +556,7 @@ export async function onRequest({ request, env }) {
       const raw=await body(request), item=clean(raw);
       if(!types.includes(item.type)||!item.title||!item.slug) return json({error:'Jenis dan judul wajib diisi.'},400);
       if(!safeUrl(item.image_url)||!safeUrl(item.affiliate_url)||!safeUrl(item.target_url)) return json({error:'URL harus menggunakan http atau https.'},400);
+      if(item.type==='product'&&item.status==='published'&&!verifiedAffiliateProduct(item))return json({error:'Produk affiliate belum terverifikasi lengkap. Lengkapi sumber, deskripsi, dan foto sebelum publikasi.'},409);
       const id=uid(), seo=makeSeo({...item,...raw});
       try { await env.CMS_DB.prepare('INSERT INTO cms_content(id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,item.type,item.title,item.slug,item.excerpt,item.body,item.image_url,item.category,item.tags,item.status,item.affiliate_url,item.target_url,item.price,item.featured,item.sort_order,item.published_at).run(); }
       catch { return json({error:'Slug sudah digunakan atau data tidak valid.'},409); }
@@ -562,6 +567,7 @@ export async function onRequest({ request, env }) {
       const id=path.split('/')[1], raw=await body(request), item=clean(raw), seo=makeSeo({...item,...raw});
       if(!types.includes(item.type)||!item.title||!item.slug) return json({error:'Jenis dan judul wajib diisi.'},400);
       if(!safeUrl(item.image_url)||!safeUrl(item.affiliate_url)||!safeUrl(item.target_url)) return json({error:'URL harus menggunakan http atau https.'},400);
+      if(item.type==='product'&&item.status==='published'&&!verifiedAffiliateProduct(item))return json({error:'Produk affiliate belum terverifikasi lengkap. Produk tidak dapat dipublikasikan.'},409);
       try { const result=await env.CMS_DB.prepare('UPDATE cms_content SET type=?,title=?,slug=?,excerpt=?,body=?,image_url=?,category=?,tags=?,status=?,affiliate_url=?,target_url=?,price=?,featured=?,sort_order=?,published_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(item.type,item.title,item.slug,item.excerpt,item.body,item.image_url,item.category,item.tags,item.status,item.affiliate_url,item.target_url,item.price,item.featured,item.sort_order,item.published_at,id).run(); if(!result.meta.changes)return json({error:'Konten tidak ditemukan.'},404); }
       catch { return json({error:'Slug sudah digunakan atau data tidak valid.'},409); }
       await saveSeo(env,id,seo);
