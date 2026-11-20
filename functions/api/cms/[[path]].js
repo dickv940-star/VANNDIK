@@ -115,7 +115,7 @@ function shopeeIds(pageUrl,html=''){
   for(const match of source.matchAll(/-i\.\d+\.\d+(?:\/|[?"'\s<>]|$)/gi))candidates.push(match[0].replace(/[?"'\s<>].*$/,''));
   for(const candidate of candidates){
     let url;try{url=new URL(candidate,base);}catch{continue;}
-    let match=url.pathname.match(/\/product\/(\d+)\/(\d+)/i);
+    let match=url.pathname.match(/\/(?:product|opaanlp)\/(\d+)\/(\d+)/i);
     if(!match)match=url.pathname.match(/-i\.(\d+)\.(\d+)(?:\/|$)/i);
     if(match)return {shopId:match[1],itemId:match[2]};
     const shopId=url.searchParams.get('shop_id')||url.searchParams.get('shopid');
