@@ -501,7 +501,7 @@ const pageTitle = 'VANNDIK CMS';
       else if (name === 'backup') renderBackup();
       else if (name === 'security') renderSecurity();
     }
-    $('#mainNav [data-view]').forEach(button => button.addEventListener('click',()=>openView(button.dataset.view)));
+    $$( '#mainNav [data-view]' ).forEach(button => button.addEventListener('click',()=>openView(button.dataset.view)));
     $('#sidebarCreate').addEventListener('click',()=>{openView('article');openEditor('article');});
     $('#mobileMenu').addEventListener('click',()=>$('#sidebar').classList.toggle('open'));
     $('#installButton').addEventListener('click',async()=>{if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$('#installButton').hidden=true;});
@@ -597,8 +597,8 @@ const pageTitle = 'VANNDIK CMS';
           const data=await api('drive/files');const items=data.items||[];
           $('#mediaCount').textContent=items.length+' gambar';
           gallery.innerHTML=items.length?items.map(item=>'<article class="media-card"><img src="'+escapeHTML(item.imageUrl)+'" alt="'+escapeHTML(item.name)+'" loading="lazy" /><div class="media-card-info"><b title="'+escapeHTML(item.name)+'">'+escapeHTML(item.name)+'</b><small>'+escapeHTML(item.size?Math.max(1,Math.round(Number(item.size)/1024))+' KB':'Google Drive')+'</small><div class="media-card-actions"><button class="tiny-btn" data-copy-media="'+escapeHTML(item.imageUrl)+'">Salin URL</button><button class="tiny-btn danger" data-delete-media="'+escapeHTML(item.id)+'">Hapus</button></div></div></article>').join(''):'<div class="empty-state">Belum ada gambar. Upload gambar pertama Anda.</div>';
-          $('[data-copy-media]').forEach(btn=>btn.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(btn.dataset.copyMedia);notify('URL gambar disalin. Tempelkan ke kolom URL gambar konten.');}catch{notify('Browser tidak mengizinkan penyalinan otomatis.',true);}}));
-          $('[data-delete-media]').forEach(btn=>btn.addEventListener('click',async()=>{if(!confirm('Hapus gambar ini dari Google Drive? File yang sedang dipakai konten akan ditolak oleh server.'))return;try{await api('drive/files/'+btn.dataset.deleteMedia,{method:'DELETE'});notify('Gambar dihapus dari Drive.');loadGallery();}catch(e){notify(e.message,true);}}));
+          $$( '[data-copy-media]' ).forEach(btn=>btn.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(btn.dataset.copyMedia);notify('URL gambar disalin. Tempelkan ke kolom URL gambar konten.');}catch{notify('Browser tidak mengizinkan penyalinan otomatis.',true);}}));
+          $$( '[data-delete-media]' ).forEach(btn=>btn.addEventListener('click',async()=>{if(!confirm('Hapus gambar ini dari Google Drive? File yang sedang dipakai konten akan ditolak oleh server.'))return;try{await api('drive/files/'+btn.dataset.deleteMedia,{method:'DELETE'});notify('Gambar dihapus dari Drive.');loadGallery();}catch(e){notify(e.message,true);}}));
         }catch(e){gallery.innerHTML='<div class="media-warning">'+escapeHTML(e.message)+'</div>';}
       };
       const loadStatus=async()=>{
