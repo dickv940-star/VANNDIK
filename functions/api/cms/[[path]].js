@@ -55,9 +55,12 @@ function makeSeo(data) {
   if (description.length < 70) description = seoClean(title + '. ' + (data.body || data.category || 'Informasi pilihan dari VANNDIK.'));
   if (description.length < 70) description = title + ' — Temukan informasi, detail, dan rekomendasi selengkapnya di VANNDIK.';
   if (description.length > 160) description = description.slice(0, 157).replace(/\s+\S*$/, '') + '…';
-  const keywords = [...new Set((title + ' ' + (data.category || '')).toLowerCase().split(/[^a-z0-9]+/).filter(x => x.length > 2))].slice(0, 8);
+  const stopWords = new Set('yang dan atau untuk dari pada dengan dalam ini itu ke di oleh akan bisa juga lebih sangat agar saat jika karena sebuah para the and for with from into this that your you are was were have has had not but all can will should their they them our'.split(' '));
+  const frequency = new Map();
+  for (const word of (title + ' ' + (data.category || '') + ' ' + seoClean(data.body).slice(0, 3000)).toLowerCase().split(/[^a-z0-9]+/)) if (word.length > 2 && !stopWords.has(word)) frequency.set(word, (frequency.get(word) || 0) + 1);
+  const keywords = [...frequency].sort((a,b) => b[1] - a[1]).slice(0, 8).map(([word]) => word);
   const seoTitle = seoClean(data.seo_title || title).slice(0, 70);
-  const checks = { title: seoTitle.length >= 30 && seoTitle.length <= 60, description: description.length >= 70 && description.length <= 160, keywords: keywords.length >= 2, body: seoClean(data.body).split(' ').filter(Boolean).length >= 300, image: !!data.image_url, category: !!data.category };
+  const checks = { title: seoTitle.length >= 30 && seoTitle.length <= 60, description: description.length >= 70 && description.length <= 160, keywordInTitle: keywords.some(k => seoTitle.toLowerCase().includes(k)), keywordInDescription: keywords.some(k => description.toLowerCase().includes(k)), body: seoClean(data.body).split(' ').filter(Boolean).length >= 300, image: !!data.image_url, category: !!data.category };
   const score = Math.round(Object.values(checks).filter(Boolean).length / Object.keys(checks).length * 100);
   return { seo_title: seoTitle, seo_description: description, seo_keywords: (data.seo_keywords || keywords.join(', ')), canonical_url: String(data.canonical_url || '').slice(0, 500), og_image: String(data.og_image || data.image_url || '').slice(0, 2000), seo_score: score, seo_checks: JSON.stringify(checks) };
 }
@@ -196,7 +199,7 @@ export async function onRequest({ request, env }) {
       await audit(env,admin,'content.updated',item.type,id,{title:item.title,status:item.status,seoScore:seo.seo_score}); return json({ok:true,seo});
     }
     if (path.startsWith('content/') && method === 'DELETE') {
-      const id=path.split('/')[1]; await env.CMS_DB.prepare('DELETE FROM cms_content WHERE id=?').bind(id).run(); await audit(env,admin,'content.deleted','content',id); return json({ok:true});
+      const id=path.split('/')[1]; await env.CMS_DB.batch([env.CMS_DB.prepare('DELETE FROM cms_content WHERE id=?').bind(id),env.CMS_DB.prepare('DELETE FROM cms_content_seo WHERE content_id=?').bind(id)]); await audit(env,admin,'content.deleted','content',id); return json({ok:true});
     }
     if (path === 'settings' && method === 'GET') {
       const rows=await env.CMS_DB.prepare('SELECT key,value FROM cms_site_settings ORDER BY key').all();
