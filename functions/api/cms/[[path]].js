@@ -90,7 +90,8 @@ async function fetchMarketplaceHtml(startUrl){
     if(Number(response.headers.get('content-length')||0)>1200000)throw new Error('Halaman terlalu besar untuk dianalisis secara gratis dan aman.');
     const reader=response.body?.getReader();if(!reader)throw new Error('Isi halaman tidak dapat dibaca.');
     const chunks=[];let total=0;
-    while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>1200000){await reader.cancel();throw new Error('Halaman terlalu besar untuk dianalisis secara gratis dan aman.');}chunks.push(value);}
+    try{while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>1200000){await reader.cancel();throw new Error('Halaman terlalu besar untuk dianalisis secara gratis dan aman.');}chunks.push(value);}}
+    catch(error){try{await reader.cancel();}catch{}if(signal.aborted)throw new Error('Halaman marketplace terlalu lama mengirim data. Coba lagi beberapa saat.');throw error;}
     const bytes=new Uint8Array(total);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
     return {html:new TextDecoder('utf-8').decode(bytes),finalUrl:current};
   }
