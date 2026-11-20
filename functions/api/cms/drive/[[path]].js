@@ -28,6 +28,10 @@ async function decrypt(value,env){
   const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv},await keyFor(env),cipher);
   return new TextDecoder().decode(plain);
 }
+async function ensureDriveTables(env){
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_drive_connection (id TEXT PRIMARY KEY, google_email TEXT NOT NULL, refresh_token_enc TEXT NOT NULL, folder_id TEXT NOT NULL, connected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_drive_oauth_states (state TEXT PRIMARY KEY, expires_at TEXT NOT NULL)").run();
+}
 async function connection(env){
   return env.CMS_DB.prepare("SELECT * FROM cms_drive_connection WHERE id='primary'").first();
 }
@@ -75,6 +79,7 @@ export async function onRequest({request,env}){
       const code=url.searchParams.get('code'),state=url.searchParams.get('state');
       if(url.searchParams.get('error'))return redirect(url,{drive_error:'consent_denied'});
       if(!code||!state)return redirect(url,{drive_error:'invalid_callback'});
+      await ensureDriveTables(env);
       const stateRow=await env.CMS_DB.prepare('SELECT state FROM cms_drive_oauth_states WHERE state=? AND expires_at>?').bind(state,new Date().toISOString()).first();
       if(!stateRow)return redirect(url,{drive_error:'state_expired'});
       await env.CMS_DB.prepare('DELETE FROM cms_drive_oauth_states WHERE state=?').bind(state).run();
@@ -97,6 +102,7 @@ export async function onRequest({request,env}){
 
     const admin=await adminFor(request,env);
     if(!admin)return json({error:'Silakan login sebagai admin VANNDIK.'},401);
+    await ensureDriveTables(env);
 
     if(path==='connect'&&method==='GET'){
       if(!env.GOOGLE_DRIVE_CLIENT_ID||!env.GOOGLE_DRIVE_CLIENT_SECRET||!env.GOOGLE_DRIVE_TOKEN_KEY)return json({error:'Konfigurasi belum lengkap. Atur GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, dan GOOGLE_DRIVE_TOKEN_KEY di Cloudflare Pages.'},503);

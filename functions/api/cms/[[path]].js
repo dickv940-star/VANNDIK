@@ -65,6 +65,10 @@ function makeSeo(data) {
   return { seo_title: seoTitle, seo_description: description, seo_keywords: (data.seo_keywords || keywords.join(', ')), canonical_url: String(data.canonical_url || '').slice(0, 500), og_image: String(data.og_image || data.image_url || '').slice(0, 2000), seo_score: score, seo_checks: JSON.stringify(checks) };
 }
 async function ensureSeoTable(env) { await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_content_seo (content_id TEXT PRIMARY KEY, seo_title TEXT NOT NULL DEFAULT '', seo_description TEXT NOT NULL DEFAULT '', seo_keywords TEXT NOT NULL DEFAULT '', canonical_url TEXT NOT NULL DEFAULT '', og_image TEXT NOT NULL DEFAULT '', seo_score INTEGER NOT NULL DEFAULT 0, seo_checks TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run(); }
+async function ensureProductAiTable(env) {
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_product_ai_work (product_id TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'pending', result_json TEXT NOT NULL DEFAULT '{}', model TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_daily_usage (day TEXT PRIMARY KEY, jobs INTEGER NOT NULL DEFAULT 0)").run();
+}
 async function saveSeo(env, id, seo) { await env.CMS_DB.prepare("INSERT INTO cms_content_seo(content_id,seo_title,seo_description,seo_keywords,canonical_url,og_image,seo_score,seo_checks,updated_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(content_id) DO UPDATE SET seo_title=excluded.seo_title,seo_description=excluded.seo_description,seo_keywords=excluded.seo_keywords,canonical_url=excluded.canonical_url,og_image=excluded.og_image,seo_score=excluded.seo_score,seo_checks=excluded.seo_checks,updated_at=CURRENT_TIMESTAMP").bind(id,seo.seo_title,seo.seo_description,seo.seo_keywords,seo.canonical_url,seo.og_image,seo.seo_score,seo.seo_checks).run(); }
 
 const MARKETPLACE_HOSTS=['shopee.co.id','shopee.com','shope.ee','shp.ee','tiktok.com','vt.tiktok.com','vm.tiktok.com','tokopedia.com','tokopedia.link','lazada.co.id','lazada.com','blibli.com','amazon.com','amazon.co.uk','amazon.co.jp','amazon.de','amzn.to','aliexpress.com','aliexpress.us','temu.com','ebay.com','ebay.to','walmart.com','jd.com','taobao.com','tmall.com','zalora.co.id','zalora.com','bit.ly','tinyurl.com'];
@@ -144,6 +148,7 @@ export async function onRequest({ request, env }) {
     if (!env.CMS_DB) return json({ error: 'Database CMS belum terhubung.' }, 503);
     if (method !== 'GET') originCheck(request);
     await ensureSeoTable(env);
+    await ensureProductAiTable(env);
 
     if (path === 'setup' && method === 'GET') {
       const row = await env.CMS_DB.prepare('SELECT COUNT(*) total FROM cms_admins').first();
@@ -223,6 +228,88 @@ export async function onRequest({ request, env }) {
         return json({error:error?.message||'Analisis produk gagal.'},422);
       }
     }
+    if (path === 'product/image' && method === 'POST') {
+      const data=await body(request),productId=String(data.id||''),imageUrl=String(data.imageUrl||'');
+      if(!productId||productId.length>80)return json({error:'ID produk tidak valid.'},400);
+      let parsed;try{parsed=new URL(imageUrl)}catch{return json({error:'URL gambar tidak valid.'},400);}
+      if(parsed.protocol!=='https:'||parsed.hostname!=='drive.google.com'||parsed.pathname!=='/uc'||!parsed.searchParams.get('id'))return json({error:'Gambar harus berasal dari folder media Google Drive VANNDIK.'},400);
+      const item=await env.CMS_DB.prepare("SELECT * FROM cms_content WHERE id=? AND type='product'").bind(productId).first();
+      if(!item)return json({error:'Produk tidak ditemukan.'},404);
+      let tags=[];try{tags=JSON.parse(item.tags||'[]')}catch{}
+      if(!tags.includes('metadata-extracted')||!tags.includes('marketplace-page-read'))return json({error:'Produk belum terverifikasi.'},409);
+      await env.CMS_DB.prepare('UPDATE cms_content SET image_url=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(parsed.href,productId).run();
+      const seo=makeSeo({...item,image_url:parsed.href,og_image:parsed.href});
+      await saveSeo(env,productId,seo);
+      await audit(env,admin,'affiliate.product.image_attached','product',productId,{source:'google-drive'});
+      return json({ok:true,image_url:parsed.href});
+    }
+    if (path === 'product/ai-process' && method === 'POST') {
+      const data=await body(request), productId=String(data.id||'');
+      if(!productId||productId.length>80)return json({error:'ID produk tidak valid.'},400);
+      const product=await env.CMS_DB.prepare("SELECT * FROM cms_content WHERE id=? AND type='product'").bind(productId).first();
+      if(!product)return json({error:'Produk tidak ditemukan.'},404);
+      let tags=[];try{tags=JSON.parse(product.tags||'[]')}catch{}
+      let affiliate,target;
+      try{affiliate=validateProductUrl(product.affiliate_url);target=validateProductUrl(product.target_url)}catch{return json({error:'Produk belum terverifikasi. Agen AI hanya berjalan pada produk dengan tautan sumber yang valid.'},409);}
+      if(!tags.includes('metadata-extracted')||!tags.includes('marketplace-page-read')||!product.title)return json({error:'Produk belum lolos verifikasi sumber.'},409);
+      if(product.status!=='draft')return json({error:'Agen AI hanya dapat mengubah produk draft. Produk yang sudah tayang harus melalui alur revisi dan persetujuan baru.'},409);
+      if(!env.AI||typeof env.AI.run!=='function')return json({error:'Workers AI belum terhubung. Tambahkan binding Workers AI bernama AI pada Cloudflare Pages > Settings > Bindings, lalu deploy ulang. Tidak ada layanan berbayar yang digunakan sebagai pengganti.'},503);
+      const existing=await env.CMS_DB.prepare('SELECT status,result_json FROM cms_product_ai_work WHERE product_id=?').bind(productId).first();
+      if(existing?.status==='completed')return json({ok:true,alreadyCompleted:true,result:JSON.parse(existing.result_json||'{}')});
+      const day=new Date().toISOString().slice(0,10);
+      const quota=await env.CMS_DB.prepare("INSERT INTO cms_ai_daily_usage(day,jobs) VALUES(?,1) ON CONFLICT(day) DO UPDATE SET jobs=jobs+1 WHERE jobs<4").bind(day).run();
+      if(!quota.meta?.changes)return json({error:'Batas gratis harian VANNDIK tercapai (4 proses produk per hari). Kuota lokal reset pukul 00.00 UTC; kuota Cloudflare juga dapat membatasi penggunaan lebih awal.'},429);
+      const model='@cf/google/gemma-4-26b-a4b-it';
+      const sourceData={
+        name:product.title,description:product.excerpt||'',details:product.body||'',
+        category:product.category||'',observedPrice:product.price||'',
+        brand:(String(product.body||'').match(/(?:^|\n\n)Merek:\s*([^\n]+)/i)||[])[1]||'',
+        marketplace:new URL(target.href).hostname,affiliateUrl:affiliate.href,productPage:target.href
+      };
+      const prompt=[
+        'Anda adalah orkestrator tim konten affiliate VANNDIK. Buat hasil dalam Bahasa Indonesia untuk audiens internasional; jangan mengarang spesifikasi, garansi, stok, rating, review, diskon, klaim kesehatan, atau data pasar.',
+        'Gunakan hanya fakta pada DATA SUMBER. Jika data tidak ada, nyatakan tidak tersedia. Perkiraan audiens/positioning harus diberi label hipotesis, bukan fakta.',
+        'Peran yang harus dihasilkan dalam satu eksekusi: Product Analyst, Affiliate Strategist, Copywriter, SEO Specialist, dan Quality Control.',
+        'PENTING: tidak ada pencarian web atau data tren eksternal dalam proses ini. Isi market_validation dengan "Belum diverifikasi dari sumber pasar eksternal".',
+        'Kembalikan JSON valid saja dengan field: product_positioning (string), audience_hypothesis (string), key_benefits (array 3 string berdasarkan sumber), marketing_angle (string), short_copy (string maks 240 karakter), long_description (string 2-4 paragraf), seo_title (string maks 60 karakter), seo_description (string 70-160 karakter), seo_keywords (array 5-8 string), quality_notes (array string), market_validation (string).',
+        'Copy harus informatif, natural, tidak berlebihan, dan tidak menambahkan fakta di luar sumber. Jangan menyebut komisi atau menjanjikan hasil.',
+        'DATA SUMBER: '+JSON.stringify(sourceData)
+      ].join('\n\n');
+      try{
+        const generated=await env.AI.run(model,{prompt,max_tokens:1400,temperature:0.25,top_p:0.85});
+        const raw=String(generated?.response||generated?.result?.response||'').trim();
+        const jsonMatch=raw.match(/\{[\s\S]*\}/);
+        if(!jsonMatch)throw new Error('Model tidak mengembalikan JSON yang dapat dibaca.');
+        const parsed=JSON.parse(jsonMatch[0]);
+        const shortCopy=String(parsed.short_copy||'').trim().slice(0,240);
+        const longDescription=String(parsed.long_description||'').trim().slice(0,5000);
+        const seoTitle=String(parsed.seo_title||product.title).trim().slice(0,60);
+        const seoDescription=String(parsed.seo_description||product.excerpt||'').trim().slice(0,160);
+        if(shortCopy.length<20||longDescription.length<50||seoDescription.length<40)throw new Error('Hasil AI tidak lengkap. Silakan coba lagi.');
+        const result={
+          product_positioning:String(parsed.product_positioning||'').slice(0,500),
+          audience_hypothesis:String(parsed.audience_hypothesis||'').slice(0,500),
+          key_benefits:Array.isArray(parsed.key_benefits)?parsed.key_benefits.slice(0,5).map(x=>String(x).slice(0,240)):[],
+          marketing_angle:String(parsed.marketing_angle||'').slice(0,500),
+          short_copy:shortCopy,long_description:longDescription,seo_title:seoTitle,seo_description:seoDescription,
+          seo_keywords:Array.isArray(parsed.seo_keywords)?parsed.seo_keywords.slice(0,8).map(x=>String(x).slice(0,60)):[],
+          quality_notes:Array.isArray(parsed.quality_notes)?parsed.quality_notes.slice(0,8).map(x=>String(x).slice(0,240)):[],
+          market_validation:String(parsed.market_validation||'Belum diverifikasi dari sumber pasar eksternal').slice(0,240)
+        };
+        const bodyText=[product.body||'', 'Deskripsi produk untuk publikasi:',longDescription,result.marketing_angle?'Sudut pemasaran: '+result.marketing_angle:''].filter(Boolean).join('\n\n').slice(0,100000);
+        const keywords=result.seo_keywords.join(', ');
+        await env.CMS_DB.prepare('UPDATE cms_content SET excerpt=?,body=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(shortCopy,bodyText,productId).run();
+        const seo=makeSeo({...product,excerpt:shortCopy,body:bodyText,seo_title:seoTitle,seo_description:seoDescription,seo_keywords:keywords,canonical_url:new URL('/produk/'+encodeURIComponent(product.slug)+'/','https://vanndik.pages.dev').href,og_image:product.image_url});
+        await saveSeo(env,productId,seo);
+        await env.CMS_DB.prepare("INSERT INTO cms_product_ai_work(product_id,status,result_json,model,updated_at) VALUES(?,'completed',?,?,CURRENT_TIMESTAMP) ON CONFLICT(product_id) DO UPDATE SET status='completed',result_json=excluded.result_json,model=excluded.model,updated_at=CURRENT_TIMESTAMP").bind(productId,JSON.stringify(result),model).run();
+        await audit(env,admin,'affiliate.product.ai_completed','product',productId,{model,marketValidation:'not_external'});
+        return json({ok:true,result,model,usage:generated?.usage||null});
+      }catch(error){
+        await env.CMS_DB.prepare("INSERT INTO cms_product_ai_work(product_id,status,result_json,model,updated_at) VALUES(?,'failed',?,?,CURRENT_TIMESTAMP) ON CONFLICT(product_id) DO UPDATE SET status='failed',result_json=excluded.result_json,model=excluded.model,updated_at=CURRENT_TIMESTAMP").bind(productId,JSON.stringify({error:String(error?.message||'AI gagal').slice(0,400)}),model).run();
+        await audit(env,admin,'affiliate.product.ai_failed','product',productId,{model,reason:String(error?.message||'AI gagal').slice(0,400)});
+        return json({error:'Proses AI gagal: '+String(error?.message||'Coba lagi nanti.').slice(0,350)},502);
+      }
+    }
     if (path === 'product/attempts' && method === 'GET') {
       const rows=await env.CMS_DB.prepare("SELECT id,details,created_at FROM cms_audit_logs WHERE action='affiliate.product.failed' ORDER BY created_at DESC LIMIT 20").all();
       const items=(rows.results||[]).map(row=>{let details={};try{details=JSON.parse(row.details||'{}')}catch{}return {id:row.id,sourceUrl:details.sourceUrl||'',reason:details.reason||'Perlu pemeriksaan',created_at:row.created_at};});
@@ -260,7 +347,7 @@ export async function onRequest({ request, env }) {
     }
     if (path === 'content' && method === 'GET') {
       const type=url.searchParams.get('type')||'', q='%'+(url.searchParams.get('q')||'')+'%';
-      const rows=await env.CMS_DB.prepare("SELECT c.*,s.seo_title,s.seo_description,s.seo_keywords,s.canonical_url,s.og_image,s.seo_score,s.seo_checks FROM cms_content c LEFT JOIN cms_content_seo s ON s.content_id=c.id WHERE (?='' OR c.type=?) AND (c.title LIKE ? OR c.category LIKE ?) ORDER BY c.featured DESC,c.sort_order ASC,c.updated_at DESC LIMIT 300").bind(type,type,q,q).all();
+      const rows=await env.CMS_DB.prepare("SELECT c.*,s.seo_title,s.seo_description,s.seo_keywords,s.canonical_url,s.og_image,s.seo_score,s.seo_checks,ai.status AS ai_status,ai.result_json AS ai_result_json FROM cms_content c LEFT JOIN cms_content_seo s ON s.content_id=c.id LEFT JOIN cms_product_ai_work ai ON ai.product_id=c.id WHERE (?='' OR c.type=?) AND (c.title LIKE ? OR c.category LIKE ?) ORDER BY c.featured DESC,c.sort_order ASC,c.updated_at DESC LIMIT 300").bind(type,type,q,q).all();
       return json({items:rows.results||[]});
     }
     if (path === 'content' && method === 'POST') {
