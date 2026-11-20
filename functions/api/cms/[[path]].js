@@ -211,7 +211,7 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
   let source='html-metadata';
   if(page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id')){
     const apiMeta=await fetchShopeeProduct(page.finalUrl);
-    if(apiMeta?.title){meta={...meta,...apiMeta};source=apiMeta.source;}
+    if(apiMeta?.title){meta={...meta,...apiMeta,description:apiMeta.description||meta.description,image:apiMeta.image||meta.image,price:apiMeta.price||meta.price,category:apiMeta.sourceCategory||meta.category,brand:apiMeta.brand||meta.brand};source=apiMeta.source;}
   }
   if(!meta.title||meta.title.length<3)throw new Error(page.blocked?'Shopee membatasi pembacaan otomatis (HTTP '+page.status+'), dan data produk API tidak tersedia. Coba lagi nanti; produk tidak disimpan.':'Nama produk belum ditemukan pada metadata maupun data produk Shopee. Produk tidak disimpan.');
   const categoryInfo=classifyProduct(meta.title,meta.description,meta.sourceCategory||meta.category);
