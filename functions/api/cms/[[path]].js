@@ -125,6 +125,29 @@ export async function onRequest({ request, env }) {
     if (path === 'me' && method === 'GET') return admin ? json({authenticated:true,admin}) : json({authenticated:false},401);
     if (!admin) return json({error:'Silakan login terlebih dahulu.'},401);
 
+    if (path === 'backup/export' && method === 'GET') {
+      const [content, settings, activity] = await Promise.all([
+        env.CMS_DB.prepare('SELECT * FROM cms_content ORDER BY created_at').all(),
+        env.CMS_DB.prepare('SELECT key,value,updated_at FROM cms_site_settings ORDER BY key').all(),
+        env.CMS_DB.prepare('SELECT action,target_type,target_id,details,created_at FROM cms_audit_logs ORDER BY created_at DESC LIMIT 5000').all()
+      ]);
+      const backup = {
+        product: 'VANNDIK CMS Backup',
+        formatVersion: 1,
+        exportedAt: new Date().toISOString(),
+        note: 'Konten, pengaturan situs, dan log aktivitas. Kredensial admin, sesi, passkey, serta token Google Drive sengaja tidak disertakan.',
+        data: {
+          content: content.results || [],
+          settings: settings.results || [],
+          activity: activity.results || []
+        }
+      };
+      await audit(env, admin, 'backup.exported', 'backup', '', {
+        contentCount: backup.data.content.length,
+        settingsCount: backup.data.settings.length
+      });
+      return json(backup, 200, { 'content-disposition': 'attachment; filename="vanndik-cms-backup.json"' });
+    }
     if (path === 'stats' && method === 'GET') {
       const rows = await env.CMS_DB.prepare('SELECT type,status,COUNT(*) total FROM cms_content GROUP BY type,status').all();
       const activity = await env.CMS_DB.prepare('SELECT action,created_at FROM cms_audit_logs ORDER BY created_at DESC LIMIT 8').all();
