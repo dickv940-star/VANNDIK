@@ -437,6 +437,39 @@ const pageTitle = 'VANNDIK CMS';
     @media(max-width:760px){.dash-welcome{align-items:flex-start;flex-direction:column}.dash-welcome-actions{width:100%;justify-content:space-between}.dash-stat-grid{gap:8px}.dash-stat{min-height:125px;padding:13px}.dash-stat strong{font-size:24px}.dash-grid-main,.dash-grid-bottom{grid-template-columns:1fr}.dash-chart-layout{justify-content:center}.dash-shortcuts{grid-template-columns:1fr 1fr}.dash-toolbar{margin-bottom:10px}.dash-period{font-size:7px}}
     @media(max-width:420px){.dash-stat-grid{grid-template-columns:1fr 1fr}.dash-shortcuts{grid-template-columns:1fr}.dash-date{font-size:8px}.dash-bar-row{grid-template-columns:85px 1fr 20px}}
 
+
+    /* Affiliate product approval workspace */
+    .affiliate-head{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px}
+    .affiliate-head h1{margin:7px 0 6px;color:#f1f6ff;font:800 29px Manrope;letter-spacing:-1px}
+    .affiliate-head p{margin:0;color:#91a2ba;font-size:12px;line-height:1.7}
+    .affiliate-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:15px}
+    .affiliate-summary article{display:grid;gap:8px;padding:17px 19px;border:1px solid #293b54;border-radius:10px;background:linear-gradient(145deg,#142238,#0e1726)}
+    .affiliate-summary article span{color:#91a4bf;font-size:10px}.affiliate-summary article b{color:#f4f8ff;font:800 27px Manrope}.affiliate-summary article small{color:#8297b4;font-size:9px}
+    .affiliate-summary article.pending{border-color:#79613b;background:linear-gradient(145deg,#302719,#171b24)}.affiliate-summary article.pending b{color:#f0cd83}
+    .affiliate-summary article.live{border-color:#286348;background:linear-gradient(145deg,#123629,#101b27)}.affiliate-summary article.live b{color:#65e2a8}
+    .affiliate-review-note{display:flex;gap:12px;align-items:flex-start;padding:15px 17px;margin-bottom:19px;border:1px solid #294c72;border-radius:9px;background:#10243b}
+    .affiliate-review-note>span{display:grid;place-items:center;flex:0 0 26px;height:26px;border-radius:50%;background:#1769ff2a;color:#70c7ff;font-weight:800}
+    .affiliate-review-note b{color:#e8f3ff;font-size:11px}.affiliate-review-note p{margin:5px 0 0;color:#9bb0ca;font-size:10px;line-height:1.7}.affiliate-review-note strong{color:#dbeaff}
+    .affiliate-toolbar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:13px}
+    .affiliate-tabs{display:flex;gap:6px;overflow-x:auto}.affiliate-tab{flex:0 0 auto;padding:9px 12px;border:1px solid transparent;border-radius:7px;background:transparent;color:#91a3bd;font-size:10px}.affiliate-tab.active{border-color:#315d91;background:#17304d;color:#78c4ff;font-weight:700}
+    .affiliate-toolbar .blogger-search{width:min(340px,100%)}
+    .affiliate-list-head{display:flex;justify-content:space-between;align-items:center;margin:5px 2px 11px;color:#8fa4c0;font-size:9px;letter-spacing:1px}.affiliate-list-head span{font-size:9px;letter-spacing:0}
+    .affiliate-product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+    .affiliate-product-card{display:grid;grid-template-columns:148px minmax(0,1fr);gap:15px;min-width:0;padding:13px;border:1px solid #293b54;border-radius:10px;background:#101a2a;box-shadow:0 8px 22px #0002}
+    .affiliate-product-visual{position:relative;min-height:160px;overflow:hidden;border:1px solid #2a3d57;border-radius:8px;background:#0c1523}
+    .affiliate-product-image{width:100%;height:100%;min-height:160px;position:absolute;inset:0;object-fit:cover}
+    .affiliate-product-placeholder{height:100%;min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;color:#6d94c2;font-size:34px}.affiliate-product-placeholder small{font-size:8px;letter-spacing:1px}
+    .affiliate-state{position:absolute;z-index:1;left:8px;top:8px;padding:5px 7px;border:1px solid #6b5937;border-radius:5px;background:#322919ed;color:#f0ce8b;font-size:8px;font-weight:700}
+    .affiliate-state.published{border-color:#286348;background:#123629ed;color:#65e2a8}.affiliate-state.scheduled{border-color:#315c85;background:#142c45ed;color:#86c8ff}.affiliate-state.archived{border-color:#45536a;background:#202b3bed;color:#b0bfd3}
+    .affiliate-product-info{display:flex;flex-direction:column;min-width:0}
+    .affiliate-product-top{display:flex;justify-content:space-between;gap:8px;align-items:center}.affiliate-category{overflow:hidden;max-width:55%;color:#68baff;font-size:8px;text-overflow:ellipsis;white-space:nowrap}.affiliate-updated{color:#7588a3;font-size:8px;text-align:right}
+    .affiliate-product-info h3{margin:10px 0 5px;color:#f0f6ff;font:700 13px/1.45 Manrope}.affiliate-excerpt{display:-webkit-box;overflow:hidden;margin:0;color:#91a2ba;font-size:9px;line-height:1.6;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+    .affiliate-product-data{display:flex;align-items:center;gap:9px;margin-top:12px}.affiliate-price{color:#f4f8ff;font-size:12px;font-weight:800}.affiliate-no-price{color:#8294ad;font-size:9px}.affiliate-divider{width:1px;height:13px;background:#344761}.affiliate-platform{overflow:hidden;color:#9cb0cb;font-size:9px;text-overflow:ellipsis;white-space:nowrap}
+    .affiliate-link-row{margin-top:9px}.affiliate-link,.affiliate-link-missing{font-size:9px;color:#73bdff}.affiliate-link-missing{color:#e0b66e}.affiliate-card-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto;padding-top:13px}
+    .affiliate-btn{padding:8px 11px;border:1px solid #315d91;border-radius:6px;background:#17304d;color:#9ed2ff;font-size:9px;font-weight:700}.affiliate-btn.approve{border-color:#24714e;background:#123629;color:#70e3aa}.affiliate-btn.reject{border-color:#69404a;background:#321c27;color:#ffabb3}.affiliate-btn.secondary{border-color:#344761;background:#172438;color:#c4d6ed}
+    .affiliate-empty{grid-column:1/-1;display:grid;justify-items:center;gap:9px;padding:48px 18px;border:1px dashed #344761;border-radius:10px;background:#101a2a;text-align:center}.affiliate-empty>span{color:#69baff;font-size:30px}.affiliate-empty b{color:#e7f0ff;font:700 13px Manrope}.affiliate-empty p{max-width:430px;margin:0 0 7px;color:#8fa2bc;font-size:10px;line-height:1.7}
+    @media(max-width:1050px){.affiliate-product-grid{grid-template-columns:1fr}.affiliate-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:760px){.affiliate-head{align-items:flex-start;flex-direction:column}.affiliate-head .blogger-create{width:100%}.affiliate-toolbar{align-items:stretch;flex-direction:column}.affiliate-toolbar .blogger-search{width:100%}.affiliate-product-card{grid-template-columns:112px minmax(0,1fr);gap:11px;padding:10px}.affiliate-product-visual,.affiliate-product-image,.affiliate-product-placeholder{min-height:138px}.affiliate-product-info h3{font-size:11px}.affiliate-updated{display:none}.affiliate-summary{gap:8px}.affiliate-summary article{padding:13px}.affiliate-summary article b{font-size:23px}}
   </style>
 
   <script>
@@ -625,6 +658,7 @@ const pageTitle = 'VANNDIK CMS';
     function escapeHTML(value) { return String(value ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
     const typeNames={article:'Artikel',news:'Berita',product:'Produk Affiliate',game:'Game',app:'Aplikasi & Tools'};
     async function renderContent(type,query='') {
+      if(type==='product') return renderAffiliateProducts(query);
       const labels={article:'Postingan',news:'Berita',product:'Produk',game:'Game',app:'Aplikasi & Tools'};
       const singular=labels[type]||'Konten';
       view.innerHTML='<div class="blogger-head"><div><div class="eyebrow">VANNDIK CONTENT STUDIO</div><h1>'+typeNames[type]+'</h1><p>Kelola '+singular.toLowerCase()+', gambar, kategori, status, dan publikasi dalam satu ruang kerja.</p></div><button class="blogger-create" id="addContent">＋ '+(type==='article'||type==='news'?'Postingan baru':'Tambah '+singular)+'</button></div><div class="editorial-stats"><div class="editorial-stat"><span>Total konten</span><b id="editorialTotal">—</b><small>Dalam modul ini</small></div><div class="editorial-stat"><span>Dipublikasikan</span><b id="editorialPublished">—</b><small>Sudah tayang</small></div><div class="editorial-stat"><span>Draft</span><b id="editorialDraft">—</b><small>Belum diterbitkan</small></div><div class="editorial-stat"><span>Terjadwal</span><b id="editorialScheduled">—</b><small>Siap tayang</small></div></div><div class="blogger-tabs" role="tablist"><button class="blogger-tab active" data-blog-filter="">Semua</button><button class="blogger-tab" data-blog-filter="published">Dipublikasikan</button><button class="blogger-tab" data-blog-filter="draft">Draft</button><button class="blogger-tab" data-blog-filter="scheduled">Terjadwal</button><button class="blogger-tab" data-blog-filter="archived">Arsip</button></div><div class="blogger-toolbar"><label class="blogger-search"><span>⌕</span><input id="contentSearch" type="search" placeholder="Cari '+singular.toLowerCase()+'..." value="'+escapeHTML(query)+'" /></label><span class="blogger-count" id="bloggerCount">Memuat data...</span></div><div class="blogger-list panel"><div class="blogger-list-head"><span>KONTEN</span><span>KATEGORI / LABEL</span><span>TERAKHIR DIUBAH</span><span>STATUS</span><span>AKSI</span></div><div id="contentRows"><div class="empty-state">Memuat data...</div></div></div>';
@@ -642,6 +676,57 @@ const pageTitle = 'VANNDIK CMS';
       $('#contentSearch').addEventListener('input',draw);
       $$('[data-blog-filter]').forEach(tab=>tab.addEventListener('click',()=>{activeStatus=tab.dataset.blogFilter;$$('[data-blog-filter]').forEach(x=>x.classList.toggle('active',x===tab));draw();}));
       try{const data=await api('content?type='+type);all=data.items||[];draw();}catch(e){$('#contentRows').innerHTML='<div class="empty-state">'+escapeHTML(e.message)+'</div>';}
+    }
+    async function renderAffiliateProducts(query='') {
+      const type='product', allStatuses=['draft','published','scheduled','archived'];
+      const statusLabels={draft:'Perlu ditinjau',published:'Sudah tayang',scheduled:'Terjadwal',archived:'Diarsipkan'};
+      let all=[],activeStatus='all';
+      const draw=()=>{
+        const q=$('#productSearch')?.value?.trim().toLowerCase()||'';
+        const rows=all.filter(item=>{
+          const text=[item.title,item.category,item.excerpt,item.price,item.affiliate_url,item.slug].join(' ').toLowerCase();
+          return (!q||text.includes(q))&&(activeStatus==='all'||(activeStatus==='pending'?item.status==='draft':item.status===activeStatus));
+        });
+        const pending=all.filter(x=>x.status==='draft').length;
+        $('#affiliateTotal').textContent=all.length.toLocaleString('id-ID');
+        $('#affiliatePending').textContent=pending.toLocaleString('id-ID');
+        $('#affiliateLive').textContent=all.filter(x=>x.status==='published').length.toLocaleString('id-ID');
+        $('#affiliateArchived').textContent=all.filter(x=>x.status==='archived').length.toLocaleString('id-ID');
+        $('#affiliateCount').textContent=rows.length+' produk';
+        $('#affiliateRows').innerHTML=rows.length?rows.map(item=>{
+          const status=item.status||'draft';
+          const image=item.image_url?'<img class="affiliate-product-image" src="'+escapeHTML(item.image_url)+'" alt="'+escapeHTML(item.title||'Produk')+'" loading="lazy">':'<div class="affiliate-product-placeholder">◇<small>NO IMAGE</small></div>';
+          const price=item.price?'<span class="affiliate-price">'+escapeHTML(item.price)+'</span>':'<span class="affiliate-no-price">Harga belum diisi</span>';
+          const link=item.affiliate_url&&/^https?:\/\//i.test(item.affiliate_url)?'<a class="affiliate-link" href="'+escapeHTML(item.affiliate_url)+'" target="_blank" rel="noopener noreferrer">Periksa tautan affiliate ↗</a>':'<span class="affiliate-link-missing">Tautan affiliate belum diisi</span>';
+          const action=status==='draft'
+            ?'<button class="affiliate-btn approve" data-product-approve="'+item.id+'">✓ Tampilkan</button><button class="affiliate-btn reject" data-product-delete="'+item.id+'">Hapus</button>'
+            :'<button class="affiliate-btn secondary" data-product-edit="'+item.id+'">Edit produk</button>';
+          return '<article class="affiliate-product-card"><div class="affiliate-product-visual">'+image+'<span class="affiliate-state '+escapeHTML(status)+'">'+escapeHTML(statusLabels[status]||status)+'</span></div><div class="affiliate-product-info"><div class="affiliate-product-top"><span class="affiliate-category">'+escapeHTML(item.category||'Tanpa kategori')+'</span><span class="affiliate-updated">Diperbarui '+escapeHTML(item.updated_at||item.created_at||'—')+'</span></div><h3>'+escapeHTML(item.title||'Produk tanpa judul')+'</h3><p class="affiliate-excerpt">'+escapeHTML(item.excerpt||'Belum ada ringkasan produk.')+'</p><div class="affiliate-product-data">'+price+'<span class="affiliate-divider"></span><span class="affiliate-platform">'+escapeHTML((()=>{try{return new URL(item.affiliate_url).hostname.replace(/^www\\./,'')}catch{return 'Marketplace belum dikenali'}})())+'</span></div><div class="affiliate-link-row">'+link+'</div><div class="affiliate-card-actions">'+action+(status!=='draft'?'<button class="affiliate-btn reject" data-product-delete="'+item.id+'">Hapus</button>':'')+'</div></div></article>';
+        }).join(''):'<div class="affiliate-empty"><span>◇</span><b>'+ (activeStatus==='pending'?'Antrean persetujuan masih kosong':'Belum ada produk pada kategori ini')+'</b><p>Produk yang kamu tambahkan akan muncul di sini untuk diperiksa sebelum ditampilkan di website.</p><button class="action-btn" id="affiliateEmptyAdd">＋ Tambah produk affiliate</button></div>';
+        $('#affiliateRows').querySelectorAll('[data-product-edit]').forEach(btn=>btn.addEventListener('click',()=>openEditor(type,all.find(x=>String(x.id)===btn.dataset.productEdit))));
+        $('#affiliateRows').querySelectorAll('[data-product-approve]').forEach(btn=>btn.addEventListener('click',async()=>{
+          const item=all.find(x=>String(x.id)===btn.dataset.productApprove);if(!item)return;
+          if(!item.title||!item.slug||!item.affiliate_url){notify('Lengkapi judul, slug, dan tautan affiliate sebelum menampilkan produk.',true);return;}
+          if(!confirm('Tampilkan produk "'+item.title+'" di website VANNDIK?'))return;
+          btn.disabled=true;btn.textContent='Memproses...';
+          try{await api('content/'+item.id,{method:'PUT',body:JSON.stringify({...item,status:'published',published_at:item.published_at||new Date().toISOString()})});notify('Produk disetujui dan ditampilkan.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();}
+          catch(e){notify(e.message,true);btn.disabled=false;btn.textContent='✓ Tampilkan';}
+        }));
+        $('#affiliateRows').querySelectorAll('[data-product-delete]').forEach(btn=>btn.addEventListener('click',async()=>{
+          const item=all.find(x=>String(x.id)===btn.dataset.productDelete);if(!item)return;
+          if(!confirm('Hapus produk "'+item.title+'" dari CMS? Tindakan ini tidak dapat dibatalkan.'))return;
+          btn.disabled=true;
+          try{await api('content/'+item.id,{method:'DELETE',body:'{}'});notify('Produk dihapus.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();}
+          catch(e){notify(e.message,true);btn.disabled=false;}
+        }));
+        $('#affiliateRows').querySelectorAll('#affiliateEmptyAdd').forEach(btn=>btn.addEventListener('click',()=>openEditor(type)));
+      };
+      view.innerHTML='<div class="affiliate-head"><div><div class="eyebrow">VANNDIK / AFFILIATE WORKSPACE</div><h1>Produk Affiliate</h1><p>Periksa detail dan tautan produk. Produk hanya tampil di website setelah kamu menyetujuinya.</p></div><button class="blogger-create" id="affiliateAdd">＋ Tambah produk</button></div><section class="affiliate-summary"><article><span>Total produk</span><b id="affiliateTotal">—</b><small>Semua produk di CMS</small></article><article class="pending"><span>Antrean persetujuan</span><b id="affiliatePending">—</b><small>Menunggu keputusanmu</small></article><article class="live"><span>Sudah ditampilkan</span><b id="affiliateLive">—</b><small>Tayang di website</small></article><article><span>Arsip</span><b id="affiliateArchived">—</b><small>Tidak ditampilkan</small></article></section><section class="affiliate-review-note"><span>✓</span><div><b>Persetujuan tetap di tanganmu</b><p>Produk baru masuk sebagai draft untuk ditinjau. Pilih <strong>Tampilkan</strong> jika produk dan tautannya benar, atau <strong>Hapus</strong> jika produk tidak ditemukan atau tidak layak.</p></div></section><div class="affiliate-toolbar"><div class="affiliate-tabs"><button class="affiliate-tab active" data-product-filter="all">Semua</button><button class="affiliate-tab" data-product-filter="pending">Antrean persetujuan</button><button class="affiliate-tab" data-product-filter="published">Sudah tayang</button><button class="affiliate-tab" data-product-filter="archived">Arsip</button></div><label class="blogger-search"><span>⌕</span><input id="productSearch" type="search" placeholder="Cari nama produk, kategori, marketplace..." /></label></div><div class="affiliate-list-head"><b>DAFTAR PRODUK</b><span id="affiliateCount">Memuat produk...</span></div><div class="affiliate-product-grid" id="affiliateRows"><div class="empty-state">Memuat produk affiliate...</div></div>';
+      $('#affiliateAdd').addEventListener('click',()=>openEditor(type));
+      $('#productSearch').addEventListener('input',draw);
+      $('.affiliate-tab').forEach(tab=>tab.addEventListener('click',()=>{activeStatus=tab.dataset.productFilter;$('.affiliate-tab').forEach(x=>x.classList.toggle('active',x===tab));draw();}));
+      try{const data=await api('content?type=product');all=data.items||[];draw();}
+      catch(e){$('#affiliateRows').innerHTML='<div class="affiliate-empty"><b>Produk gagal dimuat</b><p>'+escapeHTML(e.message)+'</p><button class="action-btn secondary" id="affiliateRetry">Coba lagi</button></div>';$('#affiliateRetry').addEventListener('click',()=>renderAffiliateProducts(query));}
     }
     function openEditor(type,item={}) {
       const editing=!!item.id;
