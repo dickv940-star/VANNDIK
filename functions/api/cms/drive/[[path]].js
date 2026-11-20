@@ -69,7 +69,6 @@ export async function onRequest({request,env}){
   const method=request.method.toUpperCase();
   try{
     if(!env.CMS_DB)return json({error:'Database CMS belum terhubung.'},503);
-    await ensureDriveTables(env);
     if(method!=='GET'){
       const origin=request.headers.get('origin');
       if(origin&&origin!==url.origin)return json({error:'Origin tidak diizinkan.'},403);
@@ -80,6 +79,7 @@ export async function onRequest({request,env}){
       const code=url.searchParams.get('code'),state=url.searchParams.get('state');
       if(url.searchParams.get('error'))return redirect(url,{drive_error:'consent_denied'});
       if(!code||!state)return redirect(url,{drive_error:'invalid_callback'});
+      await ensureDriveTables(env);
       const stateRow=await env.CMS_DB.prepare('SELECT state FROM cms_drive_oauth_states WHERE state=? AND expires_at>?').bind(state,new Date().toISOString()).first();
       if(!stateRow)return redirect(url,{drive_error:'state_expired'});
       await env.CMS_DB.prepare('DELETE FROM cms_drive_oauth_states WHERE state=?').bind(state).run();
@@ -102,6 +102,7 @@ export async function onRequest({request,env}){
 
     const admin=await adminFor(request,env);
     if(!admin)return json({error:'Silakan login sebagai admin VANNDIK.'},401);
+    await ensureDriveTables(env);
 
     if(path==='connect'&&method==='GET'){
       if(!env.GOOGLE_DRIVE_CLIENT_ID||!env.GOOGLE_DRIVE_CLIENT_SECRET||!env.GOOGLE_DRIVE_TOKEN_KEY)return json({error:'Konfigurasi belum lengkap. Atur GOOGLE_DRIVE_CLIENT_ID, GOOGLE_DRIVE_CLIENT_SECRET, dan GOOGLE_DRIVE_TOKEN_KEY di Cloudflare Pages.'},503);
