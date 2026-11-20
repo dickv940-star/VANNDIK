@@ -828,8 +828,7 @@ const pageTitle = 'VANNDIK CMS';
             try{
               const form=new FormData();form.append('file',material,material.name);
               const media=await api('drive/upload',{method:'POST',body:form});
-              const tags=typeof result.item.tags==='string'?JSON.parse(result.item.tags||'[]'):result.item.tags;
-              await api('content/'+result.item.id,{method:'PUT',body:JSON.stringify({...result.item,tags,image_url:media.item.imageUrl,status:'draft'})});
+              await api('product/image',{method:'POST',body:JSON.stringify({id:result.item.id,imageUrl:media.item.imageUrl})});
               mediaMessage=' Materi gambar berhasil disimpan di Google Drive.';
             }catch(uploadError){mediaMessage=' Link produk tersimpan, tetapi upload gambar gagal: '+uploadError.message;}
             $('#affiliateMaterialFile').value='';
