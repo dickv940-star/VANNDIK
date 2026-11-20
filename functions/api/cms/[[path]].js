@@ -48,6 +48,21 @@ const clean = data => ({
   sort_order: Math.max(0, Math.min(99999, Number(data.sort_order) || 0)), published_at: data.published_at ? String(data.published_at).slice(0,40) : null
 });
 const types = ['article','news','product','game','app'];
+const seoClean = value => String(value || '').replace(/<[^>]*>/g, ' ').replace(/[#*_>~]/g, ' ').replace(/\s+/g, ' ').trim();
+function makeSeo(data) {
+  const title = seoClean(data.title).slice(0, 180);
+  let description = seoClean(data.seo_description || data.excerpt || data.body);
+  if (description.length < 70) description = seoClean(title + '. ' + (data.body || data.category || 'Informasi pilihan dari VANNDIK.'));
+  if (description.length < 70) description = title + ' — Temukan informasi, detail, dan rekomendasi selengkapnya di VANNDIK.';
+  if (description.length > 160) description = description.slice(0, 157).replace(/\s+\S*$/, '') + '…';
+  const keywords = [...new Set((title + ' ' + (data.category || '')).toLowerCase().split(/[^a-z0-9]+/).filter(x => x.length > 2))].slice(0, 8);
+  const seoTitle = seoClean(data.seo_title || title).slice(0, 70);
+  const checks = { title: seoTitle.length >= 30 && seoTitle.length <= 60, description: description.length >= 70 && description.length <= 160, keywords: keywords.length >= 2, body: seoClean(data.body).split(' ').filter(Boolean).length >= 300, image: !!data.image_url, category: !!data.category };
+  const score = Math.round(Object.values(checks).filter(Boolean).length / Object.keys(checks).length * 100);
+  return { seo_title: seoTitle, seo_description: description, seo_keywords: (data.seo_keywords || keywords.join(', ')), canonical_url: String(data.canonical_url || '').slice(0, 500), og_image: String(data.og_image || data.image_url || '').slice(0, 2000), seo_score: score, seo_checks: JSON.stringify(checks) };
+}
+async function ensureSeoTable(env) { await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_content_seo (content_id TEXT PRIMARY KEY, seo_title TEXT NOT NULL DEFAULT '', seo_description TEXT NOT NULL DEFAULT '', seo_keywords TEXT NOT NULL DEFAULT '', canonical_url TEXT NOT NULL DEFAULT '', og_image TEXT NOT NULL DEFAULT '', seo_score INTEGER NOT NULL DEFAULT 0, seo_checks TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run(); }
+async function saveSeo(env, id, seo) { await env.CMS_DB.prepare("INSERT INTO cms_content_seo(content_id,seo_title,seo_description,seo_keywords,canonical_url,og_image,seo_score,seo_checks,updated_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(content_id) DO UPDATE SET seo_title=excluded.seo_title,seo_description=excluded.seo_description,seo_keywords=excluded.seo_keywords,canonical_url=excluded.canonical_url,og_image=excluded.og_image,seo_score=excluded.seo_score,seo_checks=excluded.seo_checks,updated_at=CURRENT_TIMESTAMP").bind(id,seo.seo_title,seo.seo_description,seo.seo_keywords,seo.canonical_url,seo.og_image,seo.seo_score,seo.seo_checks).run(); }
 const safeUrl = v => !v || /^https?:\/\//i.test(v) || v.startsWith('/');
 
 export async function onRequest({ request, env }) {
@@ -57,6 +72,7 @@ export async function onRequest({ request, env }) {
   try {
     if (!env.CMS_DB) return json({ error: 'Database CMS belum terhubung.' }, 503);
     if (method !== 'GET') originCheck(request);
+    await ensureSeoTable(env);
 
     if (path === 'setup' && method === 'GET') {
       const row = await env.CMS_DB.prepare('SELECT COUNT(*) total FROM cms_admins').first();
@@ -157,25 +173,27 @@ export async function onRequest({ request, env }) {
     }
     if (path === 'content' && method === 'GET') {
       const type=url.searchParams.get('type')||'', q='%'+(url.searchParams.get('q')||'')+'%';
-      const rows=await env.CMS_DB.prepare("SELECT * FROM cms_content WHERE (?='' OR type=?) AND (title LIKE ? OR category LIKE ?) ORDER BY featured DESC,sort_order ASC,updated_at DESC LIMIT 300").bind(type,type,q,q).all();
+      const rows=await env.CMS_DB.prepare("SELECT c.*,s.seo_title,s.seo_description,s.seo_keywords,s.canonical_url,s.og_image,s.seo_score,s.seo_checks FROM cms_content c LEFT JOIN cms_content_seo s ON s.content_id=c.id WHERE (?='' OR c.type=?) AND (c.title LIKE ? OR c.category LIKE ?) ORDER BY c.featured DESC,c.sort_order ASC,c.updated_at DESC LIMIT 300").bind(type,type,q,q).all();
       return json({items:rows.results||[]});
     }
     if (path === 'content' && method === 'POST') {
-      const item=clean(await body(request));
+      const raw=await body(request), item=clean(raw);
       if(!types.includes(item.type)||!item.title||!item.slug) return json({error:'Jenis dan judul wajib diisi.'},400);
       if(!safeUrl(item.image_url)||!safeUrl(item.affiliate_url)||!safeUrl(item.target_url)) return json({error:'URL harus menggunakan http atau https.'},400);
-      const id=uid();
+      const id=uid(), seo=makeSeo({...item,...raw});
       try { await env.CMS_DB.prepare('INSERT INTO cms_content(id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,item.type,item.title,item.slug,item.excerpt,item.body,item.image_url,item.category,item.tags,item.status,item.affiliate_url,item.target_url,item.price,item.featured,item.sort_order,item.published_at).run(); }
       catch { return json({error:'Slug sudah digunakan atau data tidak valid.'},409); }
-      await audit(env,admin,'content.created',item.type,id,{title:item.title,status:item.status}); return json({ok:true,id},201);
+      await saveSeo(env,id,seo);
+      await audit(env,admin,'content.created',item.type,id,{title:item.title,status:item.status,seoScore:seo.seo_score}); return json({ok:true,id,seo},201);
     }
     if (path.startsWith('content/') && method === 'PUT') {
-      const id=path.split('/')[1], item=clean(await body(request));
+      const id=path.split('/')[1], raw=await body(request), item=clean(raw), seo=makeSeo({...item,...raw});
       if(!types.includes(item.type)||!item.title||!item.slug) return json({error:'Jenis dan judul wajib diisi.'},400);
       if(!safeUrl(item.image_url)||!safeUrl(item.affiliate_url)||!safeUrl(item.target_url)) return json({error:'URL harus menggunakan http atau https.'},400);
       try { const result=await env.CMS_DB.prepare('UPDATE cms_content SET type=?,title=?,slug=?,excerpt=?,body=?,image_url=?,category=?,tags=?,status=?,affiliate_url=?,target_url=?,price=?,featured=?,sort_order=?,published_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(item.type,item.title,item.slug,item.excerpt,item.body,item.image_url,item.category,item.tags,item.status,item.affiliate_url,item.target_url,item.price,item.featured,item.sort_order,item.published_at,id).run(); if(!result.meta.changes)return json({error:'Konten tidak ditemukan.'},404); }
       catch { return json({error:'Slug sudah digunakan atau data tidak valid.'},409); }
-      await audit(env,admin,'content.updated',item.type,id,{title:item.title,status:item.status}); return json({ok:true});
+      await saveSeo(env,id,seo);
+      await audit(env,admin,'content.updated',item.type,id,{title:item.title,status:item.status,seoScore:seo.seo_score}); return json({ok:true,seo});
     }
     if (path.startsWith('content/') && method === 'DELETE') {
       const id=path.split('/')[1]; await env.CMS_DB.prepare('DELETE FROM cms_content WHERE id=?').bind(id).run(); await audit(env,admin,'content.deleted','content',id); return json({ok:true});
