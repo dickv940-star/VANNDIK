@@ -753,7 +753,7 @@ const pageTitle = 'VANNDIK CMS';
     async function renderAffiliateProducts(query='') {
       const type='product';
       const statusLabels={draft:'Menunggu persetujuan',published:'Sudah tayang',scheduled:'Terjadwal',archived:'Diarsipkan'};
-      let all=[],activeStatus='all',failedAttempt=null;
+      let all=[],failedAttempts=[],activeStatus='all';
       const isVerified=item=>{
         let tags=[];try{tags=Array.isArray(item.tags)?item.tags:JSON.parse(item.tags||'[]')}catch{}
         try{
@@ -773,8 +773,8 @@ const pageTitle = 'VANNDIK CMS';
         $('#affiliateLive').textContent=all.filter(x=>x.status==='published').length.toLocaleString('id-ID');
         $('#affiliateArchived').textContent=all.filter(x=>x.status==='archived').length.toLocaleString('id-ID');
         $('#affiliateCount').textContent=rows.length+' produk';
-        const failureCard=failedAttempt?'<article class="affiliate-product-card affiliate-failed-card"><div class="affiliate-product-visual"><div class="affiliate-product-placeholder">⚠<small>NOT VERIFIED</small></div></div><div class="affiliate-product-info"><div class="affiliate-product-top"><span class="affiliate-state">Gagal diverifikasi</span></div><h3>Produk belum dapat diverifikasi</h3><p class="affiliate-excerpt">'+escapeHTML(failedAttempt.message)+'</p><div class="affiliate-link-row"><span class="affiliate-link-missing">'+escapeHTML(failedAttempt.url)+'</span></div><small class="affiliate-updated">Tidak disimpan dan tidak dapat dipublikasikan.</small></div></article>':'';
-        $('#affiliateRows').innerHTML=(failureCard)+(rows.length?rows.map(item=>{
+        const failureCards=failedAttempts.map(attempt=>'<article class="affiliate-product-card affiliate-failed-card"><div class="affiliate-product-visual"><div class="affiliate-product-placeholder">⚠<small>NOT VERIFIED</small></div></div><div class="affiliate-product-info"><div class="affiliate-product-top"><span class="affiliate-state">Gagal diverifikasi</span><span class="affiliate-updated">'+escapeHTML(attempt.created_at||'')+'</span></div><h3>Link produk perlu pemeriksaan</h3><p class="affiliate-excerpt">'+escapeHTML(attempt.reason||'Halaman tujuan tidak dapat diverifikasi.')+'</p><div class="affiliate-link-row"><span class="affiliate-link-missing">'+escapeHTML(attempt.sourceUrl||'Link tidak valid')+'</span></div><small class="affiliate-updated">Dicatat sebagai gagal. Tidak ada data produk yang dibuat atau dipublikasikan.</small></div></article>').join('');
+        $('#affiliateRows').innerHTML=(failureCards)+(rows.length?rows.map(item=>{
           const status=item.status||'draft',verified=isVerified(item);
           const image=item.image_url?'<img class="affiliate-product-image" src="'+escapeHTML(item.image_url)+'" alt="'+escapeHTML(item.title||'Produk')+'" loading="lazy">':'<div class="affiliate-product-placeholder">◇<small>NO IMAGE</small></div>';
           const price=item.price?'<span class="affiliate-price">'+escapeHTML(item.price)+'</span>':'<span class="affiliate-no-price">Harga tidak tersedia</span>';
@@ -806,20 +806,20 @@ const pageTitle = 'VANNDIK CMS';
         event.preventDefault();
         const input=$('#affiliateLinkInput'),button=$('#affiliateAnalyzeButton'),feedback=$('#affiliateAnalysisStatus'),link=input.value.trim();
         if(!link)return;
-        button.disabled=true;button.textContent='◌ Memeriksa sumber...';feedback.textContent='Link Validator sedang memeriksa pengalihan dan halaman tujuan...';feedback.classList.remove('error','success');failedAttempt=null;
+        button.disabled=true;button.textContent='◌ Memeriksa sumber...';feedback.textContent='Link Validator sedang memeriksa pengalihan dan halaman tujuan...';feedback.classList.remove('error','success');
         try{
           const result=await api('product/analyze',{method:'POST',body:JSON.stringify({url:link})});
           input.value='';feedback.textContent='Sumber berhasil dibaca: '+result.item.title+'. Produk terverifikasi dan menunggu persetujuan.';feedback.classList.add('success');
           notify('Produk berhasil diverifikasi dan masuk antrean.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();
           requestAnimationFrame(()=>{const card=$('[data-product-id="'+result.item.id+'"]');if(card)card.scrollIntoView({behavior:'smooth',block:'center'});});
         }catch(error){
-          failedAttempt={url:link,message:error.message||'Halaman tujuan tidak dapat diverifikasi.'};
-          feedback.textContent='Gagal diverifikasi. Produk tidak dimasukkan ke antrean publikasi.';feedback.classList.add('error');notify(error.message||'Verifikasi produk gagal.',true);draw();
+          feedback.textContent='Gagal diverifikasi. Catatan pemeriksaan disimpan dan produk tidak dimasukkan ke antrean publikasi.';feedback.classList.add('error');notify(error.message||'Verifikasi produk gagal.',true);
+          try{const attempts=await api('product/attempts');failedAttempts=attempts.items||[];}catch{}draw();
         }finally{button.disabled=false;button.textContent='✧ Periksa Produk';}
       });
       $('#productSearch').addEventListener('input',draw);
       $('.affiliate-tab').forEach(tab=>tab.addEventListener('click',()=>{activeStatus=tab.dataset.productFilter;$('.affiliate-tab').forEach(x=>x.classList.toggle('active',x===tab));draw();}));
-      try{const data=await api('content?type=product');all=data.items||[];draw();}
+      try{const [data,attempts]=await Promise.all([api('content?type=product'),api('product/attempts')]);all=data.items||[];failedAttempts=attempts.items||[];draw();}
       catch(e){$('#affiliateRows').innerHTML='<div class="affiliate-empty"><b>Produk gagal dimuat</b><p>'+escapeHTML(e.message)+'</p><button class="action-btn secondary" id="affiliateRetry">Coba lagi</button></div>';$('#affiliateRetry').addEventListener('click',()=>renderAffiliateProducts(query));}
     }
     function openEditor(type,item={}) {
