@@ -102,11 +102,27 @@ async function fetchMarketplaceHtml(startUrl){
   throw new Error('Tautan tidak berhasil diarahkan ke halaman produk.');
 }
 
-function shopeeIds(pageUrl){
-  const url=pageUrl instanceof URL?pageUrl:new URL(pageUrl);
-  let match=url.pathname.match(/\/product\/(\d+)\/(\d+)/i);
-  if(!match)match=url.pathname.match(/-i\.(\d+)\.(\d+)(?:\/|$)/i);
-  return match?{shopId:match[1],itemId:match[2]}:null;
+function shopeeIds(pageUrl,html=''){
+  const base=pageUrl instanceof URL?pageUrl:new URL(pageUrl);
+  const candidates=[base.href];
+  const source=String(html||'').replace(/\\u002f/gi,'/').replace(/\\\//g,'/').replace(/&amp;/gi,'&');
+  for(const match of source.matchAll(/<(?:link|meta)\b[^>]*(?:href|content)\s*=\s*["']([^"']+)["'][^>]*>/gi)){
+    const value=match[1];
+    if(/shopee\.co\.id|\/product\/|\-i\./i.test(value))candidates.push(value);
+  }
+  for(const match of source.matchAll(/(?:https?:)?\/\/(?:www\.)?shopee\.co\.id\/product\/\d+\/\d+[^"'\s<>]*/gi))candidates.push(match[0]);
+  for(const match of source.matchAll(/\/product\/\d+\/\d+/gi))candidates.push(match[0]);
+  for(const match of source.matchAll(/-i\.\d+\.\d+(?:\/|[?"'\s<>]|$)/gi))candidates.push(match[0].replace(/[?"'\s<>].*$/,''));
+  for(const candidate of candidates){
+    let url;try{url=new URL(candidate,base);}catch{continue;}
+    let match=url.pathname.match(/\/product\/(\d+)\/(\d+)/i);
+    if(!match)match=url.pathname.match(/-i\.(\d+)\.(\d+)(?:\/|$)/i);
+    if(match)return {shopId:match[1],itemId:match[2]};
+    const shopId=url.searchParams.get('shop_id')||url.searchParams.get('shopid');
+    const itemId=url.searchParams.get('item_id')||url.searchParams.get('itemid');
+    if(/^\d+$/.test(shopId||'')&&/^\d+$/.test(itemId||''))return {shopId,itemId};
+  }
+  return null;
 }
 function shopeeImageUrl(value){
   if(!value)return '';
@@ -158,8 +174,8 @@ function readShopeeApiProduct(payload,pageUrl){
   const shop=data.shop_detailed||data.shop||{};
   return {title,description,image,price,sourceCategory,brand:stripText(item.brand?.name||item.brand||''),rating:Number(rating.rating_star||0)||null,ratingCount:Array.isArray(rating.rating_count)?Number(rating.rating_count[0]||0):Number(rating.rating_count||rating.total_rating_count||0)||null,shopName:stripText(shop.name||shop.shop_name||''),hasProductSchema:true,source:'shopee-product-api'};
 }
-async function fetchShopeeProduct(pageUrl){
-  const ids=shopeeIds(pageUrl);if(!ids)return {product:null,diagnostics:['product-id-not-found']};
+async function fetchShopeeProduct(pageUrl,html=''){
+  const ids=shopeeIds(pageUrl,html);if(!ids){const url=pageUrl instanceof URL?pageUrl:new URL(pageUrl);return {product:null,diagnostics:['product-id-not-found','resolved-path='+url.pathname.slice(0,100),'html-bytes='+String(html||'').length]};}
   const endpoints=[
     {name:'pdp/get_pc',url:'https://shopee.co.id/api/v4/pdp/get_pc?shop_id='+encodeURIComponent(ids.shopId)+'&item_id='+encodeURIComponent(ids.itemId)},
     {name:'item/get',url:'https://shopee.co.id/api/v4/item/get?shopid='+encodeURIComponent(ids.shopId)+'&itemid='+encodeURIComponent(ids.itemId)}
@@ -219,7 +235,7 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
   let meta=page.html?readProductMetadata(page.html,page.finalUrl):{title:'',description:'',image:'',price:'',category:'',brand:'',hasProductSchema:false};
   let source='html-metadata',shopeeDiagnostics=[];
   if(page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id')){
-    const shopeeResult=await fetchShopeeProduct(page.finalUrl);
+    const shopeeResult=await fetchShopeeProduct(page.finalUrl,page.html);
     shopeeDiagnostics=shopeeResult.diagnostics||[];
     const apiMeta=shopeeResult.product;
     if(apiMeta?.title){meta={...meta,...apiMeta,description:apiMeta.description||meta.description,image:apiMeta.image||meta.image,price:apiMeta.price||meta.price,category:apiMeta.sourceCategory||meta.category,brand:apiMeta.brand||meta.brand};source=apiMeta.source;}
