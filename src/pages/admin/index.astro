@@ -751,67 +751,71 @@ const pageTitle = 'VANNDIK CMS';
       try{const data=await api('content?type='+type);all=data.items||[];draw();}catch(e){$('#contentRows').innerHTML='<div class="empty-state">'+escapeHTML(e.message)+'</div>';}
     }
     async function renderAffiliateProducts(query='') {
-      const type='product', allStatuses=['draft','published','scheduled','archived'];
-      const statusLabels={draft:'Perlu ditinjau',published:'Sudah tayang',scheduled:'Terjadwal',archived:'Diarsipkan'};
-      let all=[],activeStatus='all';
+      const type='product';
+      const statusLabels={draft:'Menunggu persetujuan',published:'Sudah tayang',scheduled:'Terjadwal',archived:'Diarsipkan'};
+      let all=[],activeStatus='all',failedAttempt=null;
+      const isVerified=item=>{
+        let tags=[];try{tags=Array.isArray(item.tags)?item.tags:JSON.parse(item.tags||'[]')}catch{}
+        try{
+          const affiliate=new URL(item.affiliate_url),target=new URL(item.target_url);
+          return tags.includes('metadata-extracted')&&tags.includes('marketplace-page-read')&&!!item.title&&affiliate.protocol.startsWith('http')&&target.protocol.startsWith('http');
+        }catch{return false;}
+      };
       const draw=()=>{
         const q=$('#productSearch')?.value?.trim().toLowerCase()||'';
         const rows=all.filter(item=>{
           const text=[item.title,item.category,item.excerpt,item.price,item.affiliate_url,item.slug].join(' ').toLowerCase();
           return (!q||text.includes(q))&&(activeStatus==='all'||(activeStatus==='pending'?item.status==='draft':item.status===activeStatus));
         });
-        const pending=all.filter(x=>x.status==='draft').length;
+        const pending=all.filter(x=>x.status==='draft'&&isVerified(x)).length;
         $('#affiliateTotal').textContent=all.length.toLocaleString('id-ID');
         $('#affiliatePending').textContent=pending.toLocaleString('id-ID');
         $('#affiliateLive').textContent=all.filter(x=>x.status==='published').length.toLocaleString('id-ID');
         $('#affiliateArchived').textContent=all.filter(x=>x.status==='archived').length.toLocaleString('id-ID');
         $('#affiliateCount').textContent=rows.length+' produk';
-        $('#affiliateRows').innerHTML=rows.length?rows.map(item=>{
-          const status=item.status||'draft';
+        const failureCard=failedAttempt?'<article class="affiliate-product-card affiliate-failed-card"><div class="affiliate-product-visual"><div class="affiliate-product-placeholder">⚠<small>NOT VERIFIED</small></div></div><div class="affiliate-product-info"><div class="affiliate-product-top"><span class="affiliate-state">Gagal diverifikasi</span></div><h3>Produk belum dapat diverifikasi</h3><p class="affiliate-excerpt">'+escapeHTML(failedAttempt.message)+'</p><div class="affiliate-link-row"><span class="affiliate-link-missing">'+escapeHTML(failedAttempt.url)+'</span></div><small class="affiliate-updated">Tidak disimpan dan tidak dapat dipublikasikan.</small></div></article>':'';
+        $('#affiliateRows').innerHTML=(failureCard)+(rows.length?rows.map(item=>{
+          const status=item.status||'draft',verified=isVerified(item);
           const image=item.image_url?'<img class="affiliate-product-image" src="'+escapeHTML(item.image_url)+'" alt="'+escapeHTML(item.title||'Produk')+'" loading="lazy">':'<div class="affiliate-product-placeholder">◇<small>NO IMAGE</small></div>';
-          const price=item.price?'<span class="affiliate-price">'+escapeHTML(item.price)+'</span>':'<span class="affiliate-no-price">Harga belum diisi</span>';
-          const link=item.affiliate_url&&/^https?:\/\//i.test(item.affiliate_url)?'<a class="affiliate-link" href="'+escapeHTML(item.affiliate_url)+'" target="_blank" rel="noopener noreferrer">Periksa tautan affiliate ↗</a>':'<span class="affiliate-link-missing">Tautan affiliate belum diisi</span>';
-          const targetLink=item.target_url&&/^https?:\/\//i.test(item.target_url)?'<a class="affiliate-link" href="'+escapeHTML(item.target_url)+'" target="_blank" rel="noopener noreferrer">Lihat halaman produk ↗</a>':'';
+          const price=item.price?'<span class="affiliate-price">'+escapeHTML(item.price)+'</span>':'<span class="affiliate-no-price">Harga tidak tersedia</span>';
+          const link=item.affiliate_url&&/^https?:\/\//i.test(item.affiliate_url)?'<a class="affiliate-link" href="'+escapeHTML(item.affiliate_url)+'" target="_blank" rel="noopener noreferrer">Link affiliate ↗</a>':'<span class="affiliate-link-missing">Link affiliate tidak valid</span>';
+          const targetLink=item.target_url&&/^https?:\/\//i.test(item.target_url)?'<a class="affiliate-link" href="'+escapeHTML(item.target_url)+'" target="_blank" rel="noopener noreferrer">Halaman sumber ↗</a>':'';
           const brandMatch=String(item.body||'').match(/(?:^|\n\n)Merek:\s*([^\n]+)/i);
           const brand=brandMatch?'<span class="affiliate-brand">Merek: '+escapeHTML(brandMatch[1])+'</span>':'';
-          const action=status==='draft'
-            ?'<button class="affiliate-btn approve" data-product-approve="'+item.id+'">✓ Tampilkan</button><button class="affiliate-btn reject" data-product-delete="'+item.id+'">Hapus</button>'
-            :'<button class="affiliate-btn secondary" data-product-edit="'+item.id+'">Edit produk</button>';
-          const tags=(()=>{try{return JSON.parse(item.tags||'[]')}catch{return []}})();const extracted=tags.includes('metadata-extracted');
-          return '<article class="affiliate-product-card" data-product-id="'+escapeHTML(item.id)+'"><div class="affiliate-product-visual">'+image+'<span class="affiliate-state '+escapeHTML(status)+'">'+escapeHTML(statusLabels[status]||status)+'</span></div><div class="affiliate-product-info"><div class="affiliate-product-top"><span class="affiliate-category">'+escapeHTML(item.category||'Belum terdeteksi')+'</span>'+(extracted?'<span class="affiliate-verified">✓ HALAMAN TERBACA</span>':'')+'<span class="affiliate-updated">Diperbarui '+escapeHTML(item.updated_at||item.created_at||'—')+'</span></div><h3>'+escapeHTML(item.title||'Produk tanpa judul')+'</h3><p class="affiliate-excerpt">'+escapeHTML(item.excerpt||'Belum ada ringkasan produk.')+'</p><div class="affiliate-product-data">'+price+brand+'<span class="affiliate-divider"></span><span class="affiliate-platform">'+escapeHTML((()=>{try{return new URL(item.affiliate_url).hostname.replace(/^www\./,'')}catch{return 'Marketplace belum dikenali'}})())+'</span></div><div class="affiliate-link-row">'+link+targetLink+'</div><div class="affiliate-card-actions">'+action+(status!=='draft'?'<button class="affiliate-btn reject" data-product-delete="'+item.id+'">Hapus</button>':'')+'</div></div></article>';
-        }).join(''):'<div class="affiliate-empty"><span>◇</span><b>'+ (activeStatus==='pending'?'Antrean persetujuan masih kosong':'Belum ada produk pada kategori ini')+'</b><p>Produk yang kamu tambahkan akan muncul di sini untuk diperiksa sebelum ditampilkan di website.</p><button class="action-btn" id="affiliateEmptyAdd">＋ Tambah produk affiliate</button></div>';
-        $('#affiliateRows').querySelectorAll('[data-product-edit]').forEach(btn=>btn.addEventListener('click',()=>openEditor(type,all.find(x=>String(x.id)===btn.dataset.productEdit))));
+          const actions=verified?(status==='draft'?'<button class="affiliate-btn approve" data-product-approve="'+item.id+'">✓ Tampilkan</button>':'')+'<button class="affiliate-btn reject" data-product-delete="'+item.id+'">Hapus permanen</button>':'<span class="affiliate-link-missing">Belum terverifikasi — tidak tersedia untuk publikasi</span>';
+          const agentStatus=verified?'<div class="affiliate-agent-activity"><b>AKTIVITAS PEMERIKSAAN</b><div><span>Link Validator</span><em class="done">✓ Terverifikasi</em></div><div><span>Product Reader</span><em class="done">✓ Metadata sumber terbaca</em></div><div><span>Market Research Agent</span><em class="pending-agent">Belum terhubung</em></div><div><span>Affiliate Strategist</span><em class="pending-agent">Belum terhubung</em></div><div><span>Copywriter & SEO Agent</span><em class="pending-agent">Belum terhubung</em></div><div><span>Quality Control Agent</span><em class="pending-agent">Menunggu pipeline AI</em></div></div>':'<div class="affiliate-agent-activity"><b>AKTIVITAS PEMERIKSAAN</b><div><span>Link Validator</span><em class="failed">Belum terverifikasi</em></div><div><span>Product Reader</span><em class="failed">Data sumber tidak lengkap</em></div></div>';
+          return '<article class="affiliate-product-card" data-product-id="'+escapeHTML(item.id)+'"><div class="affiliate-product-visual">'+image+'<span class="affiliate-state '+escapeHTML(status)+'">'+escapeHTML(verified?(statusLabels[status]||status):'Perlu pemeriksaan')+'</span></div><div class="affiliate-product-info"><div class="affiliate-product-top"><span class="affiliate-category">'+escapeHTML(item.category||'Kategori tidak tersedia')+'</span><span class="affiliate-updated">'+escapeHTML(item.updated_at||item.created_at||'—')+'</span></div><h3>'+escapeHTML(item.title||'Produk tidak teridentifikasi')+'</h3><p class="affiliate-excerpt">'+escapeHTML(item.excerpt||'Deskripsi tidak tersedia dari halaman sumber.')+'</p><div class="affiliate-product-data">'+price+brand+'</div><div class="affiliate-link-row">'+link+targetLink+'</div>'+agentStatus+'<div class="affiliate-card-actions">'+actions+'</div></div></article>';
+        }).join(''):'')||'<div class="affiliate-empty"><span>◇</span><b>Belum ada produk</b><p>Masukkan link affiliate untuk memulai pemeriksaan sumber.</p></div>';
         $('#affiliateRows').querySelectorAll('[data-product-approve]').forEach(btn=>btn.addEventListener('click',async()=>{
-          const item=all.find(x=>String(x.id)===btn.dataset.productApprove);if(!item)return;
-          if(!item.title||!item.slug||!item.affiliate_url||!item.target_url){notify('Halaman tujuan produk belum berhasil dibaca. Analisis ulang link sebelum menampilkan.',true);return;}
-          if(!confirm('Tampilkan produk "'+item.title+'" di website VANNDIK?'))return;
+          const item=all.find(x=>String(x.id)===btn.dataset.productApprove);if(!item||!isVerified(item))return;
+          if(!confirm('Setujui dan tampilkan produk "'+item.title+'" di website VANNDIK?'))return;
           btn.disabled=true;btn.textContent='Memproses...';
           try{await api('content/'+item.id,{method:'PUT',body:JSON.stringify({...item,status:'published',published_at:item.published_at||new Date().toISOString()})});notify('Produk disetujui dan ditampilkan.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();}
           catch(e){notify(e.message,true);btn.disabled=false;btn.textContent='✓ Tampilkan';}
         }));
         $('#affiliateRows').querySelectorAll('[data-product-delete]').forEach(btn=>btn.addEventListener('click',async()=>{
-          const item=all.find(x=>String(x.id)===btn.dataset.productDelete);if(!item)return;
-          if(!confirm('Hapus produk "'+item.title+'" dari CMS? Tindakan ini tidak dapat dibatalkan.'))return;
+          const item=all.find(x=>String(x.id)===btn.dataset.productDelete);if(!item||!isVerified(item))return;
+          if(!confirm('Hapus permanen produk "'+item.title+'" dari CMS? Tindakan ini tidak dapat dibatalkan.'))return;
           btn.disabled=true;
-          try{await api('content/'+item.id,{method:'DELETE',body:'{}'});notify('Produk dihapus.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();}
+          try{await api('content/'+item.id,{method:'DELETE',body:'{}'});notify('Produk dihapus permanen.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();}
           catch(e){notify(e.message,true);btn.disabled=false;}
         }));
-        $('#affiliateRows').querySelectorAll('#affiliateEmptyAdd').forEach(btn=>btn.addEventListener('click',()=>openEditor(type)));
       };
-      view.innerHTML='<div class="affiliate-head"><div><div class="eyebrow">VANNDIK / AFFILIATE WORKSPACE</div><h1>Produk Affiliate</h1><p>Periksa detail dan tautan produk. Produk hanya tampil di website setelah kamu menyetujuinya.</p></div><button class="blogger-create" id="affiliateAdd">＋ Tambah produk</button></div><section class="affiliate-summary"><article><span>Total produk</span><b id="affiliateTotal">—</b><small>Semua produk di CMS</small></article><article class="pending"><span>Antrean persetujuan</span><b id="affiliatePending">—</b><small>Menunggu keputusanmu</small></article><article class="live"><span>Sudah ditampilkan</span><b id="affiliateLive">—</b><small>Tayang di website</small></article><article><span>Arsip</span><b id="affiliateArchived">—</b><small>Tidak ditampilkan</small></article></section><section class="affiliate-review-note"><span>✓</span><div><b>Persetujuan tetap di tanganmu</b><p>Produk baru masuk sebagai draft untuk ditinjau. Pilih <strong>Tampilkan</strong> jika produk dan tautannya benar, atau <strong>Hapus</strong> jika produk tidak ditemukan atau tidak layak.</p></div></section><section class="affiliate-intake panel"><div class="affiliate-intake-copy"><span class="affiliate-intake-icon">✧</span><div><b>Tambahkan produk dari link affiliate</b><p>Tempel tautan Shopee, TikTok Shop, Tokopedia, Lazada, Amazon, atau marketplace yang didukung. Metadata dibaca langsung dari halaman sumber, tanpa API berbayar.</p></div></div><form id="affiliateIntakeForm" class="affiliate-intake-form"><label for="affiliateLinkInput">LINK AFFILIATE</label><div class="affiliate-intake-controls"><input id="affiliateLinkInput" type="url" inputmode="url" placeholder="https://..." autocomplete="url" required maxlength="2000" /><button class="affiliate-analyze-btn" id="affiliateAnalyzeButton" type="submit">✧ Analisis Produk</button></div><div class="affiliate-intake-feedback" id="affiliateAnalysisStatus" role="status">Hasil analisis masuk sebagai draft. Tidak ada produk yang otomatis dipublikasikan.</div></form></section><div class="affiliate-toolbar"><div class="affiliate-tabs"><button class="affiliate-tab active" data-product-filter="all">Semua</button><button class="affiliate-tab" data-product-filter="pending">Antrean persetujuan</button><button class="affiliate-tab" data-product-filter="published">Sudah tayang</button><button class="affiliate-tab" data-product-filter="archived">Arsip</button></div><label class="blogger-search"><span>⌕</span><input id="productSearch" type="search" placeholder="Cari nama produk, kategori, marketplace..." /></label></div><div class="affiliate-list-head"><b>DAFTAR PRODUK</b><span id="affiliateCount">Memuat produk...</span></div><div class="affiliate-product-grid" id="affiliateRows"><div class="empty-state">Memuat produk affiliate...</div></div>';
-      $('#affiliateAdd').addEventListener('click',()=>openEditor(type));
+      view.innerHTML='<div class="affiliate-head"><div><div class="eyebrow">VANNDIK / AFFILIATE AI WORKSPACE</div><h1>Produk Affiliate</h1><p>Masukkan link. Sistem memeriksa sumber dan menyiapkan produk untuk persetujuanmu.</p></div></div><section class="affiliate-summary"><article><span>Total produk</span><b id="affiliateTotal">—</b><small>Semua produk di CMS</small></article><article class="pending"><span>Antrean persetujuan</span><b id="affiliatePending">—</b><small>Produk terverifikasi</small></article><article class="live"><span>Sudah ditampilkan</span><b id="affiliateLive">—</b><small>Tayang di website</small></article><article><span>Arsip</span><b id="affiliateArchived">—</b><small>Tidak ditampilkan</small></article></section><section class="affiliate-review-note"><span>✓</span><div><b>Persetujuan tetap di tanganmu</b><p>Tombol Tampilkan dan Hapus permanen hanya tersedia jika link affiliate berhasil diverifikasi dan halaman sumber terbaca.</p></div></section><section class="affiliate-intake panel"><div class="affiliate-intake-copy"><span class="affiliate-intake-icon">✧</span><div><b>Masukkan link affiliate</b><p>Tempel tautan produk. Tidak perlu mengisi judul, deskripsi, harga, kategori, slug, atau SEO secara manual.</p></div></div><form id="affiliateIntakeForm" class="affiliate-intake-form"><label for="affiliateLinkInput">LINK AFFILIATE</label><div class="affiliate-intake-controls"><input id="affiliateLinkInput" type="url" inputmode="url" placeholder="Tempel link Shopee, TikTok Shop, Tokopedia, Amazon..." autocomplete="url" required maxlength="2000" /><button class="affiliate-analyze-btn" id="affiliateAnalyzeButton" type="submit">✧ Periksa Produk</button></div><div class="affiliate-intake-feedback" id="affiliateAnalysisStatus" role="status">Pemeriksaan sumber dilakukan sebelum produk masuk antrean.</div></form></section><div class="affiliate-toolbar"><div class="affiliate-tabs"><button class="affiliate-tab active" data-product-filter="all">Semua</button><button class="affiliate-tab" data-product-filter="pending">Antrean persetujuan</button><button class="affiliate-tab" data-product-filter="published">Sudah tayang</button><button class="affiliate-tab" data-product-filter="archived">Arsip</button></div><label class="blogger-search"><span>⌕</span><input id="productSearch" type="search" placeholder="Cari produk atau marketplace..." /></label></div><div class="affiliate-list-head"><b>HASIL PEMERIKSAAN PRODUK</b><span id="affiliateCount">Memuat produk...</span></div><div class="affiliate-product-grid" id="affiliateRows"><div class="empty-state">Memuat produk affiliate...</div></div>';
       $('#affiliateIntakeForm').addEventListener('submit',async event=>{
         event.preventDefault();
         const input=$('#affiliateLinkInput'),button=$('#affiliateAnalyzeButton'),feedback=$('#affiliateAnalysisStatus'),link=input.value.trim();
         if(!link)return;
-        button.disabled=true;button.textContent='◌ Membaca halaman...';feedback.textContent='Memeriksa tautan dan membaca metadata produk dari halaman tujuan...';feedback.classList.remove('error','success');
+        button.disabled=true;button.textContent='◌ Memeriksa sumber...';feedback.textContent='Link Validator sedang memeriksa pengalihan dan halaman tujuan...';feedback.classList.remove('error','success');failedAttempt=null;
         try{
           const result=await api('product/analyze',{method:'POST',body:JSON.stringify({url:link})});
-          input.value='';feedback.textContent='Berhasil dibaca: '+result.item.title+'. Produk masuk ke antrean persetujuan sebagai draft.';feedback.classList.add('success');
-          notify('Produk berhasil dianalisis dan masuk antrean.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();
+          input.value='';feedback.textContent='Sumber berhasil dibaca: '+result.item.title+'. Produk terverifikasi dan menunggu persetujuan.';feedback.classList.add('success');
+          notify('Produk berhasil diverifikasi dan masuk antrean.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();
           requestAnimationFrame(()=>{const card=$('[data-product-id="'+result.item.id+'"]');if(card)card.scrollIntoView({behavior:'smooth',block:'center'});});
-        }catch(error){feedback.textContent=error.message||'Analisis produk gagal.';feedback.classList.add('error');notify(error.message||'Analisis produk gagal.',true);}
-        finally{button.disabled=false;button.textContent='✧ Analisis Produk';}
+        }catch(error){
+          failedAttempt={url:link,message:error.message||'Halaman tujuan tidak dapat diverifikasi.'};
+          feedback.textContent='Gagal diverifikasi. Produk tidak dimasukkan ke antrean publikasi.';feedback.classList.add('error');notify(error.message||'Verifikasi produk gagal.',true);draw();
+        }finally{button.disabled=false;button.textContent='✧ Periksa Produk';}
       });
       $('#productSearch').addEventListener('input',draw);
       $('.affiliate-tab').forEach(tab=>tab.addEventListener('click',()=>{activeStatus=tab.dataset.productFilter;$('.affiliate-tab').forEach(x=>x.classList.toggle('active',x===tab));draw();}));
