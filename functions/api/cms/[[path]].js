@@ -228,6 +228,21 @@ export async function onRequest({ request, env }) {
         return json({error:error?.message||'Analisis produk gagal.'},422);
       }
     }
+    if (path === 'product/image' && method === 'POST') {
+      const data=await body(request),productId=String(data.id||''),imageUrl=String(data.imageUrl||'');
+      if(!productId||productId.length>80)return json({error:'ID produk tidak valid.'},400);
+      let parsed;try{parsed=new URL(imageUrl)}catch{return json({error:'URL gambar tidak valid.'},400);}
+      if(parsed.protocol!=='https:'||parsed.hostname!=='drive.google.com'||parsed.pathname!=='/uc'||!parsed.searchParams.get('id'))return json({error:'Gambar harus berasal dari folder media Google Drive VANNDIK.'},400);
+      const item=await env.CMS_DB.prepare("SELECT * FROM cms_content WHERE id=? AND type='product'").bind(productId).first();
+      if(!item)return json({error:'Produk tidak ditemukan.'},404);
+      let tags=[];try{tags=JSON.parse(item.tags||'[]')}catch{}
+      if(!tags.includes('metadata-extracted')||!tags.includes('marketplace-page-read'))return json({error:'Produk belum terverifikasi.'},409);
+      await env.CMS_DB.prepare('UPDATE cms_content SET image_url=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(parsed.href,productId).run();
+      const seo=makeSeo({...item,image_url:parsed.href,og_image:parsed.href});
+      await saveSeo(env,productId,seo);
+      await audit(env,admin,'affiliate.product.image_attached','product',productId,{source:'google-drive'});
+      return json({ok:true,image_url:parsed.href});
+    }
     if (path === 'product/ai-process' && method === 'POST') {
       const data=await body(request), productId=String(data.id||'');
       if(!productId||productId.length>80)return json({error:'ID produk tidak valid.'},400);
