@@ -43,7 +43,7 @@
 
   function createCard(item,type){
     const article=document.createElement('article');article.className='cms-published-card';
-    const href=type==='product'?(allowed(item.affiliate_url)?item.affiliate_url:'#'):(['game','app'].includes(type)&&allowed(item.target_url)?item.target_url:'/konten/?slug='+encodeURIComponent(item.slug));
+    const href=type==='product'?(allowed(item.affiliate_url)?item.affiliate_url:'#'):(['game','app'].includes(type)&&allowed(item.target_url)?item.target_url:'/konten/'+encodeURIComponent(item.slug)+'/');
     const external=type==='product'||(['game','app'].includes(type)&&allowed(item.target_url));
     const link=document.createElement('a');link.className='cms-live-card-link';link.href=href;
     if(external){link.target='_blank';link.rel='noopener noreferrer'+(type==='product'?' sponsored':'');}

@@ -48,6 +48,92 @@ const clean = data => ({
   sort_order: Math.max(0, Math.min(99999, Number(data.sort_order) || 0)), published_at: data.published_at ? String(data.published_at).slice(0,40) : null
 });
 const types = ['article','news','product','game','app'];
+const seoClean = value => String(value || '').replace(/<[^>]*>/g, ' ').replace(/[#*_>~]/g, ' ').replace(/\s+/g, ' ').trim();
+function makeSeo(data) {
+  const title = seoClean(data.title).slice(0, 180);
+  let description = seoClean(data.seo_description || data.excerpt || data.body);
+  if (description.length < 70) description = seoClean(title + '. ' + (data.body || data.category || 'Informasi pilihan dari VANNDIK.'));
+  if (description.length < 70) description = title + ' — Temukan informasi, detail, dan rekomendasi selengkapnya di VANNDIK.';
+  if (description.length > 160) description = description.slice(0, 157).replace(/\s+\S*$/, '') + '…';
+  const stopWords = new Set('yang dan atau untuk dari pada dengan dalam ini itu ke di oleh akan bisa juga lebih sangat agar saat jika karena sebuah para the and for with from into this that your you are was were have has had not but all can will should their they them our'.split(' '));
+  const frequency = new Map();
+  for (const word of (title + ' ' + (data.category || '') + ' ' + seoClean(data.body).slice(0, 3000)).toLowerCase().split(/[^a-z0-9]+/)) if (word.length > 2 && !stopWords.has(word)) frequency.set(word, (frequency.get(word) || 0) + 1);
+  const keywords = [...frequency].sort((a,b) => b[1] - a[1]).slice(0, 8).map(([word]) => word);
+  const seoTitle = seoClean(data.seo_title || title).slice(0, 70);
+  const checks = { title: seoTitle.length >= 30 && seoTitle.length <= 60, description: description.length >= 70 && description.length <= 160, keywordInTitle: keywords.some(k => seoTitle.toLowerCase().includes(k)), keywordInDescription: keywords.some(k => description.toLowerCase().includes(k)), body: seoClean(data.body).split(' ').filter(Boolean).length >= 300, image: !!data.image_url, category: !!data.category };
+  const score = Math.round(Object.values(checks).filter(Boolean).length / Object.keys(checks).length * 100);
+  return { seo_title: seoTitle, seo_description: description, seo_keywords: (data.seo_keywords || keywords.join(', ')), canonical_url: String(data.canonical_url || '').slice(0, 500), og_image: String(data.og_image || data.image_url || '').slice(0, 2000), seo_score: score, seo_checks: JSON.stringify(checks) };
+}
+async function ensureSeoTable(env) { await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_content_seo (content_id TEXT PRIMARY KEY, seo_title TEXT NOT NULL DEFAULT '', seo_description TEXT NOT NULL DEFAULT '', seo_keywords TEXT NOT NULL DEFAULT '', canonical_url TEXT NOT NULL DEFAULT '', og_image TEXT NOT NULL DEFAULT '', seo_score INTEGER NOT NULL DEFAULT 0, seo_checks TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run(); }
+async function saveSeo(env, id, seo) { await env.CMS_DB.prepare("INSERT INTO cms_content_seo(content_id,seo_title,seo_description,seo_keywords,canonical_url,og_image,seo_score,seo_checks,updated_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(content_id) DO UPDATE SET seo_title=excluded.seo_title,seo_description=excluded.seo_description,seo_keywords=excluded.seo_keywords,canonical_url=excluded.canonical_url,og_image=excluded.og_image,seo_score=excluded.seo_score,seo_checks=excluded.seo_checks,updated_at=CURRENT_TIMESTAMP").bind(id,seo.seo_title,seo.seo_description,seo.seo_keywords,seo.canonical_url,seo.og_image,seo.seo_score,seo.seo_checks).run(); }
+
+const MARKETPLACE_HOSTS=['shopee.co.id','shopee.com','shope.ee','shp.ee','tiktok.com','vt.tiktok.com','vm.tiktok.com','tokopedia.com','tokopedia.link','lazada.co.id','lazada.com','blibli.com','amazon.com','amazon.co.uk','amazon.co.jp','amazon.de','amzn.to','aliexpress.com','aliexpress.us','temu.com','ebay.com','ebay.to','walmart.com','jd.com','taobao.com','tmall.com','zalora.co.id','zalora.com','bit.ly','tinyurl.com'];
+const hostAllowed=host=>MARKETPLACE_HOSTS.some(domain=>host===domain||host.endsWith('.'+domain));
+function validateProductUrl(value){
+  let url;try{url=new URL(String(value||'').trim());}catch{throw new Error('Format link tidak valid. Tempel URL lengkap yang diawali https://.');}
+  if(!['https:','http:'].includes(url.protocol)||url.username||url.password||!hostAllowed(url.hostname.toLowerCase()))throw new Error('Domain belum didukung. Gunakan link marketplace seperti Shopee, TikTok Shop, Tokopedia, Lazada, atau Amazon.');
+  if(url.port&&!['80','443'].includes(url.port))throw new Error('Port URL tidak diizinkan.');
+  url.hash='';return url;
+}
+async function fetchMarketplaceHtml(startUrl){
+  let current=startUrl;
+  for(let hop=0;hop<=5;hop++){
+    validateProductUrl(current.href);
+    // Keep the same deadline active while streaming the response body, not only until headers arrive.
+    const signal=AbortSignal.timeout(12000);let response;
+    try{response=await fetch(current.href,{method:'GET',redirect:'manual',signal,headers:{'accept':'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5','accept-language':'id-ID,id;q=0.9,en;q=0.8','user-agent':'Mozilla/5.0 (compatible; VANNDIKProductPreview/1.0; +https://vanndik.pages.dev/)'}});}
+    catch(error){if(error?.name==='AbortError'||error?.name==='TimeoutError')throw new Error('Halaman marketplace terlalu lama merespons. Coba lagi beberapa saat.');throw new Error('Halaman marketplace tidak dapat diakses otomatis. Marketplace mungkin membatasi pembacaan bot.');}
+    if([301,302,303,307,308].includes(response.status)){const location=response.headers.get('location');if(!location||hop===5)throw new Error('Tautan pengalihan terlalu panjang atau tidak lengkap.');current=new URL(location,current);continue;}
+    if(!response.ok)throw new Error('Marketplace menolak pembacaan halaman (HTTP '+response.status+'). Periksa link secara manual atau coba lagi nanti.');
+    const contentType=response.headers.get('content-type')||'';
+    if(!/text\/html|application\/xhtml\+xml/i.test(contentType))throw new Error('Link tidak mengarah ke halaman produk HTML yang dapat dibaca.');
+    if(Number(response.headers.get('content-length')||0)>1200000)throw new Error('Halaman terlalu besar untuk dianalisis secara gratis dan aman.');
+    const reader=response.body?.getReader();if(!reader)throw new Error('Isi halaman tidak dapat dibaca.');
+    const chunks=[];let total=0;
+    try{while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>1200000){await reader.cancel();throw new Error('Halaman terlalu besar untuk dianalisis secara gratis dan aman.');}chunks.push(value);}}
+    catch(error){try{await reader.cancel();}catch{}if(signal.aborted)throw new Error('Halaman marketplace terlalu lama mengirim data. Coba lagi beberapa saat.');throw error;}
+    const bytes=new Uint8Array(total);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+    return {html:new TextDecoder('utf-8').decode(bytes),finalUrl:current};
+  }
+  throw new Error('Tautan tidak berhasil diarahkan ke halaman produk.');
+}
+const decodeEntities=value=>String(value||'').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,Number(n)))).replace(/&#x([\da-f]+);/gi,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,parseInt(n,16)))).replace(/\\u0026/gi,'&').replace(/\\u003c/gi,'<').replace(/\\u003e/gi,'>');
+const stripText=value=>decodeEntities(String(value||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ')).trim();
+function htmlAttributes(tag){const attrs={};for(const match of tag.matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/g))attrs[match[1].toLowerCase()]=decodeEntities(match[2]??match[3]??match[4]??'');return attrs;}
+function readProductMetadata(html,pageUrl){
+  const meta={};for(const match of html.matchAll(/<meta\b[^>]*>/gi)){const a=htmlAttributes(match[0]),key=(a.property||a.name||a.itemprop||'').toLowerCase();if(key)meta[key]=a.content||a.value||'';}
+  const links=[...html.matchAll(/<link\b[^>]*>/gi)].map(x=>htmlAttributes(x[0]));
+  const canonicalLink=links.find(x=>(x.rel||'').toLowerCase().split(/\s+/).includes('canonical'))?.href||'';
+  const titleTag=html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1]||'';
+  const products=[];
+  const visit=value=>{if(!value)return;if(Array.isArray(value)){value.forEach(visit);return;}if(typeof value!=='object')return;const type=value['@type'];if((Array.isArray(type)?type:[type]).some(x=>String(x||'').toLowerCase().split(/[\/#]/).pop()==='product'))products.push(value);if(value['@graph'])visit(value['@graph']);for(const [key,child] of Object.entries(value))if(key!=='@graph'&&child&&typeof child==='object')visit(child);};
+  for(const match of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){try{visit(JSON.parse(match[1].trim().replace(/^<!--|-->$/g,'')));}catch{}}
+  const product=products[0]||{},offers=Array.isArray(product.offers)?product.offers[0]:product.offers||{};
+  const imageValue=Array.isArray(product.image)?product.image[0]:(typeof product.image==='object'?product.image.url:product.image);
+  const title=stripText(product.name||meta['og:title']||meta['twitter:title']||titleTag).replace(/\s*[|–—-]\s*(Shopee|Tokopedia|TikTok Shop|Lazada|Amazon).*$/i,'').slice(0,180);
+  const description=stripText(product.description||meta['og:description']||meta.description||meta['twitter:description']).slice(0,600);
+  const rawImage=imageValue||meta['og:image']||meta['og:image:url']||meta['twitter:image']||'';let image='';try{image=rawImage?new URL(rawImage,pageUrl).href:'';}catch{}
+  const rawPrice=offers.price||offers.lowPrice||product.price||meta['product:price:amount']||meta['og:price:amount']||'',currency=offers.priceCurrency||meta['product:price:currency']||meta['og:price:currency']||'';
+  let price='';if(rawPrice!==''){const text=String(rawPrice).trim(),numeric=Number(currency.toUpperCase()==='IDR'?text.replace(/[^\d-]/g,''):text.replace(/[^\d.,-]/g,'').replace(/,(?=\d{3}(?:\D|$))/g,'').replace(',','.'));if(Number.isFinite(numeric)){try{price=currency.toUpperCase()==='IDR'?new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(numeric):(currency?currency.toUpperCase()+' '+numeric:String(rawPrice));}catch{price=(currency?currency.toUpperCase()+' ':'')+numeric;}}}
+  const category=stripText(product.category||meta['product:category']||meta['article:section']||'').slice(0,80),brandValue=product.brand&&typeof product.brand==='object'?product.brand.name:product.brand;
+  return {title,description,image,price,category,brand:stripText(brandValue||'').slice(0,80),hasProductSchema:products.length>0};
+}
+async function analyzeAffiliateProduct(env,admin,rawUrl){
+  const original=validateProductUrl(rawUrl),duplicate=await env.CMS_DB.prepare("SELECT id,title FROM cms_content WHERE type='product' AND affiliate_url=? LIMIT 1").bind(original.href).first();
+  if(duplicate)throw new Error('Link ini sudah ada di CMS sebagai "'+duplicate.title+'". Periksa antrean produk yang sudah ada.');
+  const page=await fetchMarketplaceHtml(original),meta=readProductMetadata(page.html,page.finalUrl);
+  if(!meta.title||meta.title.length<3)throw new Error('Nama produk tidak berhasil dibaca dari halaman tujuan. Marketplace mungkin memblokir metadata. Tidak ada data yang disimpan.');
+  const id=uid(),baseSlug=meta.title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,72)||'produk';
+  let slug=baseSlug,suffix=1;while(await env.CMS_DB.prepare('SELECT id FROM cms_content WHERE slug=? LIMIT 1').bind(slug).first())slug=(baseSlug.slice(0,78)+'-'+suffix++).slice(0,90);
+  const excerpt=meta.description||'Deskripsi produk tidak tersedia pada metadata halaman sumber. Periksa halaman marketplace sebelum menampilkan produk.';
+  const bodyText=[meta.description,meta.brand?'Merek: '+meta.brand:'',meta.category?'Kategori: '+meta.category:'',meta.price?'Harga yang terbaca: '+meta.price:'','Sumber: '+page.finalUrl.href].filter(Boolean).join('\n\n');
+  const tags=JSON.stringify(['metadata-extracted','marketplace-page-read',page.finalUrl.hostname]);
+  const data=clean({type:'product',title:meta.title,slug,excerpt,body:bodyText,image_url:meta.image,category:meta.category,tags:['metadata-extracted','marketplace-page-read',page.finalUrl.hostname],status:'draft',affiliate_url:original.href,target_url:page.finalUrl.href,price:meta.price});
+  await env.CMS_DB.prepare('INSERT INTO cms_content(id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,data.type,data.title,data.slug,data.excerpt,data.body,data.image_url,data.category,data.tags,data.status,data.affiliate_url,data.target_url,data.price,data.featured,data.sort_order,null).run();
+  const seo=makeSeo({...data,seo_description:meta.description,canonical_url:new URL('/produk/'+encodeURIComponent(slug)+'/','https://vanndik.pages.dev').href,og_image:meta.image});
+  await saveSeo(env,id,seo);await audit(env,admin,'affiliate.product.analyzed','product',id,{sourceHost:page.finalUrl.hostname,hasProductSchema:meta.hasProductSchema,hasImage:!!meta.image,hasPrice:!!meta.price});
+  return {id,type:'product',title:meta.title,slug,excerpt,image_url:meta.image,category:meta.category,price:meta.price,affiliate_url:original.href,target_url:page.finalUrl.href,status:'draft',tags,seo_score:seo.seo_score,metadata:{descriptionFound:!!meta.description,imageFound:!!meta.image,priceFound:!!meta.price,productSchemaFound:meta.hasProductSchema,sourceHost:page.finalUrl.hostname}};
+}
 const safeUrl = v => !v || /^https?:\/\//i.test(v) || v.startsWith('/');
 
 export async function onRequest({ request, env }) {
@@ -57,6 +143,7 @@ export async function onRequest({ request, env }) {
   try {
     if (!env.CMS_DB) return json({ error: 'Database CMS belum terhubung.' }, 503);
     if (method !== 'GET') originCheck(request);
+    await ensureSeoTable(env);
 
     if (path === 'setup' && method === 'GET') {
       const row = await env.CMS_DB.prepare('SELECT COUNT(*) total FROM cms_admins').first();
@@ -125,6 +212,22 @@ export async function onRequest({ request, env }) {
     if (path === 'me' && method === 'GET') return admin ? json({authenticated:true,admin}) : json({authenticated:false},401);
     if (!admin) return json({error:'Silakan login terlebih dahulu.'},401);
 
+    if (path === 'product/analyze' && method === 'POST') {
+      const data=await body(request);
+      if(!data.url||String(data.url).length>2000)return json({error:'Masukkan satu link affiliate yang valid (maksimal 2.000 karakter).'},400);
+      try{const item=await analyzeAffiliateProduct(env,admin,String(data.url));return json({ok:true,item},201);}
+      catch(error){
+        let sourceUrl=String(data.url).slice(0,2000);
+        try{const parsed=new URL(sourceUrl);if(!['http:','https:'].includes(parsed.protocol))sourceUrl='';}catch{sourceUrl='';}
+        try{await audit(env,admin,'affiliate.product.failed','product','',{sourceUrl,reason:String(error?.message||'Verifikasi produk gagal.').slice(0,500)});}catch{}
+        return json({error:error?.message||'Analisis produk gagal.'},422);
+      }
+    }
+    if (path === 'product/attempts' && method === 'GET') {
+      const rows=await env.CMS_DB.prepare("SELECT id,details,created_at FROM cms_audit_logs WHERE action='affiliate.product.failed' ORDER BY created_at DESC LIMIT 20").all();
+      const items=(rows.results||[]).map(row=>{let details={};try{details=JSON.parse(row.details||'{}')}catch{}return {id:row.id,sourceUrl:details.sourceUrl||'',reason:details.reason||'Perlu pemeriksaan',created_at:row.created_at};});
+      return json({items});
+    }
     if (path === 'backup/export' && method === 'GET') {
       const [content, settings, activity] = await Promise.all([
         env.CMS_DB.prepare('SELECT * FROM cms_content ORDER BY created_at').all(),
@@ -157,28 +260,30 @@ export async function onRequest({ request, env }) {
     }
     if (path === 'content' && method === 'GET') {
       const type=url.searchParams.get('type')||'', q='%'+(url.searchParams.get('q')||'')+'%';
-      const rows=await env.CMS_DB.prepare("SELECT * FROM cms_content WHERE (?='' OR type=?) AND (title LIKE ? OR category LIKE ?) ORDER BY featured DESC,sort_order ASC,updated_at DESC LIMIT 300").bind(type,type,q,q).all();
+      const rows=await env.CMS_DB.prepare("SELECT c.*,s.seo_title,s.seo_description,s.seo_keywords,s.canonical_url,s.og_image,s.seo_score,s.seo_checks FROM cms_content c LEFT JOIN cms_content_seo s ON s.content_id=c.id WHERE (?='' OR c.type=?) AND (c.title LIKE ? OR c.category LIKE ?) ORDER BY c.featured DESC,c.sort_order ASC,c.updated_at DESC LIMIT 300").bind(type,type,q,q).all();
       return json({items:rows.results||[]});
     }
     if (path === 'content' && method === 'POST') {
-      const item=clean(await body(request));
+      const raw=await body(request), item=clean(raw);
       if(!types.includes(item.type)||!item.title||!item.slug) return json({error:'Jenis dan judul wajib diisi.'},400);
       if(!safeUrl(item.image_url)||!safeUrl(item.affiliate_url)||!safeUrl(item.target_url)) return json({error:'URL harus menggunakan http atau https.'},400);
-      const id=uid();
+      const id=uid(), seo=makeSeo({...item,...raw});
       try { await env.CMS_DB.prepare('INSERT INTO cms_content(id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,item.type,item.title,item.slug,item.excerpt,item.body,item.image_url,item.category,item.tags,item.status,item.affiliate_url,item.target_url,item.price,item.featured,item.sort_order,item.published_at).run(); }
       catch { return json({error:'Slug sudah digunakan atau data tidak valid.'},409); }
-      await audit(env,admin,'content.created',item.type,id,{title:item.title,status:item.status}); return json({ok:true,id},201);
+      await saveSeo(env,id,seo);
+      await audit(env,admin,'content.created',item.type,id,{title:item.title,status:item.status,seoScore:seo.seo_score}); return json({ok:true,id,seo},201);
     }
     if (path.startsWith('content/') && method === 'PUT') {
-      const id=path.split('/')[1], item=clean(await body(request));
+      const id=path.split('/')[1], raw=await body(request), item=clean(raw), seo=makeSeo({...item,...raw});
       if(!types.includes(item.type)||!item.title||!item.slug) return json({error:'Jenis dan judul wajib diisi.'},400);
       if(!safeUrl(item.image_url)||!safeUrl(item.affiliate_url)||!safeUrl(item.target_url)) return json({error:'URL harus menggunakan http atau https.'},400);
       try { const result=await env.CMS_DB.prepare('UPDATE cms_content SET type=?,title=?,slug=?,excerpt=?,body=?,image_url=?,category=?,tags=?,status=?,affiliate_url=?,target_url=?,price=?,featured=?,sort_order=?,published_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(item.type,item.title,item.slug,item.excerpt,item.body,item.image_url,item.category,item.tags,item.status,item.affiliate_url,item.target_url,item.price,item.featured,item.sort_order,item.published_at,id).run(); if(!result.meta.changes)return json({error:'Konten tidak ditemukan.'},404); }
       catch { return json({error:'Slug sudah digunakan atau data tidak valid.'},409); }
-      await audit(env,admin,'content.updated',item.type,id,{title:item.title,status:item.status}); return json({ok:true});
+      await saveSeo(env,id,seo);
+      await audit(env,admin,'content.updated',item.type,id,{title:item.title,status:item.status,seoScore:seo.seo_score}); return json({ok:true,seo});
     }
     if (path.startsWith('content/') && method === 'DELETE') {
-      const id=path.split('/')[1]; await env.CMS_DB.prepare('DELETE FROM cms_content WHERE id=?').bind(id).run(); await audit(env,admin,'content.deleted','content',id); return json({ok:true});
+      const id=path.split('/')[1]; await env.CMS_DB.batch([env.CMS_DB.prepare('DELETE FROM cms_content WHERE id=?').bind(id),env.CMS_DB.prepare('DELETE FROM cms_content_seo WHERE content_id=?').bind(id)]); await audit(env,admin,'content.deleted','content',id); return json({ok:true});
     }
     if (path === 'settings' && method === 'GET') {
       const rows=await env.CMS_DB.prepare('SELECT key,value FROM cms_site_settings ORDER BY key').all();

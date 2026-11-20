@@ -4,6 +4,7 @@ import '../styles/animations.css';
 import vanndikLogo from '../../logo-512.png';
 
 const { title, description, active = '' } = Astro.props;
+const canonical = new URL(active || '/', Astro.site || 'https://vanndik.pages.dev').toString();
 const navItems = [
   { label: 'Beranda', href: '/' },
   { label: 'Tentang', href: '/tentang/' },
@@ -27,6 +28,13 @@ const languages = [
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#080b12" />
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="VANNDIK" />
+    <meta property="og:title" content={`${title} — VANNDIK`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="twitter:card" content="summary_large_image" />
     <!-- Google Analytics 4: VANNDIK -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-R4M2BPL37J"></script>
     <script is:inline>
