@@ -160,20 +160,26 @@ function readShopeeApiProduct(payload,pageUrl){
 }
 async function fetchShopeeProduct(pageUrl){
   const ids=shopeeIds(pageUrl);if(!ids)return null;
-  const endpoint=new URL('https://shopee.co.id/api/v4/pdp/get_pc');
-  endpoint.searchParams.set('shop_id',ids.shopId);endpoint.searchParams.set('item_id',ids.itemId);
-  let response;
-  try{
-    response=await fetch(endpoint.href,{method:'GET',redirect:'follow',signal:AbortSignal.timeout(10000),headers:{
-      'accept':'application/json, text/plain, */*','accept-language':'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
-      'referer':pageUrl.href,'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-      'x-requested-with':'XMLHttpRequest'
-    }});
-  }catch{return null;}
-  if(!response.ok||!/(application\/json|text\/plain)/i.test(response.headers.get('content-type')||''))return null;
-  const length=Number(response.headers.get('content-length')||0);if(length>1200000)return null;
-  let payload;try{payload=await response.json();}catch{return null;}
-  return readShopeeApiProduct(payload,pageUrl);
+  const endpoints=[
+    'https://shopee.co.id/api/v4/pdp/get_pc?shop_id='+encodeURIComponent(ids.shopId)+'&item_id='+encodeURIComponent(ids.itemId),
+    'https://shopee.co.id/api/v4/item/get?shopid='+encodeURIComponent(ids.shopId)+'&itemid='+encodeURIComponent(ids.itemId)
+  ];
+  for(const endpoint of endpoints){
+    let response;
+    try{
+      response=await fetch(endpoint,{method:'GET',redirect:'follow',signal:AbortSignal.timeout(10000),headers:{
+        'accept':'application/json, text/plain, */*','accept-language':'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+        'referer':pageUrl.href,'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'x-requested-with':'XMLHttpRequest'
+      }});
+    }catch{continue;}
+    if(!response.ok||!/(application\/json|text\/plain)/i.test(response.headers.get('content-type')||''))continue;
+    const length=Number(response.headers.get('content-length')||0);if(length>1200000)continue;
+    let payload;try{payload=await response.json();}catch{continue;}
+    const product=readShopeeApiProduct(payload,pageUrl);
+    if(product?.title)return product;
+  }
+  return null;
 }
 
 const decodeEntities=value=>String(value||'').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,Number(n)))).replace(/&#x([\da-f]+);/gi,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,parseInt(n,16)))).replace(/\\u0026/gi,'&').replace(/\\u003c/gi,'<').replace(/\\u003e/gi,'>');
