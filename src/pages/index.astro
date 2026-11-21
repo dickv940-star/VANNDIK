@@ -221,5 +221,18 @@ const languages = [
   @media(max-width:700px){.main-nav{background:#080b12;border-color:var(--hair);box-shadow:0 15px 25px #0008}}
 \n</style>
 <script is:inline src="/site-cms.js"></script>
+
+<script is:inline>
+document.addEventListener('click',(event)=>{
+ const link=event.target.closest('a[href]');if(!link)return;
+ let dest;try{dest=new URL(link.href)}catch{return}
+ if(!['http:','https:'].includes(dest.protocol)||dest.origin===location.origin)return;
+ const h=dest.hostname.toLowerCase(),known=['shopee.','tiktok.com','tokopedia.com','lazada.','amazon.','aliexpress.','etsy.com','ebay.'];
+ if(!known.some(x=>h.includes(x)))return;
+ const marketplace=h.includes('shopee')?'Shopee':h.includes('tiktok')?'TikTok Shop':h.includes('tokopedia')?'Tokopedia':h.includes('lazada')?'Lazada':h.includes('amazon')?'Amazon':h.includes('aliexpress')?'AliExpress':h.includes('etsy')?'Etsy':'eBay';
+ fetch('/api/track/affiliate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({destination:dest.href,productName:(link.textContent||document.title).trim().slice(0,180),productId:new URLSearchParams(location.search).get('slug')||location.pathname,pagePath:location.pathname,marketplace}),keepalive:true}).catch(()=>{});
+},{capture:true});
+</script>
+
 </body>
 </html>

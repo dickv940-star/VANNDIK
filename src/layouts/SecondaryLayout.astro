@@ -133,6 +133,27 @@ const languages = [
       }
     </script>
     <script is:inline src="/site-cms.js"></script>
+    <script is:inline>
+      // Track outbound affiliate marketplace clicks without collecting visitor IP or identity.
+      document.addEventListener('click', (event) => {
+        const link = event.target.closest('a[href]');
+        if (!link || link.dataset.noAffiliateTrack === 'true') return;
+        let destination;
+        try { destination = new URL(link.href); } catch { return; }
+        if (!['http:', 'https:'].includes(destination.protocol) || destination.origin === location.origin) return;
+        const host = destination.hostname.toLowerCase();
+        const known = ['shopee.', 's.shopee.', 'tiktok.com', 'tokopedia.com', 'lazada.', 'amazon.', 'aliexpress.', 'etsy.com', 'ebay.'];
+        if (!known.some(domain => host.includes(domain))) return;
+        const payload = {
+          destination: destination.href,
+          productName: (link.getAttribute('data-product-name') || link.textContent || document.title).trim().slice(0,180),
+          productId: link.getAttribute('data-product-id') || new URLSearchParams(location.search).get('slug') || location.pathname,
+          pagePath: location.pathname,
+          marketplace: host.includes('shopee') ? 'Shopee' : host.includes('tiktok') ? 'TikTok Shop' : host.includes('tokopedia') ? 'Tokopedia' : host.includes('lazada') ? 'Lazada' : host.includes('amazon') ? 'Amazon' : host.includes('aliexpress') ? 'AliExpress' : host.includes('etsy') ? 'Etsy' : 'eBay'
+        };
+        fetch('/api/track/affiliate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), keepalive: true }).catch(() => {});
+      }, { capture: true });
+    </script>
     <style>
       .inner-header{position:sticky;background:rgba(8,11,18,.88)}
       .inner-main{min-height:calc(100vh - 150px);padding:0 0 70px}
