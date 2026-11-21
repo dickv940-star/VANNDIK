@@ -234,17 +234,33 @@ function decodeGoogleMarkup(value){
 }
 function googleUnwrapResult(value){
   const raw=decodeGoogleMarkup(value);
-  try{const parsed=new URL(raw,'https://www.google.com');if(parsed.hostname==='www.google.com'||parsed.hostname==='google.com'){const target=parsed.searchParams.get('q')||parsed.searchParams.get('url');if(target)return new URL(target);}return parsed;}catch{return null;}
+  try{
+    const parsed=new URL(raw,'https://www.google.com');
+    if(parsed.hostname==='www.google.com'||parsed.hostname==='google.com'){
+      const target=parsed.searchParams.get('q')||parsed.searchParams.get('url')||parsed.searchParams.get('uddg')||parsed.searchParams.get('adurl');
+      if(target)return new URL(decodeGoogleMarkup(target));
+    }
+    return parsed;
+  }catch{return null;}
 }
 function googleResultCards(html,expectedIds){
   const results=[];
   for(const match of String(html||'').matchAll(/<a\b[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi)){
-    const target=googleUnwrapResult(match[2]);if(!target||target.hostname!=='shopee.co.id')continue;
-    const ids=shopeeIds(target,'');if(!ids||ids.shopId!==expectedIds.shopId||ids.itemId!==expectedIds.itemId)continue;
-    const title=stripText(match[3]).replace(/\s*[|–—-]\s*Shopee.*$/i,'').slice(0,180);if(title.length<4)continue;
-    const area=html.slice(Math.max(0,match.index-900),Math.min(html.length,match.index+match[0].length+1800));
-    const snippetMatch=area.match(/<div\b[^>]*class=["'][^"']*(?:VwiC3b|aCOpRe|IsZvec|lyLwlc)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
-    const snippet=stripText(snippetMatch?.[1]||'').slice(0,700);
+    const target=googleUnwrapResult(match[2]);
+    if(!target||!/(^|\\.)shopee\\.co\\.id$/i.test(target.hostname))continue;
+    const ids=shopeeIds(target,'');
+    if(!ids||ids.shopId!==expectedIds.shopId||ids.itemId!==expectedIds.itemId)continue;
+    const title=stripText(match[3]).replace(/\s*[|–—-]\s*Shopee.*$/i,'').slice(0,180);
+    if(title.length<4)continue;
+    const start=Math.max(0,match.index-1800),end=Math.min(html.length,match.index+match[0].length+3200);
+    const area=html.slice(start,end);
+    const snippetPatterns=[
+      /<div\b[^>]*class=["'][^"']*(?:VwiC3b|aCOpRe|IsZvec|lyLwlc|BNeawe|s3v9rd|AP7Wnd)[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi,
+      /<span\b[^>]*class=["'][^"']*(?:aCOpRe|st|BNeawe)[^"']*["'][^>]*>([\s\S]*?)<\/span>/gi
+    ];
+    let snippets=[];
+    for(const pattern of snippetPatterns)for(const found of area.matchAll(pattern)){const text=stripText(found[1]);if(text.length>35&&!text.toLowerCase().includes('translate this page'))snippets.push(text);}
+    const snippet=[...new Set(snippets)].sort((a,b)=>b.length-a.length)[0]||'';
     if(!results.some(x=>x.url===target.href))results.push({url:target.href,title,snippet});
   }
   return results.slice(0,5);
@@ -267,19 +283,31 @@ function googleOriginalImageCandidates(html){
   return values.slice(0,8);
 }
 async function fetchGoogleHtml(query,images=false){
-  const url=new URL('https://www.google.com/search');url.searchParams.set('q',query);url.searchParams.set('hl','id');url.searchParams.set('gl','id');url.searchParams.set('num','10');if(images)url.searchParams.set('tbm','isch');
-  let response;try{response=await fetch(url.href,{headers:{'accept':'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8','accept-language':'id-ID,id;q=0.9,en;q=0.7','user-agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'},signal:AbortSignal.timeout(10000),redirect:'follow'});}catch(error){throw new Error('Google Search tidak dapat diakses dari server saat ini ('+String(error?.name||'network')+').');}
+  const url=new URL('https://www.google.com/search');
+  url.searchParams.set('q',query);url.searchParams.set('hl','id');url.searchParams.set('gl','id');url.searchParams.set('num','10');url.searchParams.set('gbv','1');
+  if(images)url.searchParams.set('tbm','isch');
+  let response;
+  try{response=await fetch(url.href,{headers:{'accept':'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8','accept-language':'id-ID,id;q=0.9,en;q=0.7','user-agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'},signal:AbortSignal.timeout(12000),redirect:'follow'});}
+  catch(error){throw new Error('Google Search tidak dapat diakses server ('+String(error?.name||'network')+').');}
   if(!response.ok)throw new Error('Google Search membatasi permintaan server (HTTP '+response.status+').');
-  const html=await response.text();if(html.length>1800000)throw new Error('Respons Google Search melebihi batas pemeriksaan aman.');
-  if(/unusual traffic|our systems have detected|sorry\/index|consent\.google\.com/i.test(html)&&!/<a\b[^>]*href/i.test(html))throw new Error('Google meminta verifikasi browser sebelum hasil pencarian dapat dibaca.');
+  const html=await response.text();
+  if(html.length>1800000)throw new Error('Respons Google Search melebihi batas pemeriksaan aman.');
+  if(/(?:unusual traffic|our systems have detected|detected unusual traffic|recaptcha\/|sorry\/index)/i.test(html)||new URL(response.url).hostname==='consent.google.com')throw new Error('Google meminta verifikasi atau membatasi permintaan otomatis. Coba lagi beberapa saat.');
+  if(!/<html|<!doctype/i.test(html))throw new Error('Google mengirim respons yang bukan halaman hasil pencarian HTML.');
   return html;
 }
 async function researchShopeeOnGoogle(pageUrl,html){
   const ids=shopeeIds(pageUrl,html);if(!ids)throw new Error('ID toko dan produk Shopee belum dapat dipastikan dari link tujuan.');
   const diagnostics=[],query='site:shopee.co.id/product/'+ids.shopId+'/'+ids.itemId+' "'+ids.itemId+'"';
-  let searchHtml='';try{searchHtml=await fetchGoogleHtml(query);}catch(error){diagnostics.push(String(error.message||error).slice(0,180));}
-  let result=searchHtml?googleResultCards(searchHtml,ids)[0]:null;
-  if(!result&&searchHtml){try{const retry=await fetchGoogleHtml('site:shopee.co.id "'+ids.shopId+'" "'+ids.itemId+'"');result=googleResultCards(retry,ids)[0]||null;}catch(error){diagnostics.push(String(error.message||error).slice(0,180));}}
+  let result=null;
+  for(const searchQuery of [query,'site:shopee.co.id "'+ids.shopId+'" "'+ids.itemId+'"']){
+    try{
+      const searchHtml=await fetchGoogleHtml(searchQuery);
+      result=googleResultCards(searchHtml,ids)[0]||null;
+      if(result)break;
+      diagnostics.push('Google mengembalikan halaman, tetapi tidak ada hasil dengan ID toko dan produk yang sama persis.');
+    }catch(error){diagnostics.push(String(error.message||error).slice(0,180));}
+  }
   if(!result)throw new Error('Google belum mengembalikan halaman Shopee dengan ID toko dan produk yang cocok persis. '+diagnostics.join(' '));
   let productHtml='';try{const page=await fetchMarketplaceHtml(new URL(result.url));productHtml=page.html||'';}catch(error){diagnostics.push('halaman-produk: '+String(error.message||error).slice(0,150));}
   let image=shopeeImageCandidates(productHtml)[0]||shopeeImageCandidates(html)[0]||'';
