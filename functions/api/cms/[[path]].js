@@ -102,9 +102,28 @@ async function fetchMarketplaceHtml(startUrl){
   throw new Error('Tautan tidak berhasil diarahkan ke halaman produk.');
 }
 
+function embeddedAffiliateUrls(value){
+  const queue=[String(value||'')],seen=new Set(),found=[];
+  for(let step=0;queue.length&&step<20;step++){
+    const raw=queue.shift();if(!raw||seen.has(raw))continue;seen.add(raw);
+    let url;try{url=new URL(raw);}catch{continue;}
+    if(['shopee.co.id','www.shopee.co.id'].includes(url.hostname.toLowerCase())&&(/\\/product\\/|\\/opaanlp\\/|-i\\.\\d+\\.\\d+/i.test(url.pathname)))found.push(url.href);
+    for(const key of ['origin_link','url','redirect','redirect_url','target','target_url','deep_link']){
+      const nested=url.searchParams.get(key);if(!nested)continue;
+      let decoded=nested;for(let i=0;i<2;i++){try{const next=decodeURIComponent(decoded);if(next===decoded)break;decoded=next;}catch{break;}}
+      if(/^https?:\\/\\//i.test(decoded))queue.push(decoded);
+    }
+  }
+  return [...new Set(found)];
+}
+function resolveAffiliateProductUrl(value){
+  const embedded=embeddedAffiliateUrls(value);
+  if(!embedded.length)return validateProductUrl(value);
+  try{return validateProductUrl(embedded[0]);}catch{return validateProductUrl(value);}
+}
 function shopeeIds(pageUrl,html=''){
   const base=pageUrl instanceof URL?pageUrl:new URL(pageUrl);
-  const candidates=[base.href];
+  const candidates=[base.href,...embeddedAffiliateUrls(base.href)];
   const source=String(html||'').replace(/\\u002f/gi,'/').replace(/\\\//g,'/').replace(/&amp;/gi,'&');
   for(const match of source.matchAll(/<(?:link|meta)\b[^>]*(?:href|content)\s*=\s*["']([^"']+)["'][^>]*>/gi)){
     const value=match[1];
@@ -152,13 +171,24 @@ function classifyProduct(title,description,sourceCategory){
 function readShopeeApiProduct(payload,pageUrl){
   if(!payload||typeof payload!=='object'||Number(payload.error||0)!==0)return null;
   const data=payload.data||payload;
-  const item=data.item||data.product||data;
+  const candidates=[];
+  const visit=(value,depth=0)=>{
+    if(!value||typeof value!=='object'||depth>9)return;
+    if(Array.isArray(value)){for(const child of value.slice(0,40))visit(child,depth+1);return;}
+    const title=value.title||value.name||value.item_name||value.product_name;
+    const images=value.images||value.image||value.cover_image||value.image_url;
+    if(typeof title==='string'&&title.trim().length>=3&&(images||value.description||value.description_info))candidates.push(value);
+    for(const [key,child] of Object.entries(value))if(child&&typeof child==='object'&&!['models','tier_variations','attributes'].includes(key))visit(child,depth+1);
+  };
+  visit(data);
+  const item=data.item||data.product||candidates.sort((a,b)=>Number(!!(b.images||b.image||b.cover_image))-Number(!!(a.images||a.image||a.cover_image)))[0]||data;
   if(!item||typeof item!=='object')return null;
   const title=stripText(item.title||item.name||item.item_name||'').slice(0,180);
   if(title.length<3)return null;
   const description=stripText(item.description||item.description_info?.text||item.description_info?.description||'').slice(0,6000);
-  const imageList=Array.isArray(item.images)?item.images:(Array.isArray(data.product_images?.images)?data.product_images.images:[]);
-  const image=shopeeImageUrl(item.image||imageList[0]||'');
+  const imageList=Array.isArray(item.images)?item.images:(Array.isArray(data.product_images?.images)?data.product_images.images:Array.isArray(item.image_list)?item.image_list:[]);
+  const firstImage=imageList[0]||item.cover_image||item.image_url||item.image||'';
+  const image=shopeeImageUrl(firstImage);
   const categories=Array.isArray(item.fe_categories)?item.fe_categories:Array.isArray(item.categories)?item.categories:[];
   const sourceCategory=categories.map(x=>typeof x==='string'?x:(x.display_name||x.name||'')).filter(Boolean).join(' > ')||stripText(item.category||'');
   const priceObject=item.price&&typeof item.price==='object'?item.price:{};
@@ -322,7 +352,9 @@ async function researchShopeeOnGoogle(pageUrl,html){
 async function analyzeAffiliateProduct(env,admin,rawUrl){
   const original=validateProductUrl(rawUrl),duplicate=await env.CMS_DB.prepare("SELECT id,title FROM cms_content WHERE type='product' AND affiliate_url=? LIMIT 1").bind(original.href).first();
   if(duplicate)throw new Error('Link ini sudah ada di CMS sebagai "'+duplicate.title+'". Periksa antrean produk yang sudah ada.');
-  const page=await fetchMarketplaceHtml(original);
+  // Use embedded Shopee origin_link for metadata lookup, but always retain the exact imported affiliate URL for audience clicks.
+  const inspectionUrl=resolveAffiliateProductUrl(original.href);
+  const page=await fetchMarketplaceHtml(inspectionUrl);
   let meta=page.html?readProductMetadata(page.html,page.finalUrl):{title:'',description:'',image:'',price:'',category:'',brand:'',hasProductSchema:false};
   let source='html-metadata',shopeeDiagnostics=[];
   if(page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id')){
@@ -520,7 +552,8 @@ export async function onRequest({ request, env }) {
         };
         const bodyText=[product.body||'', 'Deskripsi produk untuk publikasi:',longDescription,result.marketing_angle?'Sudut pemasaran: '+result.marketing_angle:''].filter(Boolean).join('\n\n').slice(0,100000);
         const keywords=result.seo_keywords.join(', ');
-        await env.CMS_DB.prepare('UPDATE cms_content SET excerpt=?,body=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(shortCopy,bodyText,productId).run();
+        // Keep the original marketplace description in excerpt for the public product card; AI copy stays in the detail body/result.
+        await env.CMS_DB.prepare('UPDATE cms_content SET body=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(bodyText,productId).run();
         const seo=makeSeo({...product,excerpt:shortCopy,body:bodyText,seo_title:seoTitle,seo_description:seoDescription,seo_keywords:keywords,canonical_url:new URL('/produk/'+encodeURIComponent(product.slug)+'/','https://vanndik.pages.dev').href,og_image:product.image_url});
         await saveSeo(env,productId,seo);
         await env.CMS_DB.prepare("INSERT INTO cms_product_ai_work(product_id,status,result_json,model,updated_at) VALUES(?,'completed',?,?,CURRENT_TIMESTAMP) ON CONFLICT(product_id) DO UPDATE SET status='completed',result_json=excluded.result_json,model=excluded.model,updated_at=CURRENT_TIMESTAMP").bind(productId,JSON.stringify(result),model).run();
