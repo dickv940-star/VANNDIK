@@ -107,11 +107,11 @@ function embeddedAffiliateUrls(value){
   for(let step=0;queue.length&&step<20;step++){
     const raw=queue.shift();if(!raw||seen.has(raw))continue;seen.add(raw);
     let url;try{url=new URL(raw);}catch{continue;}
-    if(['shopee.co.id','www.shopee.co.id'].includes(url.hostname.toLowerCase())&&(/\\/product\\/|\\/opaanlp\\/|-i\\.\\d+\\.\\d+/i.test(url.pathname)))found.push(url.href);
+    if(['shopee.co.id','www.shopee.co.id'].includes(url.hostname.toLowerCase())&&(/\/product\/|\/opaanlp\/|-i\.\d+\.\d+/i.test(url.pathname)))found.push(url.href);
     for(const key of ['origin_link','url','redirect','redirect_url','target','target_url','deep_link']){
       const nested=url.searchParams.get(key);if(!nested)continue;
       let decoded=nested;for(let i=0;i<2;i++){try{const next=decodeURIComponent(decoded);if(next===decoded)break;decoded=next;}catch{break;}}
-      if(/^https?:\\/\\//i.test(decoded))queue.push(decoded);
+      if(/^https?:\/\//i.test(decoded))queue.push(decoded);
     }
   }
   return [...new Set(found)];
