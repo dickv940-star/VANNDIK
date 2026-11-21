@@ -541,7 +541,7 @@ export async function onRequest({ request, env }) {
       return json({ok:true});
     }
     if (path === 'product/attempts' && method === 'GET') {
-      const rows=await env.CMS_DB.prepare("SELECT id,details,created_at FROM cms_audit_logs WHERE action='affiliate.product.failed' ORDER BY created_at DESC LIMIT 20").all();
+      const rows=await env.CMS_DB.prepare("SELECT id,details,created_at FROM cms_audit_logs WHERE action='affiliate.product.failed' ORDER BY created_at DESC LIMIT 100").all();
       const items=(rows.results||[]).map(row=>{let details={};try{details=JSON.parse(row.details||'{}')}catch{}return {id:row.id,sourceUrl:details.sourceUrl||'',reason:details.reason||'Perlu pemeriksaan',created_at:row.created_at};});
       return json({items});
     }
