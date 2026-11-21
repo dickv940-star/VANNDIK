@@ -755,7 +755,7 @@ const pageTitle = 'VANNDIK CMS';
     async function renderAffiliateProducts(query='') {
       const type='product';
       const statusLabels={draft:'Menunggu persetujuan',published:'Sudah tayang',scheduled:'Terjadwal',archived:'Diarsipkan'};
-      let all=[],failedAttempts=[],activeStatus='all';
+      let all=[],failedAttempts=[],activeStatus='all',retryingAttemptId='';
       const isVerified=item=>{
         let tags=[];try{tags=Array.isArray(item.tags)?item.tags:JSON.parse(item.tags||'[]')}catch{}
         try{
@@ -775,7 +775,7 @@ const pageTitle = 'VANNDIK CMS';
         $('#affiliateLive').textContent=all.filter(x=>x.status==='published').length.toLocaleString('id-ID');
         $('#affiliateArchived').textContent=all.filter(x=>x.status==='archived').length.toLocaleString('id-ID');
         $('#affiliateCount').textContent=rows.length+' produk';
-        const failureCards=failedAttempts.map(attempt=>'<article class="affiliate-product-card affiliate-failed-card"><div class="affiliate-product-visual"><div class="affiliate-product-placeholder">⚠<small>NOT VERIFIED</small></div></div><div class="affiliate-product-info"><div class="affiliate-product-top"><span class="affiliate-state">Gagal diverifikasi</span><span class="affiliate-updated">'+escapeHTML(attempt.created_at||'')+'</span></div><h3>Link produk belum terverifikasi</h3><p class="affiliate-excerpt">'+escapeHTML(attempt.reason||'Halaman tujuan tidak dapat diverifikasi.')+'</p><div class="affiliate-link-row">'+(/^https?:\/\//i.test(attempt.sourceUrl||'')?'<a class="affiliate-link" href="'+escapeHTML(attempt.sourceUrl)+'" target="_blank" rel="noopener noreferrer">Buka link sumber ↗</a>':'<span class="affiliate-link-missing">Link sumber tidak valid</span>')+'</div><small class="affiliate-updated">Tidak dimasukkan ke publikasi.</small><div class="affiliate-card-actions"><button class="affiliate-btn reject" data-attempt-delete="'+escapeHTML(attempt.id)+'">Hapus permanen</button></div></div></article>').join('');
+        const failureCards=failedAttempts.map(attempt=>'<article class="affiliate-product-card affiliate-failed-card"><div class="affiliate-product-visual"><div class="affiliate-product-placeholder">⚠<small>NOT VERIFIED</small></div></div><div class="affiliate-product-info"><div class="affiliate-product-top"><span class="affiliate-state">Gagal diverifikasi</span><span class="affiliate-updated">'+escapeHTML(attempt.created_at||'')+'</span></div><h3>Link produk belum terverifikasi</h3><p class="affiliate-excerpt">'+escapeHTML(attempt.reason||'Halaman tujuan tidak dapat diverifikasi.')+'</p><div class="affiliate-link-row">'+(/^https?:\/\//i.test(attempt.sourceUrl||'')?'<a class="affiliate-link" href="'+escapeHTML(attempt.sourceUrl)+'" target="_blank" rel="noopener noreferrer">Buka link sumber ↗</a>':'<span class="affiliate-link-missing">Link sumber tidak valid</span>')+'</div><small class="affiliate-updated">Tidak dimasukkan ke publikasi.</small><div class="affiliate-card-actions"><button class="affiliate-btn ai" data-attempt-retry="'+escapeHTML(attempt.id)+'">↻ Coba impor ulang</button><button class="affiliate-btn reject" data-attempt-delete="'+escapeHTML(attempt.id)+'">Hapus permanen</button></div></div></article>').join('');
         $('#affiliateRows').innerHTML=(failureCards)+(rows.length?rows.map(item=>{
           const status=item.status||'draft',verified=isVerified(item);
           const image=item.image_url?'<img class="affiliate-product-image" src="'+escapeHTML(item.image_url)+'" alt="'+escapeHTML(item.title||'Produk')+'" loading="lazy">':'<div class="affiliate-product-placeholder">◇<small>NO IMAGE</small></div>';
@@ -814,6 +814,10 @@ const pageTitle = 'VANNDIK CMS';
           try{await api('content/'+item.id,{method:'DELETE',body:'{}'});notify('Produk dihapus permanen.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();}
           catch(e){notify(e.message,true);btn.disabled=false;}
         }));
+        $('#affiliateRows').querySelectorAll('[data-attempt-retry]').forEach(btn=>btn.addEventListener('click',()=>{
+          const attempt=failedAttempts.find(x=>String(x.id)===btn.dataset.attemptRetry);if(!attempt?.sourceUrl)return;
+          retryingAttemptId=String(attempt.id);$('#affiliateLinkInput').value=attempt.sourceUrl;$('#affiliateIntakeForm').requestSubmit();
+        }));
         $('#affiliateRows').querySelectorAll('[data-attempt-delete]').forEach(btn=>btn.addEventListener('click',async()=>{
           const attempt=failedAttempts.find(x=>String(x.id)===btn.dataset.attemptDelete);if(!attempt)return;
           if(!confirm('Hapus permanen catatan impor gagal ini? Tindakan ini tidak dapat dibatalkan.'))return;
@@ -851,10 +855,11 @@ const pageTitle = 'VANNDIK CMS';
             }catch(uploadError){mediaMessage+=' Upload foto pilihan gagal: '+uploadError.message;}
             $('#affiliateMaterialFile').value='';
           }
-          input.value='';feedback.textContent='Sumber berhasil dibaca: '+result.item.title+'. Produk menunggu persetujuan.'+mediaMessage+aiMessage;feedback.classList.add('success');
+          input.value='';if(retryingAttemptId){const oldAttemptId=retryingAttemptId;retryingAttemptId='';try{await api('product/attempts/'+encodeURIComponent(oldAttemptId),{method:'DELETE',body:'{}'});}catch{}failedAttempts=failedAttempts.filter(x=>String(x.id)!==oldAttemptId);}feedback.textContent='Sumber berhasil dibaca: '+result.item.title+'. Produk menunggu persetujuan.'+mediaMessage+aiMessage;feedback.classList.add('success');
           notify('Produk berhasil diverifikasi dan masuk antrean.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();
           requestAnimationFrame(()=>{const card=$('[data-product-id="'+result.item.id+'"]');if(card)card.scrollIntoView({behavior:'smooth',block:'center'});});
         }catch(error){
+          retryingAttemptId='';
           feedback.textContent='Gagal diverifikasi: '+(error.message||'Pemeriksaan sumber belum berhasil.')+'. Catatan pemeriksaan disimpan di bagian hasil pemeriksaan dan produk tidak dimasukkan ke antrean publikasi.';feedback.classList.add('error');notify(error.message||'Verifikasi produk gagal.',true);
           try{const attempts=await api('product/attempts');failedAttempts=attempts.items||[];}catch{}draw();
         }finally{button.disabled=false;button.textContent='✧ Impor Produk Otomatis';}
