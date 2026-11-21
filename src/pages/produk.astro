@@ -20,8 +20,8 @@ function drawCatalog(){
  if(activeSort==='Terbaru')items.sort((a,b)=>String(b.published_at||'').localeCompare(String(a.published_at||'')));
  if(activeSort==='Harga terendah'||activeSort==='Harga tertinggi'){const value=x=>Number(String(x.price||'').replace(/[^0-9]/g,''))||Number.MAX_SAFE_INTEGER;items.sort((a,b)=>activeSort==='Harga terendah'?value(a)-value(b):value(b)-value(a));}
  productGrid.innerHTML=items.length?items.map(item=>{
-  const productHref=item.affiliate_url&&/^https?:\\/\\//i.test(item.affiliate_url)?item.affiliate_url:'/produk/'+encodeURIComponent(item.slug)+'/';
-  const external=item.affiliate_url&&/^https?:\\/\\//i.test(item.affiliate_url)?' target="_blank" rel="noopener noreferrer"':'';
+   const productHref=item.affiliate_url&&/^https?:\/\//i.test(item.affiliate_url)?item.affiliate_url:'/produk/'+encodeURIComponent(item.slug)+'/';
+   const external=item.affiliate_url&&/^https?:\/\//i.test(item.affiliate_url)?' target="_blank" rel="noopener noreferrer"':'';
   return '<article class="product-card"><a class="product-real-image" href="'+esc(productHref)+'"'+external+' aria-label="Lihat '+esc(item.title)+' di marketplace">'+(item.image_url?'<img src="'+esc(item.image_url)+'" alt="'+esc(item.title)+'" loading="lazy">':'<span>VANNDIK PRODUCT</span>')+'</a><div class="product-copy"><small>'+esc(item.category||'Produk pilihan')+'</small><h3><a href="'+esc(productHref)+'"'+external+'>'+esc(item.title)+'</a></h3><p>'+esc(item.excerpt||'Deskripsi produk belum tersedia.')+'</p><footer><span>'+esc(item.price||'Harga lihat marketplace')+'</span><a href="'+esc(productHref)+'"'+external+'>Lihat di Shopee ↗</a></footer></div></article>';
  }).join(''):'<div class="catalog-empty">Belum ada produk yang ditampilkan pada kategori atau pencarian ini.</div>';
  if(catalogNote){catalogNote.querySelector('p').textContent=catalogItems.length?'Menampilkan '+catalogItems.length+' produk yang telah diperiksa dan disetujui admin. Sebagian tautan produk dapat berupa tautan affiliate; VANNDIK dapat menerima komisi tanpa biaya tambahan bagi pembeli.':'Belum ada produk yang dipublikasikan. Produk akan muncul setelah disetujui melalui Admin CMS.';}
