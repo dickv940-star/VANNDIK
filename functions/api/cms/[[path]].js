@@ -181,7 +181,8 @@ function readShopeeApiProduct(payload,pageUrl){
     for(const [key,child] of Object.entries(value))if(child&&typeof child==='object'&&!['models','tier_variations','attributes'].includes(key))visit(child,depth+1);
   };
   visit(data);
-  const item=data.item||data.product||candidates.sort((a,b)=>Number(!!(b.images||b.image||b.cover_image))-Number(!!(a.images||a.image||a.cover_image)))[0]||data;
+  const directItem=data.item||data.product;
+  const item=directItem&&(directItem.title||directItem.name||directItem.item_name||directItem.product_name)?directItem:candidates.sort((a,b)=>Number(!!(b.images||b.image||b.cover_image))-Number(!!(a.images||a.image||a.cover_image)))[0]||data;
   if(!item||typeof item!=='object')return null;
   const title=stripText(item.title||item.name||item.item_name||'').slice(0,180);
   if(title.length<3)return null;
