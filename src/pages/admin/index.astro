@@ -855,7 +855,7 @@ const pageTitle = 'VANNDIK CMS';
           notify('Produk berhasil diverifikasi dan masuk antrean.');await renderAffiliateProducts($('#productSearch')?.value||'');loadStats();
           requestAnimationFrame(()=>{const card=$('[data-product-id="'+result.item.id+'"]');if(card)card.scrollIntoView({behavior:'smooth',block:'center'});});
         }catch(error){
-          feedback.textContent='Gagal diverifikasi. Catatan pemeriksaan disimpan dan produk tidak dimasukkan ke antrean publikasi.';feedback.classList.add('error');notify(error.message||'Verifikasi produk gagal.',true);
+          feedback.textContent='Gagal diverifikasi: '+(error.message||'Pemeriksaan sumber belum berhasil.')+'. Catatan pemeriksaan disimpan di bagian hasil pemeriksaan dan produk tidak dimasukkan ke antrean publikasi.';feedback.classList.add('error');notify(error.message||'Verifikasi produk gagal.',true);
           try{const attempts=await api('product/attempts');failedAttempts=attempts.items||[];}catch{}draw();
         }finally{button.disabled=false;button.textContent='✧ Impor Produk Otomatis';}
       });
