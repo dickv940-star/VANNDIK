@@ -247,7 +247,7 @@ function googleResultCards(html,expectedIds){
   const results=[];
   for(const match of String(html||'').matchAll(/<a\b[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi)){
     const target=googleUnwrapResult(match[2]);
-    if(!target||!/(^|\\.)shopee\\.co\\.id$/i.test(target.hostname))continue;
+    if(!target||!['shopee.co.id','www.shopee.co.id'].includes(target.hostname.toLowerCase()))continue;
     const ids=shopeeIds(target,'');
     if(!ids||ids.shopId!==expectedIds.shopId||ids.itemId!==expectedIds.itemId)continue;
     const title=stripText(match[3]).replace(/\s*[|–—-]\s*Shopee.*$/i,'').slice(0,180);
