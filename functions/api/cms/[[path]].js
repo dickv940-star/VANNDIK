@@ -690,8 +690,10 @@ export async function onRequest({ request, env }) {
       }catch(error){
         const detail=String(error?.message||'Semua provider AI tidak tersedia.');
         const jobId=uid(),userId=uid();
+        const statusId=uid();
         await env.CMS_DB.batch([
           env.CMS_DB.prepare("INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)").bind(userId,admin.id,'user',agentId,message,''),
+          env.CMS_DB.prepare("INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)").bind(statusId,admin.id,'system',agentId,'Pesan Anda sudah diterima dan disimpan di antrean cloud. Saat ini seluruh provider AI yang dikonfigurasi belum berhasil menjawab. VANNDIK akan mencoba kembali otomatis; belum ada jawaban agen yang dibuat. Detail teknis: '+detail.slice(0,500),'queue'),
           env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,last_error) VALUES(?,?,?,?, 'queued',0,datetime('now','+5 minutes'),?)").bind(jobId,admin.id,agentId,message,detail.slice(0,1000))
         ]);
         await audit(env,admin,'ai.room.queued','ai-room',jobId,{reason:detail.slice(0,500)});
