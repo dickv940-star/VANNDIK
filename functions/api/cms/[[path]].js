@@ -437,6 +437,9 @@ async function callAiRoomProvider(env, provider, messages, requestedAgentId) {
       ? '['+(AI_ROOM_AGENTS[m.agent_id]?.name || 'Karyawan AI')+'] '+m.content
       : (m.agent_id === 'team' ? '[Direktur berbicara ke grup] ' : '[Direktur memanggil '+(AI_ROOM_AGENTS[m.agent_id]?.name || 'agen')+'] ')+m.content
   }));
+  // The Responses API requires the word JSON in the input when json_object output mode is enabled.
+  const lastUserMessage = [...input].reverse().find(message => message.role === 'user');
+  if (lastUserMessage) lastUserMessage.content += '\\n\\nFormat keluaran wajib: JSON.';
   const model = String(env.OPENAI_MODEL || 'gpt-6.2-sol').trim();
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
