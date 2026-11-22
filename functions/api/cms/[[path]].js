@@ -441,7 +441,7 @@ async function callAiRoomProvider(env, provider, messages, requestedAgentId) {
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {'content-type':'application/json','authorization':'Bearer '+env.OPENAI_API_KEY},
-    body: JSON.stringify({model,instructions:system,input,text:{format:{type:'json_object'}},max_output_tokens:1600}),
+    body: JSON.stringify({model,instructions:system,input,reasoning:{effort:'low'},text:{format:{type:'json_object'}},max_output_tokens:2400,store:false}),
     signal: AbortSignal.timeout(45000)
   });
   const data = await response.json().catch(() => ({}));
@@ -450,7 +450,7 @@ async function callAiRoomProvider(env, provider, messages, requestedAgentId) {
     throw new Error('OpenAI API: '+message);
   }
   const raw = (data.output || []).flatMap(item => item.content || []).filter(part => part.type === 'output_text').map(part => part.text || '').join('').trim();
-  if (!raw) throw new Error('OpenAI tidak mengembalikan teks jawaban.');
+  if (!raw) { const reason=data.incomplete_details?.reason||data.status||'tanpa detail'; throw new Error('OpenAI tidak mengembalikan teks jawaban (status: '+reason+').'); }
   let result;
   try { result = JSON.parse(raw); } catch { throw new Error('Format respons orkestrasi AI tidak valid. Silakan kirim ulang.'); }
   const speakerId = locked ? requestedAgentId : String(result.speaker_id || 'team');
@@ -561,7 +561,7 @@ export async function onRequest({ request, env }) {
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
       let answer='',used='openai',model='';
       try{const result=await callAiRoomProvider(env,'openai',conversation,agentId);answer=result.answer;model=result.model;var speakerId=result.speakerId;}
-      catch(error){return json({error:String(error?.message||'OpenAI API gagal').slice(0,350)},503);}
+      catch(error){try{await env.CMS_DB.prepare('UPDATE cms_ai_room_usage SET jobs=CASE WHEN jobs>0 THEN jobs-1 ELSE 0 END WHERE admin_id=? AND day=?').bind(admin.id,day).run();}catch{}return json({error:String(error?.message||'OpenAI API gagal').slice(0,350)},503);}
       if(!answer)return json({error:'OpenAI tidak mengembalikan jawaban.'},503);
       const userId=uid(),assistantId=uid();
       await env.CMS_DB.batch([
