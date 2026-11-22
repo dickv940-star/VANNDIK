@@ -401,6 +401,8 @@ async function ensureAiRoomTables(env) {
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_admin_created ON cms_ai_room_messages(admin_id,created_at)").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_usage (admin_id TEXT NOT NULL, day TEXT NOT NULL, jobs INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(admin_id,day))").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_memory (memory_key TEXT PRIMARY KEY, memory_value TEXT NOT NULL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_jobs (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, agent_id TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0, next_retry_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_jobs_due ON cms_ai_room_jobs(status,next_retry_at)").run();
   const defaults = [
     ['identity','VANNDIK adalah website dan pusat kendali CMS digital yang dikelola melalui cloud. Pengguna menginginkan AI Office dengan Chief of Staff dan agen spesialis.'],
     ['goals','Mengelola artikel, berita, produk affiliate, game, aplikasi/tools, SEO, riset, media, serta integrasi kanal digital seperti YouTube, Instagram dan Facebook. Kembangkan bertahap dan verifikasi setiap integrasi sebelum menyatakan aktif.'],
@@ -596,6 +598,33 @@ export async function onRequest({ request, env }) {
       const token = cookie(request); if(token) await env.CMS_DB.prepare('DELETE FROM cms_sessions WHERE token_hash=?').bind(await sha(decodeURIComponent(token))).run();
       return json({ok:true},200,{'set-cookie':clearCookie});
     }
+    if (path === 'ai-room/jobs/process' && method === 'POST') {
+      if (!env.AI_JOBS_CRON_TOKEN || request.headers.get('authorization') !== 'Bearer '+env.AI_JOBS_CRON_TOKEN) return json({error:'Unauthorized scheduler.'},401);
+      await ensureAiRoomTables(env);
+      const due=await env.CMS_DB.prepare("SELECT * FROM cms_ai_room_jobs WHERE status='queued' AND next_retry_at<=CURRENT_TIMESTAMP ORDER BY created_at LIMIT 5").all();
+      const results=[];
+      for(const job of (due.results||[])){
+        try{
+          const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 14').bind(job.admin_id).all();
+          const conversation=(history.results||[]).reverse();
+          const memory=await getCentralAiMemory(env);
+          const result=await callAiRoomProvider(env,conversation,job.agent_id,memory);
+          const replyId=uid();
+          await env.CMS_DB.batch([
+            env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,result.answer,result.provider),
+            env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',attempts=attempts+1,last_error='',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id)
+          ]);
+          results.push({id:job.id,status:'completed',provider:result.provider,model:result.model});
+        }catch(error){
+          const attempts=Number(job.attempts||0)+1;
+          const status=attempts>=8?'paused':'queued';
+          const delay=Math.min(360,5*Math.pow(2,Math.min(attempts-1,6)));
+          await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,attempts=?,next_retry_at=datetime('now',?),last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,attempts,'+'+delay+' minutes',String(error?.message||'Provider unavailable').slice(0,1000),job.id).run();
+          results.push({id:job.id,status,attempts,retry_minutes:delay});
+        }
+      }
+      return json({ok:true,processed:results.length,results});
+    }
     const admin = await currentAdmin(request,env);
     if (path === 'me' && method === 'GET') return admin ? json({authenticated:true,admin}) : json({authenticated:false},401);
     if (!admin) return json({error:'Silakan login terlebih dahulu.'},401);
@@ -617,6 +646,11 @@ export async function onRequest({ request, env }) {
     if (path === 'ai-room/memory' && method === 'GET') {
       await ensureAiRoomTables(env);
       return json({memory:await getCentralAiMemory(env)});
+    }
+    if (path === 'ai-room/jobs' && method === 'GET') {
+      await ensureAiRoomTables(env);
+      const rows=await env.CMS_DB.prepare('SELECT id,agent_id,message,status,attempts,next_retry_at,last_error,created_at,updated_at FROM cms_ai_room_jobs WHERE admin_id=? ORDER BY created_at DESC LIMIT 50').bind(admin.id).all();
+      return json({jobs:rows.results||[]});
     }
     if (path === 'ai-room/memory' && method === 'PUT') {
       await ensureAiRoomTables(env);
@@ -654,9 +688,14 @@ export async function onRequest({ request, env }) {
         const result=await callAiRoomProvider(env,conversation,agentId,memory);
         answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;
       }catch(error){
-        try{await env.CMS_DB.prepare('UPDATE cms_ai_room_usage SET jobs=CASE WHEN jobs>0 THEN jobs-1 ELSE 0 END WHERE admin_id=? AND day=?').bind(admin.id,day).run();}catch{}
         const detail=String(error?.message||'Semua provider AI tidak tersedia.');
-        return json({error:detail.slice(0,900),queued:false,retryable:true,attempts:detail},503);
+        const jobId=uid(),userId=uid();
+        await env.CMS_DB.batch([
+          env.CMS_DB.prepare("INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)").bind(userId,admin.id,'user',agentId,message,''),
+          env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,last_error) VALUES(?,?,?,?, 'queued',0,datetime('now','+5 minutes'),?)").bind(jobId,admin.id,agentId,message,detail.slice(0,1000))
+        ]);
+        await audit(env,admin,'ai.room.queued','ai-room',jobId,{reason:detail.slice(0,500)});
+        return json({ok:true,queued:true,jobId,message:'Semua provider AI sedang tidak tersedia. Pesan disimpan di antrean cloud dan akan dicoba kembali otomatis.',reason:detail.slice(0,500)},202);
       }
       if(!answer)return json({error:'Tidak ada provider AI yang mengembalikan jawaban.'},503);
       const userId=uid(),assistantId=uid();
