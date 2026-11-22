@@ -413,19 +413,35 @@ const AI_ROOM_AGENTS = {
   catalog: {name:'Rafi · Product & Catalog Manager',role:'Produk affiliate, game & aplikasi',prompt:'Anda adalah Product & Catalog Manager VANNDIK. Bertanggung jawab pada katalog produk affiliate, game, aplikasi/tools, kategori, kelengkapan data, duplikasi dan status verifikasi. Produk tidak terverifikasi tidak boleh dipublikasikan.'},
   web: {name:'Nadia · Web Experience Manager',role:'Tema, halaman, navigasi & bahasa',prompt:'Anda adalah Web Experience Manager VANNDIK. Bertanggung jawab pada tema global/per halaman, halaman, navigasi, bahasa, responsivitas dan pengalaman pengunjung. Perubahan desain produksi perlu persetujuan bila berdampak luas.'}
 };
-async function callAiRoomProvider(env, provider, messages, agent) {
+async function callAiRoomProvider(env, provider, messages, requestedAgentId) {
   if (provider !== 'openai') throw new Error('VANNDIK hanya mengizinkan OpenAI untuk AI Agent Room.');
   if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY belum dipasang pada Cloudflare Pages Secrets.');
-  const system = 'Anda adalah '+agent.name+', '+agent.role+' di VANNDIK. '+agent.prompt+'\n\nAturan: jawab dalam Bahasa Indonesia kecuali diminta lain; bersikap profesional dan kolaboratif; jangan mengklaim sudah mengubah database, menerbitkan konten, mengirim pesan, atau menjalankan tindakan yang belum dilakukan oleh tool; jangan meminta atau menampilkan rahasia; semua publikasi memerlukan persetujuan direktur.';
-  const input = messages.slice(-12).map(m => ({
+  const roster = Object.entries(AI_ROOM_AGENTS).map(([id,a]) => ({id,name:a.name,role:a.role,expertise:a.prompt}));
+  const now = new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',dateStyle:'full',timeStyle:'long'}).format(new Date());
+  const locked = requestedAgentId !== 'team';
+  const system = [
+    'Anda adalah mesin orkestrasi percakapan grup kantor VANNDIK. Semua agen menggunakan kemampuan penalaran LLM OpenAI yang sama, tetapi setiap agen memiliki identitas, pengetahuan kerja, tanggung jawab, dan gaya penilaian sendiri.',
+    'WAKTU SEKARANG: '+now+' (WIB, Asia/Jakarta). Pahami konteks waktu ini untuk kata seperti hari ini, besok, sudah terlambat, dan jadwal.',
+    'DAFTAR KARYAWAN: '+JSON.stringify(roster),
+    locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara pada giliran ini.' : 'Direktur berbicara kepada grup/Tim VANNDIK. Pilih TEPAT SATU agen paling relevan untuk menjawab. Tim VANNDIK boleh dipilih bila koordinasi lintas divisi atau pembagian tugas paling tepat. Jangan membuat semua agen menjawab.',
+    'BACA RIWAYAT: pesan assistant sebelumnya diawali nama agen yang berbicara. Gunakan konteks bersama, jangan mengulang jawaban, jangan menyela agen sebelumnya, dan lanjutkan diskusi secara alami.',
+    'ETIKA GRUP: setiap giliran hanya satu pembicara. Agen lain diam kecuali Direktur menyebutnya, meminta pendapat/debat lintas divisi, atau konteks benar-benar membutuhkan handoff. Jika perlu agen lain, sebutkan nama dan alasan singkat lalu tunggu giliran berikutnya; jangan menulis dialog palsu atas nama agen lain.',
+    'BERPIKIR: tangkap pola, pahami gambaran besar dan dampak lintas divisi, cari akar masalah, ajukan pertanyaan tajam bila informasi penting belum ada, sederhanakan hal teknis, pertimbangkan alternatif, proaktif dan adaptif. Jangan asal setuju.',
+    'KOMUNIKASI: Bahasa Indonesia yang alami, hangat, profesional, seperti rekan kerja yang cakap—bukan template, bukan bahasa robot, tidak selalu memakai daftar. Jawab sesuai kebutuhan dan jangan terlalu panjang tanpa alasan.',
+    'KEJUJURAN: bedakan fakta, dugaan, dan rekomendasi. Jangan mengaku telah mencari internet, membaca data, mengubah CMS/database, menerbitkan konten, atau menjalankan tindakan jika belum ada tool yang benar-benar melakukannya. Jangan meminta/menampilkan rahasia. Publikasi dan tindakan berisiko tetap memerlukan persetujuan Direktur.',
+    'KELUARAN WAJIB JSON valid saja dengan bentuk {"speaker_id":"id_agen","message":"isi jawaban natural"}. speaker_id harus salah satu ID dalam daftar karyawan. Jangan gunakan markdown fence.'
+  ].join('\n\n');
+  const input = messages.slice(-14).map(m => ({
     role: m.role === 'assistant' ? 'assistant' : 'user',
-    content: (m.role === 'assistant' ? '' : (m.agent_id === 'team' ? '' : 'Pesan untuk '+(AI_ROOM_AGENTS[m.agent_id]?.name || 'agen')+': ')) + m.content
+    content: m.role === 'assistant'
+      ? '['+(AI_ROOM_AGENTS[m.agent_id]?.name || 'Karyawan AI')+'] '+m.content
+      : (m.agent_id === 'team' ? '[Direktur berbicara ke grup] ' : '[Direktur memanggil '+(AI_ROOM_AGENTS[m.agent_id]?.name || 'agen')+'] ')+m.content
   }));
   const model = String(env.OPENAI_MODEL || 'gpt-6.2-sol').trim();
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {'content-type':'application/json','authorization':'Bearer '+env.OPENAI_API_KEY},
-    body: JSON.stringify({model,instructions:system,input,max_output_tokens:1400}),
+    body: JSON.stringify({model,instructions:system,input,text:{format:{type:'json_object'}},max_output_tokens:1600}),
     signal: AbortSignal.timeout(45000)
   });
   const data = await response.json().catch(() => ({}));
@@ -433,11 +449,16 @@ async function callAiRoomProvider(env, provider, messages, agent) {
     const message = String(data.error?.message || 'HTTP '+response.status).slice(0,220);
     throw new Error('OpenAI API: '+message);
   }
-  const answer = (data.output || []).flatMap(item => item.content || []).filter(part => part.type === 'output_text').map(part => part.text || '').join('').trim();
-  if (!answer) throw new Error('OpenAI tidak mengembalikan teks jawaban.');
-  return {answer,model};
+  const raw = (data.output || []).flatMap(item => item.content || []).filter(part => part.type === 'output_text').map(part => part.text || '').join('').trim();
+  if (!raw) throw new Error('OpenAI tidak mengembalikan teks jawaban.');
+  let result;
+  try { result = JSON.parse(raw); } catch { throw new Error('Format respons orkestrasi AI tidak valid. Silakan kirim ulang.'); }
+  const speakerId = locked ? requestedAgentId : String(result.speaker_id || 'team');
+  if (!AI_ROOM_AGENTS[speakerId]) throw new Error('Orkestrator memilih agen yang tidak dikenal.');
+  const answer = String(result.message || '').trim();
+  if (!answer) throw new Error('Agen tidak mengembalikan jawaban.');
+  return {answer,model,speakerId};
 }
-
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/^\/api\/cms\/?/, '').replace(/\/$/, '');
@@ -539,16 +560,16 @@ export async function onRequest({ request, env }) {
       const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
       let answer='',used='openai',model='';
-      try{const result=await callAiRoomProvider(env,'openai',conversation,agent);answer=result.answer;model=result.model;}
+      try{const result=await callAiRoomProvider(env,'openai',conversation,agentId);answer=result.answer;model=result.model;var speakerId=result.speakerId;}
       catch(error){return json({error:String(error?.message||'OpenAI API gagal').slice(0,350)},503);}
       if(!answer)return json({error:'OpenAI tidak mengembalikan jawaban.'},503);
       const userId=uid(),assistantId=uid();
       await env.CMS_DB.batch([
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
-        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',agentId,answer,used)
+        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used)
       ]);
       await audit(env,admin,'ai.room.message','ai-room',assistantId,{agent:agentId,provider:used,model});
-      return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used});
+      return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used});
     }
 
     if (path === 'product/analyze' && method === 'POST') {
