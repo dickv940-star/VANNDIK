@@ -509,7 +509,7 @@ const pageTitle = 'VANNDIK CMS';
     const authScreen = $('#authScreen'), appShell = $('#appShell'), authMessage = $('#authMessage');
     const view = $('#view'), modalRoot = $('#modalRoot'), toastEl = $('#toast');
     const labels = {overview:'Ringkasan',article:'Artikel',news:'Berita',product:'Produk Affiliate',game:'Game',app:'Aplikasi & Tools',themes:'Tema & Tampilan',pages:'Halaman & Navigasi',media:'Media Library',backup:'Backup & Restore',security:'Keamanan Admin',airoom:'VANNDIK AI Agent Room'};
-    let currentAdmin = null, currentType = 'article', settingsCache = {}, installPrompt = null, toastTimer, aiRoomSendHandler = null;
+    let currentAdmin = null, currentType = 'article', settingsCache = {}, installPrompt = null, toastTimer;
 
     async function api(path, options = {}) {
       const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -522,14 +522,6 @@ const pageTitle = 'VANNDIK CMS';
       toastEl.textContent = message; toastEl.style.borderColor = isError ? '#9b4646' : '#34547b';
       toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3200);
     }
-    // Delegasi global membuat tombol kirim tetap tertangani meskipun panel AI Room dirender ulang.
-    document.addEventListener('click', event => {
-      const button = event.target.closest('#aiRoomSend');
-      if (!button) return;
-      event.preventDefault();
-      if (typeof aiRoomSendHandler === 'function') aiRoomSendHandler();
-      else notify('Ruang percakapan belum siap. Muat ulang halaman lalu coba kembali.', true);
-    });
     function authNotice(message, success = false) { authMessage.textContent = message || ''; authMessage.classList.toggle('success',success); }
     function showAuth(setup = false) {
       authScreen.hidden = false; appShell.hidden = true;
@@ -947,8 +939,10 @@ const pageTitle = 'VANNDIK CMS';
       async function loadRoom(){try{const data=await api('ai-room/messages');drawMessages(data.messages||[]);const names={openai:'OpenAI'};$('#aiProviderPills').innerHTML=Object.entries(data.providers||{}).map(([key,ready])=>'<span class="ai-provider-pill '+(ready?'ready':'')+'">'+(ready?'● ':'○ ')+names[key]+'</span>').join('');const ready=!!data.providers?.openai;$('#aiProviderStatus').textContent=ready?'OpenAI terhubung · Model: '+esc(data.model||'gpt-6.2-sol')+'. Jika API gagal, sistem tidak berpindah ke LLM lain.':'OpenAI belum terhubung. Tambahkan Cloudflare Secret OPENAI_API_KEY.';}catch(e){$('#aiProviderStatus').textContent=e.message;}}
       drawAgents();
       async function sendMessage(){const message=input.value.trim();if(busy)return;if(!message){notify('Tulis pesan terlebih dahulu sebelum mengirim.',true);input.focus();return;}busy=true;send.disabled=true;send.textContent='Sedang membalas…';input.disabled=true;const optimistic=messagesEl.innerHTML;messagesEl.innerHTML=optimistic+(optimistic.includes('ai-room-empty')?'':'')+'<article class="ai-room-msg user"><div class="msg-meta">Direktur VANNDIK</div><p>'+esc(message)+'</p></article><article class="ai-room-msg assistant"><div class="msg-meta">VANNDIK · Sedang membaca pesan</div><p>Sebentar ya, tim sedang menyiapkan balasan...</p></article>';messagesEl.scrollTop=messagesEl.scrollHeight;try{await api('ai-room/messages',{method:'POST',body:JSON.stringify({message,agentId:activeAgent})});input.value='';await loadRoom();}catch(e){notify(e.message,true);await loadRoom();}finally{busy=false;send.disabled=false;send.textContent='Kirim pesan ↗';input.disabled=false;input.focus();}}
-      aiRoomSendHandler=sendMessage;
-      input.addEventListener('keydown',event=>{if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();sendMessage();}});
+      // Listener dipasang langsung pada tombol yang baru dirender, bukan bergantung pada delegasi global.
+      send.addEventListener('click',event=>{event.preventDefault();sendMessage();});
+      // Pola chat: Enter mengirim, Shift+Enter membuat baris baru.
+      input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}});
       $('#aiRoomClear').addEventListener('click',async()=>{if(!confirm('Hapus seluruh riwayat percakapan AI Agent Room?'))return;try{await api('ai-room/messages',{method:'DELETE',body:'{}'});drawMessages([]);notify('Riwayat percakapan dihapus.');}catch(e){notify(e.message,true);}});
       loadRoom();
     }
