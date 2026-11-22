@@ -652,8 +652,7 @@ export async function onRequest({ request, env }) {
           results.push({id:job.id,status:'completed',provider:result.provider,model:result.model});
         }catch(error){
           const attempts=Number(job.attempts||0)+1;
-          // Keep provider-limited conversations queued indefinitely; the free provider may recover after its quota reset.
-          const status='queued';
+          const status=attempts>=8?'paused':'queued';
           const delay=Math.min(360,5*Math.pow(2,Math.min(attempts-1,6)));
           await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,attempts=?,next_retry_at=datetime('now',?),last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,attempts,'+'+delay+' minutes',String(error?.message||'Provider unavailable').slice(0,1000),job.id).run();
           results.push({id:job.id,status,attempts,retry_minutes:delay});
