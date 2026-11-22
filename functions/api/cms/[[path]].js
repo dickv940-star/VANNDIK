@@ -399,7 +399,6 @@ function verifiedAffiliateProduct(item){
 async function ensureAiRoomTables(env) {
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_messages (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, role TEXT NOT NULL, agent_id TEXT NOT NULL DEFAULT 'team', content TEXT NOT NULL, provider TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_admin_created ON cms_ai_room_messages(admin_id,created_at)").run();
-  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_usage (admin_id TEXT NOT NULL, day TEXT NOT NULL, jobs INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(admin_id,day))").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_memory (memory_key TEXT PRIMARY KEY, memory_value TEXT NOT NULL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_jobs (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, agent_id TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0, next_retry_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_jobs_due ON cms_ai_room_jobs(status,next_retry_at)").run();
@@ -653,7 +652,8 @@ export async function onRequest({ request, env }) {
           results.push({id:job.id,status:'completed',provider:result.provider,model:result.model});
         }catch(error){
           const attempts=Number(job.attempts||0)+1;
-          const status=attempts>=8?'paused':'queued';
+          // Keep provider-limited conversations queued indefinitely; the free provider may recover after its quota reset.
+          const status='queued';
           const delay=Math.min(360,5*Math.pow(2,Math.min(attempts-1,6)));
           await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,attempts=?,next_retry_at=datetime('now',?),last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,attempts,'+'+delay+' minutes',String(error?.message||'Provider unavailable').slice(0,1000),job.id).run();
           results.push({id:job.id,status,attempts,retry_minutes:delay});
@@ -713,9 +713,6 @@ export async function onRequest({ request, env }) {
       const data=await body(request), message=String(data.message||'').trim(), agentId=String(data.agentId||'team');
       if(!message||message.length>3000)return json({error:'Pesan wajib diisi dan maksimal 3.000 karakter.'},400);
       const agent=AI_ROOM_AGENTS[agentId];if(!agent)return json({error:'Agen tidak dikenal.'},400);
-      const day=new Date().toISOString().slice(0,10);
-      const quota=await env.CMS_DB.prepare("INSERT INTO cms_ai_room_usage(admin_id,day,jobs) VALUES(?,?,1) ON CONFLICT(admin_id,day) DO UPDATE SET jobs=jobs+1 WHERE jobs<20").bind(admin.id,day).run();
-      if(!quota.meta?.changes)return json({error:'Batas aman ruang AI tercapai: maksimal 20 pesan per hari. Kuota lokal reset pukul 00.00 UTC. Kuota provider gratis juga berlaku.'},429);
       const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
       let answer='',used='',model='',attempts=[],speakerId='team';
