@@ -400,6 +400,22 @@ async function ensureAiRoomTables(env) {
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_messages (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, role TEXT NOT NULL, agent_id TEXT NOT NULL DEFAULT 'team', content TEXT NOT NULL, provider TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_admin_created ON cms_ai_room_messages(admin_id,created_at)").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_usage (admin_id TEXT NOT NULL, day TEXT NOT NULL, jobs INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(admin_id,day))").run();
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_memory (memory_key TEXT PRIMARY KEY, memory_value TEXT NOT NULL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_jobs (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, agent_id TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0, next_retry_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_jobs_due ON cms_ai_room_jobs(status,next_retry_at)").run();
+  const defaults = [
+    ['identity','VANNDIK adalah website dan pusat kendali CMS digital yang dikelola melalui cloud. Pengguna menginginkan AI Office dengan Chief of Staff dan agen spesialis.'],
+    ['goals','Mengelola artikel, berita, produk affiliate, game, aplikasi/tools, SEO, riset, media, serta integrasi kanal digital seperti YouTube, Instagram dan Facebook. Kembangkan bertahap dan verifikasi setiap integrasi sebelum menyatakan aktif.'],
+    ['operating_rules','Target biaya operasional Rp0. Jangan pernah melakukan pemanggilan API berbayar, pembelian kredit, upgrade paket, atau tindakan yang dapat menimbulkan tagihan otomatis. Jika kuota gratis habis, alihkan ke provider gratis lain yang dikonfigurasi; jika semua tidak tersedia, simpan pekerjaan untuk dicoba kembali. Publikasi, penghapusan permanen, perubahan keamanan, migrasi database dan tindakan berisiko memerlukan persetujuan Direktur.'],
+    ['architecture','Aplikasi harus cloud-first dan tidak bergantung pada laptop atau komputer pengguna. Semua agen harus menggunakan memori pusat dan konteks kerja yang sama. Catat status pekerjaan, provider, model, dan kegagalan secara transparan.']
+  ];
+  for (const [key,value] of defaults) {
+    await env.CMS_DB.prepare('INSERT OR IGNORE INTO cms_ai_memory(memory_key,memory_value) VALUES(?,?)').bind(key,value).run();
+  }
+}
+async function getCentralAiMemory(env) {
+  const rows = await env.CMS_DB.prepare('SELECT memory_key,memory_value,updated_at FROM cms_ai_memory ORDER BY memory_key').all();
+  return (rows.results || []).map(row => ({key:row.memory_key,value:row.memory_value,updated_at:row.updated_at}));
 }
 const AI_ROOM_AGENTS = {
   team: {name:'Tim VANNDIK',role:'Chief of Staff · Koordinator seluruh divisi',prompt:'Anda adalah Chief of Staff VANNDIK. Terima instruksi Direktur, pecah menjadi tugas, tentukan penanggung jawab, urutan kerja, dependensi, risiko, dan laporan hasil. Jangan mengaku sudah mengeksekusi tindakan tanpa tool.'},
@@ -413,54 +429,101 @@ const AI_ROOM_AGENTS = {
   catalog: {name:'Rafi · Product & Catalog Manager',role:'Produk affiliate, game & aplikasi',prompt:'Anda adalah Product & Catalog Manager VANNDIK. Bertanggung jawab pada katalog produk affiliate, game, aplikasi/tools, kategori, kelengkapan data, duplikasi dan status verifikasi. Produk tidak terverifikasi tidak boleh dipublikasikan.'},
   web: {name:'Nadia · Web Experience Manager',role:'Tema, halaman, navigasi & bahasa',prompt:'Anda adalah Web Experience Manager VANNDIK. Bertanggung jawab pada tema global/per halaman, halaman, navigasi, bahasa, responsivitas dan pengalaman pengunjung. Perubahan desain produksi perlu persetujuan bila berdampak luas.'}
 };
-async function callAiRoomProvider(env, messages, requestedAgentId) {
-  if (!env.AI || typeof env.AI.run !== 'function') {
-    throw new Error('Cloudflare Workers AI belum terhubung. Periksa binding AI pada Cloudflare Pages.');
-  }
-  const model = String(env.CF_AI_MODEL || '@cf/google/gemma-4-26b-a4b-it').trim();
+function buildAiRoomSystem(requestedAgentId, memory) {
   const roster = Object.entries(AI_ROOM_AGENTS).map(([id,a]) => ({id,name:a.name,role:a.role,expertise:a.prompt}));
   const now = new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',dateStyle:'full',timeStyle:'long'}).format(new Date());
   const locked = requestedAgentId !== 'team';
-  const system = [
-    'Anda adalah mesin orkestrasi percakapan grup kantor VANNDIK. Semua agen menggunakan kemampuan model AI yang sama, tetapi setiap agen memiliki identitas, pengetahuan kerja, tanggung jawab, dan gaya penilaian sendiri.',
-    'WAKTU SEKARANG: '+now+' (WIB, Asia/Jakarta). Pahami konteks waktu ini untuk kata seperti hari ini, besok, sudah terlambat, dan jadwal.',
+  return [
+    'Anda adalah mesin orkestrasi percakapan grup kantor VANNDIK. Semua provider wajib mengikuti identitas, memori, kebijakan, dan target pusat yang sama.',
+    'WAKTU SEKARANG: '+now+' (WIB, Asia/Jakarta).',
+    'MEMORI PUSAT VANNDIK (sumber kebenaran lintas provider): '+JSON.stringify(memory),
     'DAFTAR KARYAWAN: '+JSON.stringify(roster),
-    locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara pada giliran ini.' : 'Direktur berbicara kepada grup/Tim VANNDIK. Pilih TEPAT SATU agen paling relevan untuk menjawab. Tim VANNDIK boleh dipilih bila koordinasi lintas divisi atau pembagian tugas paling tepat. Jangan membuat semua agen menjawab.',
-    'BACA RIWAYAT: pesan assistant sebelumnya diawali nama agen yang berbicara. Gunakan konteks bersama, jangan mengulang jawaban, jangan menyela agen sebelumnya, dan lanjutkan diskusi secara alami.',
-    'ETIKA GRUP: setiap giliran hanya satu pembicara. Agen lain diam kecuali Direktur menyebutnya, meminta pendapat/debat lintas divisi, atau konteks benar-benar membutuhkan handoff. Jika perlu agen lain, sebutkan nama dan alasan singkat lalu tunggu giliran berikutnya; jangan menulis dialog palsu atas nama agen lain.',
-    'BERPIKIR: tangkap pola, pahami gambaran besar dan dampak lintas divisi, cari akar masalah, ajukan pertanyaan tajam bila informasi penting belum ada, sederhanakan hal teknis, pertimbangkan alternatif, proaktif dan adaptif. Jangan asal setuju.',
-    'KOMUNIKASI: Bahasa Indonesia yang alami, hangat, profesional, seperti rekan kerja yang cakap—bukan template, bukan bahasa robot, tidak selalu memakai daftar. Jawab sesuai kebutuhan dan jangan terlalu panjang tanpa alasan.',
-    'KEJUJURAN: bedakan fakta, dugaan, dan rekomendasi. Jangan mengaku telah mencari internet, membaca data, mengubah CMS/database, menerbitkan konten, atau menjalankan tindakan jika belum ada tool yang benar-benar melakukannya. Jangan meminta/menampilkan rahasia. Publikasi dan tindakan berisiko tetap memerlukan persetujuan Direktur.',
-    'FORMAT KELUARAN: balas hanya dengan satu objek JSON valid berbentuk {"speaker_id":"id_agen","message":"isi jawaban natural"}. speaker_id harus salah satu ID dalam daftar karyawan. Jangan gunakan markdown fence atau teks di luar JSON.'
+    locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara.' : 'Direktur berbicara kepada grup. Pilih TEPAT SATU agen paling relevan.',
+    'BACA RIWAYAT: gunakan konteks percakapan bersama dan lanjutkan secara alami. Jangan mengulang jawaban.',
+    'ETIKA GRUP: satu pembicara setiap giliran. Jangan membuat dialog palsu atas nama agen lain.',
+    'BERPIKIR: pahami gambaran besar, dampak lintas divisi, cari akar masalah, dan bedakan fakta, dugaan, serta rekomendasi.',
+    'KOMUNIKASI: Bahasa Indonesia alami, hangat, profesional, ringkas sesuai kebutuhan.',
+    'KEJUJURAN: jangan mengaku telah mencari, membaca data, mengubah CMS, menerbitkan konten, atau menjalankan tindakan jika tool belum melakukannya.',
+    'KEBIJAKAN BIAYA: wajib Rp0. Jangan menyarankan atau memicu layanan berbayar otomatis. Bila kuota habis, sarankan antrean dan alternatif gratis.',
+    'KEAMANAN: publikasi, penghapusan permanen, perubahan keamanan, migrasi database, pembelian, dan tindakan berisiko memerlukan persetujuan Direktur.',
+    'FORMAT KELUARAN: balas hanya JSON valid berbentuk {"speaker_id":"id_agen","message":"isi jawaban natural"}. speaker_id harus salah satu ID dalam daftar.'
   ].join('\n\n');
-  const input = messages.slice(-14).map(m => ({
-    role: m.role === 'assistant' ? 'assistant' : 'user',
-    content: m.role === 'assistant'
-      ? '['+(AI_ROOM_AGENTS[m.agent_id]?.name || 'Karyawan AI')+'] '+m.content
-      : (m.agent_id === 'team' ? '[Direktur berbicara ke grup] ' : '[Direktur memanggil '+(AI_ROOM_AGENTS[m.agent_id]?.name || 'agen')+'] ')+m.content
-  }));
-  const result = await env.AI.run(model, {
-    messages: [{role:'system',content:system}, ...input],
-    max_tokens: 1400,
-    temperature: 0.35
-  });
-  const raw = String(result?.response || result?.output_text || '').trim();
-  if (!raw) throw new Error('Cloudflare Workers AI tidak mengembalikan jawaban. Coba kirim ulang.');
+}
+function parseAiRoomReply(raw, requestedAgentId) {
   let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
+  try { parsed = JSON.parse(raw); } catch {
     const match = raw.match(/\{[\s\S]*\}/);
     if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
   }
-  if (!parsed || typeof parsed !== 'object') {
-    throw new Error('Format jawaban AI tidak valid. Coba kirim ulang dengan instruksi lebih singkat.');
-  }
-  const speakerId = locked ? requestedAgentId : String(parsed.speaker_id || 'team');
+  if (!parsed || typeof parsed !== 'object') throw new Error('Format jawaban AI tidak valid.');
+  const speakerId = requestedAgentId !== 'team' ? requestedAgentId : String(parsed.speaker_id || 'team');
   if (!AI_ROOM_AGENTS[speakerId]) throw new Error('Orkestrator memilih agen yang tidak dikenal.');
   const answer = String(parsed.message || '').trim();
   if (!answer) throw new Error('Agen tidak mengembalikan jawaban.');
-  return {answer,model,speakerId};
+  return {answer,speakerId};
+}
+function aiRoomConversation(messages) {
+  return messages.slice(-14).map(m => ({
+    role:m.role === 'assistant' ? 'assistant' : 'user',
+    content:m.role === 'assistant'
+      ? '['+(AI_ROOM_AGENTS[m.agent_id]?.name || 'Karyawan AI')+'] '+m.content
+      : (m.agent_id === 'team' ? '[Direktur berbicara ke grup] ' : '[Direktur memanggil '+(AI_ROOM_AGENTS[m.agent_id]?.name || 'agen')+'] ')+m.content
+  }));
+}
+async function callGemini(env, system, input) {
+  if (!env.GEMINI_API_KEY || String(env.GEMINI_FREE_ONLY || '').toLowerCase() !== 'true') throw new Error('Gemini tidak dikonfigurasi sebagai provider gratis.');
+  const model=String(env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+  const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(env.GEMINI_API_KEY),{
+    method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:input.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),generationConfig:{temperature:0.35,maxOutputTokens:1400,responseMimeType:'application/json'}})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error('Gemini '+response.status+': '+String(data.error?.message||'provider tidak tersedia').slice(0,220));
+  const raw=(data.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('').trim();
+  if(!raw) throw new Error('Gemini tidak mengembalikan jawaban.');
+  return {raw,model,provider:'gemini'};
+}
+async function callOpenAiCompatible(env, {provider,baseUrl,key,model,system,input}) {
+  const response=await fetch(baseUrl.replace(/\/$/,'')+'/chat/completions',{
+    method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+key},
+    body:JSON.stringify({model,messages:[{role:'system',content:system},...input],temperature:0.35,max_tokens:1400})
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(provider+' '+response.status+': '+String(data.error?.message||'provider tidak tersedia').slice(0,220));
+  const raw=String(data.choices?.[0]?.message?.content||'').trim();
+  if(!raw) throw new Error(provider+' tidak mengembalikan jawaban.');
+  return {raw,model,provider};
+}
+async function callAiRoomProvider(env, messages, requestedAgentId, memory) {
+  const system=buildAiRoomSystem(requestedAgentId,memory);
+  const input=aiRoomConversation(messages);
+  const attempts=[];
+  const providers=[
+    {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input)},
+    {id:'cloudflare_ai',ready:!!env.AI&&typeof env.AI.run==='function',run:async()=>{
+      const model=String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it').trim();
+      const result=await env.AI.run(model,{messages:[{role:'system',content:system},...input],max_tokens:1400,temperature:0.35});
+      const raw=String(result?.response||result?.output_text||'').trim();
+      if(!raw) throw new Error('Cloudflare Workers AI tidak mengembalikan jawaban.');
+      return {raw,model,provider:'cloudflare_ai'};
+    }},
+    {id:'groq',ready:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'groq',baseUrl:'https://api.groq.com/openai/v1',key:env.GROQ_API_KEY,model:String(env.GROQ_MODEL||'llama-3.3-70b-versatile'),system,input})},
+    {id:'cerebras',ready:!!env.CEREBRAS_API_KEY&&String(env.CEREBRAS_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'cerebras',baseUrl:'https://api.cerebras.ai/v1',key:env.CEREBRAS_API_KEY,model:String(env.CEREBRAS_MODEL||'gpt-oss-120b'),system,input})},
+    {id:'openrouter_free',ready:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free'),run:()=>callOpenAiCompatible(env,{provider:'openrouter_free',baseUrl:'https://openrouter.ai/api/v1',key:env.OPENROUTER_API_KEY,model:String(env.OPENROUTER_MODEL),system,input})}
+  ];
+  for(const provider of providers){
+    if(!provider.ready){attempts.push({provider:provider.id,status:'skipped',reason:'not_configured_as_free'});continue;}
+    try{
+      const result=await provider.run();
+      const parsed=parseAiRoomReply(result.raw,requestedAgentId);
+      return {...parsed,model:result.model,provider:result.provider,attempts};
+    }catch(error){
+      const detail=String(error?.message||'provider error').slice(0,260);
+      attempts.push({provider:provider.id,status:'failed',reason:detail});
+    }
+  }
+  const summary=attempts.map(x=>x.provider+': '+(x.status==='skipped'?'belum dikonfigurasi':x.reason)).join(' | ');
+  throw new Error('Tidak ada provider AI gratis yang berhasil. Pekerjaan perlu dicoba kembali. '+summary);
 }
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
@@ -535,6 +598,33 @@ export async function onRequest({ request, env }) {
       const token = cookie(request); if(token) await env.CMS_DB.prepare('DELETE FROM cms_sessions WHERE token_hash=?').bind(await sha(decodeURIComponent(token))).run();
       return json({ok:true},200,{'set-cookie':clearCookie});
     }
+    if (path === 'ai-room/jobs/process' && method === 'POST') {
+      if (!env.AI_JOBS_CRON_TOKEN || request.headers.get('authorization') !== 'Bearer '+env.AI_JOBS_CRON_TOKEN) return json({error:'Unauthorized scheduler.'},401);
+      await ensureAiRoomTables(env);
+      const due=await env.CMS_DB.prepare("SELECT * FROM cms_ai_room_jobs WHERE status='queued' AND next_retry_at<=CURRENT_TIMESTAMP ORDER BY created_at LIMIT 5").all();
+      const results=[];
+      for(const job of (due.results||[])){
+        try{
+          const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 14').bind(job.admin_id).all();
+          const conversation=(history.results||[]).reverse();
+          const memory=await getCentralAiMemory(env);
+          const result=await callAiRoomProvider(env,conversation,job.agent_id,memory);
+          const replyId=uid();
+          await env.CMS_DB.batch([
+            env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,result.answer,result.provider),
+            env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',attempts=attempts+1,last_error='',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id)
+          ]);
+          results.push({id:job.id,status:'completed',provider:result.provider,model:result.model});
+        }catch(error){
+          const attempts=Number(job.attempts||0)+1;
+          const status=attempts>=8?'paused':'queued';
+          const delay=Math.min(360,5*Math.pow(2,Math.min(attempts-1,6)));
+          await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,attempts=?,next_retry_at=datetime('now',?),last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,attempts,'+'+delay+' minutes',String(error?.message||'Provider unavailable').slice(0,1000),job.id).run();
+          results.push({id:job.id,status,attempts,retry_minutes:delay});
+        }
+      }
+      return json({ok:true,processed:results.length,results});
+    }
     const admin = await currentAdmin(request,env);
     if (path === 'me' && method === 'GET') return admin ? json({authenticated:true,admin}) : json({authenticated:false},401);
     if (!admin) return json({error:'Silakan login terlebih dahulu.'},401);
@@ -543,8 +633,38 @@ export async function onRequest({ request, env }) {
     if (path === 'ai-room/messages' && method === 'GET') {
       await ensureAiRoomTables(env);
       const rows=await env.CMS_DB.prepare('SELECT id,role,agent_id,content,provider,created_at FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all();
-      const providers={cloudflare_ai:!!env.AI};
-      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,model:String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it')});
+      const memory=await getCentralAiMemory(env);
+      const providers={
+        gemini:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',
+        cloudflare_ai:!!env.AI,
+        groq:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',
+        cerebras:!!env.CEREBRAS_API_KEY&&String(env.CEREBRAS_FREE_ONLY||'').toLowerCase()==='true',
+        openrouter_free:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free')
+      };
+      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,memory,provider_order:['gemini','cloudflare_ai','groq','cerebras','openrouter_free'],model:String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it')});
+    }
+    if (path === 'ai-room/memory' && method === 'GET') {
+      await ensureAiRoomTables(env);
+      return json({memory:await getCentralAiMemory(env)});
+    }
+    if (path === 'ai-room/jobs' && method === 'GET') {
+      await ensureAiRoomTables(env);
+      const rows=await env.CMS_DB.prepare('SELECT id,agent_id,message,status,attempts,next_retry_at,last_error,created_at,updated_at FROM cms_ai_room_jobs WHERE admin_id=? ORDER BY created_at DESC LIMIT 50').bind(admin.id).all();
+      return json({jobs:rows.results||[]});
+    }
+    if (path === 'ai-room/memory' && method === 'PUT') {
+      await ensureAiRoomTables(env);
+      const data=await body(request), allowed=new Set(['identity','goals','operating_rules','architecture']);
+      const entries=Array.isArray(data.memory)?data.memory:[];
+      if(!entries.length||entries.length>4)return json({error:'Kirim 1 sampai 4 bagian memori.'},400);
+      for(const item of entries){
+        const key=String(item.key||'');
+        const value=String(item.value||'').trim();
+        if(!allowed.has(key)||!value||value.length>5000)return json({error:'Kunci atau isi memori tidak valid.'},400);
+        await env.CMS_DB.prepare('UPDATE cms_ai_memory SET memory_value=?,updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE memory_key=?').bind(value,admin.id,key).run();
+      }
+      await audit(env,admin,'ai.memory.updated','ai-memory','',{keys:entries.map(x=>String(x.key))});
+      return json({ok:true,memory:await getCentralAiMemory(env)});
     }
     if (path === 'ai-room/messages' && method === 'DELETE') {
       await ensureAiRoomTables(env);
@@ -562,17 +682,29 @@ export async function onRequest({ request, env }) {
       if(!quota.meta?.changes)return json({error:'Batas aman ruang AI tercapai: maksimal 20 pesan per hari. Kuota lokal reset pukul 00.00 UTC. Kuota provider gratis juga berlaku.'},429);
       const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
-      let answer='',used='cloudflare_ai',model='';
-      try{const result=await callAiRoomProvider(env,conversation,agentId);answer=result.answer;model=result.model;var speakerId=result.speakerId;}
-      catch(error){try{await env.CMS_DB.prepare('UPDATE cms_ai_room_usage SET jobs=CASE WHEN jobs>0 THEN jobs-1 ELSE 0 END WHERE admin_id=? AND day=?').bind(admin.id,day).run();}catch{}const detail=String(error?.message||'Cloudflare Workers AI gagal');const friendly=/quota|daily limit|neurons|rate.?limit|capacity|429|3040/i.test(detail)?'Kuota harian atau kapasitas Cloudflare Workers AI sedang habis. Coba lagi setelah kuota reset atau beberapa saat lagi.':'AI Agent Room: '+detail;return json({error:friendly.slice(0,350)},503);}
-      if(!answer)return json({error:'Cloudflare Workers AI tidak mengembalikan jawaban.'},503);
+      let answer='',used='',model='',attempts=[],speakerId='team';
+      try{
+        const memory=await getCentralAiMemory(env);
+        const result=await callAiRoomProvider(env,conversation,agentId,memory);
+        answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;
+      }catch(error){
+        const detail=String(error?.message||'Semua provider AI tidak tersedia.');
+        const jobId=uid(),userId=uid();
+        await env.CMS_DB.batch([
+          env.CMS_DB.prepare("INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)").bind(userId,admin.id,'user',agentId,message,''),
+          env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,last_error) VALUES(?,?,?,?, 'queued',0,datetime('now','+5 minutes'),?)").bind(jobId,admin.id,agentId,message,detail.slice(0,1000))
+        ]);
+        await audit(env,admin,'ai.room.queued','ai-room',jobId,{reason:detail.slice(0,500)});
+        return json({ok:true,queued:true,jobId,message:'Semua provider AI sedang tidak tersedia. Pesan disimpan di antrean cloud dan akan dicoba kembali otomatis.',reason:detail.slice(0,500)},202);
+      }
+      if(!answer)return json({error:'Tidak ada provider AI yang mengembalikan jawaban.'},503);
       const userId=uid(),assistantId=uid();
       await env.CMS_DB.batch([
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used)
       ]);
       await audit(env,admin,'ai.room.message','ai-room',assistantId,{agent:agentId,provider:used,model});
-      return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used});
+      return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used,model,attempts});
     }
 
     if (path === 'product/analyze' && method === 'POST') {

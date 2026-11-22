@@ -110,3 +110,36 @@ Media Library CMS menggunakan Google Drive akun `dickv940@gmail.com`. File disim
 - Hapus media yang masih dipakai konten akan ditolak sampai URL gambar pada konten diganti.
 
 **Penting:** Jangan commit OAuth Client Secret atau kunci enkripsi ke GitHub dan jangan membagikannya di chat. CMS tetap memerlukan secret `CMS_SETUP_TOKEN` untuk membuat admin owner pertama.
+## Cloud AI Orchestrator (zero-cost policy)
+
+The AI Agent Room supports ordered provider failover. External providers are disabled unless both their secret and an explicit `*_FREE_ONLY=true` variable are configured. This is a safety gate, not a guarantee that a provider will always offer free quota; verify the provider's current terms before enabling it.
+
+Provider order:
+1. Gemini: `GEMINI_API_KEY` secret, `GEMINI_FREE_ONLY=true` variable, optional `GEMINI_MODEL`.
+2. Cloudflare Workers AI: existing `AI` binding, optional `CF_AI_MODEL` (default `@cf/google/gemma-4-26b-a4b-it`).
+3. Groq: `GROQ_API_KEY` secret, `GROQ_FREE_ONLY=true` variable, optional `GROQ_MODEL`.
+4. Cerebras: `CEREBRAS_API_KEY` secret, `CEREBRAS_FREE_ONLY=true` variable, optional `CEREBRAS_MODEL`.
+5. OpenRouter free model: `OPENROUTER_API_KEY` secret, `OPENROUTER_FREE_ONLY=true` variable, and `OPENROUTER_MODEL` ending in `:free`.
+
+Never configure a paid-only model or enable a provider unless its account is confirmed to have a free allocation. No OpenAI API is called by this failover chain. ChatGPT subscriptions do not provide OpenAI API credits.
+
+### Central memory and queue
+
+- `cms_ai_memory` stores shared identity, goals, operating rules, and architecture context in D1.
+- `GET /api/cms/ai-room/memory` reads central memory; authenticated `PUT` updates the four approved sections.
+- `cms_ai_room_jobs` persists requests when every configured provider is unavailable.
+- `POST /api/cms/ai-room/jobs/process` is a protected retry endpoint requiring `AI_JOBS_CRON_TOKEN`.
+- `GET /api/cms/ai-room/jobs` lists queued/completed/paused jobs for the authenticated admin.
+
+### Scheduled retry Worker
+
+The scheduler source is in `workers/ai-room-scheduler/index.js`. Deploy it as a separate Cloudflare Worker with:
+- Cron Trigger: `*/5 * * * *`
+- Plain-text variable `VANNDIK_CMS_URL=https://vanndik.pages.dev`
+- Secret `VANNDIK_CRON_TOKEN`, matching the Pages secret `AI_JOBS_CRON_TOKEN`
+
+The scheduler only calls the protected queue processor. It does not publish content or perform destructive actions. A job is retried with exponential backoff and paused after eight failed attempts. Confirm that the Worker is deployed and the Cron Trigger is active before treating unattended retry as operational.
+
+### Important cost boundary
+
+Cloudflare and third-party provider free tiers have changing quotas and terms. When all configured providers are unavailable, VANNDIK stores work for later retry. Do not add billing methods or paid fallbacks. The application cannot guarantee zero cost if an administrator independently enables a paid plan or changes provider configuration.
