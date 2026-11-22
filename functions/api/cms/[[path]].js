@@ -395,6 +395,50 @@ function verifiedAffiliateProduct(item){
   return item.type==='product'&&tags.includes('metadata-extracted')&&tags.includes('marketplace-page-read')&&!!String(item.title||'').trim()&&String(item.excerpt||'').trim().length>=25&&!!item.image_url&&/^https?:\/\//i.test(item.affiliate_url||'')&&/^https?:\/\//i.test(item.target_url||'');
 }
 
+
+async function ensureAiRoomTables(env) {
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_messages (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, role TEXT NOT NULL, agent_id TEXT NOT NULL DEFAULT 'team', content TEXT NOT NULL, provider TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_admin_created ON cms_ai_room_messages(admin_id,created_at)").run();
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_usage (admin_id TEXT NOT NULL, day TEXT NOT NULL, jobs INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(admin_id,day))").run();
+}
+const AI_ROOM_AGENTS = {
+  team: {name:'Tim VANNDIK',role:'Koordinator tim AI',prompt:'Anda adalah koordinator tim VANNDIK. Bantu direktur mengoordinasikan pekerjaan, jelaskan pembagian tugas dan hasil yang dibutuhkan.'},
+  researcher: {name:'Ethan · Researcher',role:'Riset & verifikasi',prompt:'Anda adalah Researcher VANNDIK. Fokus pada riset, verifikasi sumber, pemisahan fakta dan asumsi. Jangan mengaku melakukan pencarian internet jika tool pencarian tidak tersedia.'},
+  writer: {name:'Sophia · Content Writer',role:'Penulis konten',prompt:'Anda adalah Content Writer VANNDIK. Buat artikel, berita, copywriting, deskripsi produk dan naskah yang jelas, orisinal, SEO-friendly, serta tidak mengarang fakta.'},
+  seo: {name:'Daniel · SEO Specialist',role:'SEO & strategi konten',prompt:'Anda adalah SEO Specialist VANNDIK. Berikan strategi SEO teknis dan editorial, struktur kata kunci, metadata, internal linking dan evaluasi yang realistis. Jangan menjanjikan ranking.'},
+  analyst: {name:'Isabella · Data Analyst',role:'Analisis & laporan',prompt:'Anda adalah Data Analyst VANNDIK. Analisis data yang diberikan, hitung dengan cermat, bedakan data aktual dari hipotesis dan sebutkan data yang masih dibutuhkan.'},
+  editor: {name:'Lucas · Quality Editor',role:'Penyunting & quality control',prompt:'Anda adalah Quality Editor VANNDIK. Periksa akurasi, kelengkapan, gaya bahasa, risiko klaim berlebihan, konsistensi dan rekomendasikan perbaikan.'}
+};
+async function callAiRoomProvider(env, provider, messages, agent) {
+  const system = 'Anda adalah '+agent.name+', '+agent.role+' di VANNDIK. '+agent.prompt+'\n\nAturan: jawab dalam Bahasa Indonesia kecuali diminta lain; bersikap profesional dan kolaboratif; jangan mengklaim sudah mengubah database, menerbitkan konten, mengirim pesan, atau menjalankan tindakan yang belum dilakukan oleh tool; jangan meminta atau menampilkan rahasia; semua publikasi memerlukan persetujuan direktur.';
+  const recent = messages.slice(-12);
+  if (provider === 'gemini' && env.GEMINI_API_KEY) {
+    const contents = recent.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:(m.role==='assistant'?'':(m.agent_id==='team'?'':('Pesan untuk '+(AI_ROOM_AGENTS[m.agent_id]?.name||'agen')+': ')))+m.content}]}));
+    const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+encodeURIComponent(env.GEMINI_API_KEY),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents,generationConfig:{temperature:0.45,maxOutputTokens:1400}}),signal:AbortSignal.timeout(25000)});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error('Gemini: '+String(data.error?.message||response.status).slice(0,180));
+    const answer=(data.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('').trim();
+    if(!answer)throw new Error('Gemini tidak mengembalikan jawaban.');
+    return answer;
+  }
+  if (provider === 'cloudflare' && env.AI && typeof env.AI.run==='function') {
+    const prompt=[system,...recent.map(m=>(m.role==='assistant'?'AGEN':'DIREKTUR')+': '+m.content),'AGEN:'].join('\n\n');
+    const result=await env.AI.run('@cf/google/gemma-4-26b-a4b-it',{prompt,max_tokens:1400,temperature:0.45,top_p:0.85});
+    const answer=String(result?.response||result?.result?.response||'').trim();
+    if(!answer)throw new Error('Cloudflare Workers AI tidak mengembalikan jawaban.');
+    return answer;
+  }
+  if (provider === 'groq' && env.GROQ_API_KEY) {
+    const response=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+env.GROQ_API_KEY},body:JSON.stringify({model:'llama-3.3-70b-versatile',temperature:0.45,max_tokens:1400,messages:[{role:'system',content:system},...recent.map(m=>({role:m.role==='assistant'?'assistant':'user',content:m.content}))]}),signal:AbortSignal.timeout(25000)});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error('Groq: '+String(data.error?.message||response.status).slice(0,180));
+    const answer=String(data.choices?.[0]?.message?.content||'').trim();
+    if(!answer)throw new Error('Groq tidak mengembalikan jawaban.');
+    return answer;
+  }
+  throw new Error('Provider '+provider+' belum dikonfigurasi.');
+}
+
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/^\/api\/cms\/?/, '').replace(/\/$/, '');
@@ -471,6 +515,46 @@ export async function onRequest({ request, env }) {
     const admin = await currentAdmin(request,env);
     if (path === 'me' && method === 'GET') return admin ? json({authenticated:true,admin}) : json({authenticated:false},401);
     if (!admin) return json({error:'Silakan login terlebih dahulu.'},401);
+
+
+    if (path === 'ai-room/messages' && method === 'GET') {
+      await ensureAiRoomTables(env);
+      const rows=await env.CMS_DB.prepare('SELECT id,role,agent_id,content,provider,created_at FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all();
+      const providers={gemini:!!env.GEMINI_API_KEY,cloudflare:!!(env.AI&&typeof env.AI.run==='function'),groq:!!env.GROQ_API_KEY};
+      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS});
+    }
+    if (path === 'ai-room/messages' && method === 'DELETE') {
+      await ensureAiRoomTables(env);
+      await env.CMS_DB.prepare('DELETE FROM cms_ai_room_messages WHERE admin_id=?').bind(admin.id).run();
+      await audit(env,admin,'ai.room.cleared','ai-room');
+      return json({ok:true});
+    }
+    if (path === 'ai-room/messages' && method === 'POST') {
+      await ensureAiRoomTables(env);
+      const data=await body(request), message=String(data.message||'').trim(), agentId=String(data.agentId||'team');
+      if(!message||message.length>3000)return json({error:'Pesan wajib diisi dan maksimal 3.000 karakter.'},400);
+      const agent=AI_ROOM_AGENTS[agentId];if(!agent)return json({error:'Agen tidak dikenal.'},400);
+      const day=new Date().toISOString().slice(0,10);
+      const quota=await env.CMS_DB.prepare("INSERT INTO cms_ai_room_usage(admin_id,day,jobs) VALUES(?,?,1) ON CONFLICT(admin_id,day) DO UPDATE SET jobs=jobs+1 WHERE jobs<20").bind(admin.id,day).run();
+      if(!quota.meta?.changes)return json({error:'Batas aman ruang AI tercapai: maksimal 20 pesan per hari. Kuota lokal reset pukul 00.00 UTC. Kuota provider gratis juga berlaku.'},429);
+      const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
+      const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
+      const providers=['gemini','cloudflare','groq'];let answer='',used='',errors=[];
+      for(const provider of providers){
+        const configured=(provider==='gemini'&&!!env.GEMINI_API_KEY)||(provider==='cloudflare'&&!!(env.AI&&typeof env.AI.run==='function'))||(provider==='groq'&&!!env.GROQ_API_KEY);
+        if(!configured)continue;
+        try{answer=await callAiRoomProvider(env,provider,conversation,agent);used=provider;break;}
+        catch(error){errors.push(String(error?.message||provider+' gagal').slice(0,220));}
+      }
+      if(!answer)return json({error:'Belum ada LLM yang berhasil menjawab. Periksa binding Workers AI dan secrets GEMINI_API_KEY / GROQ_API_KEY. '+(errors.join(' | ')||'Tidak ada provider yang dikonfigurasi.')},503);
+      const userId=uid(),assistantId=uid();
+      await env.CMS_DB.batch([
+        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
+        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',agentId,answer,used)
+      ]);
+      await audit(env,admin,'ai.room.message','ai-room',assistantId,{agent:agentId,provider:used});
+      return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used});
+    }
 
     if (path === 'product/analyze' && method === 'POST') {
       const data=await body(request);
