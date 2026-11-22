@@ -455,11 +455,31 @@ function parseAiRoomReply(raw, requestedAgentId) {
     const match = raw.match(/\{[\s\S]*\}/);
     if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
   }
-  if (!parsed || typeof parsed !== 'object') throw new Error('Format jawaban AI tidak valid.');
-  const speakerId = requestedAgentId !== 'team' ? requestedAgentId : String(parsed.speaker_id || 'team');
-  if (!AI_ROOM_AGENTS[speakerId]) throw new Error('Orkestrator memilih agen yang tidak dikenal.');
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Format jawaban AI tidak valid.');
   const answer = String(parsed.message || '').trim();
   if (!answer) throw new Error('Agen tidak mengembalikan jawaban.');
+
+  // A directly addressed agent is authoritative; never let the model change it.
+  if (requestedAgentId !== 'team') {
+    if (!AI_ROOM_AGENTS[requestedAgentId]) throw new Error('ID agen tujuan tidak valid.');
+    return {answer,speakerId:requestedAgentId};
+  }
+
+  // Models sometimes return a display name (e.g. "Ethan") instead of the
+  // stable roster key ("researcher"). Normalize known IDs and names.
+  const rawSpeaker = String(parsed.speaker_id || '').trim().toLocaleLowerCase('id-ID');
+  let speakerId = Object.keys(AI_ROOM_AGENTS).find(id => id.toLocaleLowerCase('id-ID') === rawSpeaker);
+  if (!speakerId && rawSpeaker) {
+    speakerId = Object.entries(AI_ROOM_AGENTS).find(([id,agent]) => {
+      const fullName = String(agent.name || '').toLocaleLowerCase('id-ID');
+      const shortName = fullName.split(/[·|]/)[0].trim();
+      return rawSpeaker === fullName || rawSpeaker === shortName || rawSpeaker === id.toLocaleLowerCase('id-ID');
+    })?.[0];
+  }
+
+  // Do not discard a valid answer just because the model used an unknown
+  // speaker label. Attribute it neutrally to the group coordinator.
+  if (!speakerId) speakerId = 'team';
   return {answer,speakerId};
 }
 function aiRoomConversation(messages) {
