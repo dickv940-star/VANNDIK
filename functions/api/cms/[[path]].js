@@ -507,8 +507,8 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory) {
       if(!raw) throw new Error('Cloudflare Workers AI tidak mengembalikan jawaban.');
       return {raw,model,provider:'cloudflare_ai'};
     }},
+    {id:'gemma_hosted',ready:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'gemma_hosted',baseUrl:String(env.GEMMA_API_URL),key:env.GEMMA_API_KEY,model:String(env.GEMMA_MODEL||'google/gemma-3-27b-it'),system,input})},
     {id:'groq',ready:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'groq',baseUrl:'https://api.groq.com/openai/v1',key:env.GROQ_API_KEY,model:String(env.GROQ_MODEL||'llama-3.3-70b-versatile'),system,input})},
-    {id:'cerebras',ready:!!env.CEREBRAS_API_KEY&&String(env.CEREBRAS_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'cerebras',baseUrl:'https://api.cerebras.ai/v1',key:env.CEREBRAS_API_KEY,model:String(env.CEREBRAS_MODEL||'gpt-oss-120b'),system,input})},
     {id:'openrouter_free',ready:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free'),run:()=>callOpenAiCompatible(env,{provider:'openrouter_free',baseUrl:'https://openrouter.ai/api/v1',key:env.OPENROUTER_API_KEY,model:String(env.OPENROUTER_MODEL),system,input})}
   ];
   for(const provider of providers){
@@ -637,11 +637,11 @@ export async function onRequest({ request, env }) {
       const providers={
         gemini:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',
         cloudflare_ai:!!env.AI,
+        gemma_hosted:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',
         groq:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',
-        cerebras:!!env.CEREBRAS_API_KEY&&String(env.CEREBRAS_FREE_ONLY||'').toLowerCase()==='true',
         openrouter_free:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free')
       };
-      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,memory,provider_order:['gemini','cloudflare_ai','groq','cerebras','openrouter_free'],model:String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it')});
+      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,memory,provider_order:['gemini','cloudflare_ai','gemma_hosted','groq','openrouter_free'],model:String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it')});
     }
     if (path === 'ai-room/memory' && method === 'GET') {
       await ensureAiRoomTables(env);
