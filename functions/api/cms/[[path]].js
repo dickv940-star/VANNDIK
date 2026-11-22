@@ -410,33 +410,28 @@ const AI_ROOM_AGENTS = {
   editor: {name:'Lucas · Quality Editor',role:'Penyunting & quality control',prompt:'Anda adalah Quality Editor VANNDIK. Periksa akurasi, kelengkapan, gaya bahasa, risiko klaim berlebihan, konsistensi dan rekomendasikan perbaikan.'}
 };
 async function callAiRoomProvider(env, provider, messages, agent) {
+  if (provider !== 'openai') throw new Error('VANNDIK hanya mengizinkan OpenAI untuk AI Agent Room.');
+  if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY belum dipasang pada Cloudflare Pages Secrets.');
   const system = 'Anda adalah '+agent.name+', '+agent.role+' di VANNDIK. '+agent.prompt+'\n\nAturan: jawab dalam Bahasa Indonesia kecuali diminta lain; bersikap profesional dan kolaboratif; jangan mengklaim sudah mengubah database, menerbitkan konten, mengirim pesan, atau menjalankan tindakan yang belum dilakukan oleh tool; jangan meminta atau menampilkan rahasia; semua publikasi memerlukan persetujuan direktur.';
-  const recent = messages.slice(-12);
-  if (provider === 'gemini' && env.GEMINI_API_KEY) {
-    const contents = recent.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:(m.role==='assistant'?'':(m.agent_id==='team'?'':('Pesan untuk '+(AI_ROOM_AGENTS[m.agent_id]?.name||'agen')+': ')))+m.content}]}));
-    const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+encodeURIComponent(env.GEMINI_API_KEY),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents,generationConfig:{temperature:0.45,maxOutputTokens:1400}}),signal:AbortSignal.timeout(25000)});
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error('Gemini: '+String(data.error?.message||response.status).slice(0,180));
-    const answer=(data.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('').trim();
-    if(!answer)throw new Error('Gemini tidak mengembalikan jawaban.');
-    return answer;
+  const input = messages.slice(-12).map(m => ({
+    role: m.role === 'assistant' ? 'assistant' : 'user',
+    content: (m.role === 'assistant' ? '' : (m.agent_id === 'team' ? '' : 'Pesan untuk '+(AI_ROOM_AGENTS[m.agent_id]?.name || 'agen')+': ')) + m.content
+  }));
+  const model = String(env.OPENAI_MODEL || 'gpt-6.2-sol').trim();
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {'content-type':'application/json','authorization':'Bearer '+env.OPENAI_API_KEY},
+    body: JSON.stringify({model,instructions:system,input,max_output_tokens:1400}),
+    signal: AbortSignal.timeout(45000)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = String(data.error?.message || 'HTTP '+response.status).slice(0,220);
+    throw new Error('OpenAI API: '+message);
   }
-  if (provider === 'cloudflare' && env.AI && typeof env.AI.run==='function') {
-    const prompt=[system,...recent.map(m=>(m.role==='assistant'?'AGEN':'DIREKTUR')+': '+m.content),'AGEN:'].join('\n\n');
-    const result=await env.AI.run('@cf/google/gemma-4-26b-a4b-it',{prompt,max_tokens:1400,temperature:0.45,top_p:0.85});
-    const answer=String(result?.response||result?.result?.response||'').trim();
-    if(!answer)throw new Error('Cloudflare Workers AI tidak mengembalikan jawaban.');
-    return answer;
-  }
-  if (provider === 'groq' && env.GROQ_API_KEY) {
-    const response=await fetch('https://api.groq.com/openai/v1/chat/completions',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+env.GROQ_API_KEY},body:JSON.stringify({model:'llama-3.3-70b-versatile',temperature:0.45,max_tokens:1400,messages:[{role:'system',content:system},...recent.map(m=>({role:m.role==='assistant'?'assistant':'user',content:m.content}))]}),signal:AbortSignal.timeout(25000)});
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error('Groq: '+String(data.error?.message||response.status).slice(0,180));
-    const answer=String(data.choices?.[0]?.message?.content||'').trim();
-    if(!answer)throw new Error('Groq tidak mengembalikan jawaban.');
-    return answer;
-  }
-  throw new Error('Provider '+provider+' belum dikonfigurasi.');
+  const answer = (data.output || []).flatMap(item => item.content || []).filter(part => part.type === 'output_text').map(part => part.text || '').join('').trim();
+  if (!answer) throw new Error('OpenAI tidak mengembalikan teks jawaban.');
+  return {answer,model};
 }
 
 export async function onRequest({ request, env }) {
@@ -520,8 +515,8 @@ export async function onRequest({ request, env }) {
     if (path === 'ai-room/messages' && method === 'GET') {
       await ensureAiRoomTables(env);
       const rows=await env.CMS_DB.prepare('SELECT id,role,agent_id,content,provider,created_at FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all();
-      const providers={gemini:!!env.GEMINI_API_KEY,cloudflare:!!(env.AI&&typeof env.AI.run==='function'),groq:!!env.GROQ_API_KEY};
-      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS});
+      const providers={openai:!!env.OPENAI_API_KEY};
+      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,model:String(env.OPENAI_MODEL||'gpt-6.2-sol')});
     }
     if (path === 'ai-room/messages' && method === 'DELETE') {
       await ensureAiRoomTables(env);
@@ -539,20 +534,16 @@ export async function onRequest({ request, env }) {
       if(!quota.meta?.changes)return json({error:'Batas aman ruang AI tercapai: maksimal 20 pesan per hari. Kuota lokal reset pukul 00.00 UTC. Kuota provider gratis juga berlaku.'},429);
       const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
-      const providers=['gemini','cloudflare','groq'];let answer='',used='',errors=[];
-      for(const provider of providers){
-        const configured=(provider==='gemini'&&!!env.GEMINI_API_KEY)||(provider==='cloudflare'&&!!(env.AI&&typeof env.AI.run==='function'))||(provider==='groq'&&!!env.GROQ_API_KEY);
-        if(!configured)continue;
-        try{answer=await callAiRoomProvider(env,provider,conversation,agent);used=provider;break;}
-        catch(error){errors.push(String(error?.message||provider+' gagal').slice(0,220));}
-      }
-      if(!answer)return json({error:'Belum ada LLM yang berhasil menjawab. Periksa binding Workers AI dan secrets GEMINI_API_KEY / GROQ_API_KEY. '+(errors.join(' | ')||'Tidak ada provider yang dikonfigurasi.')},503);
+      let answer='',used='openai',model='';
+      try{const result=await callAiRoomProvider(env,'openai',conversation,agent);answer=result.answer;model=result.model;}
+      catch(error){return json({error:String(error?.message||'OpenAI API gagal').slice(0,350)},503);}
+      if(!answer)return json({error:'OpenAI tidak mengembalikan jawaban.'},503);
       const userId=uid(),assistantId=uid();
       await env.CMS_DB.batch([
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',agentId,answer,used)
       ]);
-      await audit(env,admin,'ai.room.message','ai-room',assistantId,{agent:agentId,provider:used});
+      await audit(env,admin,'ai.room.message','ai-room',assistantId,{agent:agentId,provider:used,model});
       return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used});
     }
 
