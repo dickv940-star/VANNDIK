@@ -463,7 +463,7 @@ function parseAiRoomReply(raw, requestedAgentId) {
   return {answer,speakerId};
 }
 function aiRoomConversation(messages) {
-  return messages.slice(-14).map(m => ({
+  return messages.filter(m => m.role === 'user' || m.role === 'assistant').slice(-14).map(m => ({
     role:m.role === 'assistant' ? 'assistant' : 'user',
     content:m.role === 'assistant'
       ? '['+(AI_ROOM_AGENTS[m.agent_id]?.name || 'Karyawan AI')+'] '+m.content
