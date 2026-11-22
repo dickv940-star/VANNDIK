@@ -117,8 +117,8 @@ The AI Agent Room supports ordered provider failover. External providers are dis
 Provider order:
 1. Gemini: `GEMINI_API_KEY` secret, `GEMINI_FREE_ONLY=true` variable, optional `GEMINI_MODEL`.
 2. Cloudflare Workers AI: existing `AI` binding, optional `CF_AI_MODEL` (default `@cf/google/gemma-4-26b-a4b-it`).
-3. Groq: `GROQ_API_KEY` secret, `GROQ_FREE_ONLY=true` variable, optional `GROQ_MODEL`.
-4. Cerebras: `CEREBRAS_API_KEY` secret, `CEREBRAS_FREE_ONLY=true` variable, optional `CEREBRAS_MODEL`.
+3. Hosted Gemma endpoint: `GEMMA_API_URL`, `GEMMA_API_KEY` secrets, `GEMMA_FREE_ONLY=true` variable, optional `GEMMA_MODEL`. The endpoint must be OpenAI Chat Completions-compatible and confirmed free.
+4. Groq: `GROQ_API_KEY` secret, `GROQ_FREE_ONLY=true` variable, optional `GROQ_MODEL`.
 5. OpenRouter free model: `OPENROUTER_API_KEY` secret, `OPENROUTER_FREE_ONLY=true` variable, and `OPENROUTER_MODEL` ending in `:free`.
 
 Never configure a paid-only model or enable a provider unless its account is confirmed to have a free allocation. No OpenAI API is called by this failover chain. ChatGPT subscriptions do not provide OpenAI API credits.
