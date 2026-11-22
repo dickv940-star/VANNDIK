@@ -413,14 +413,16 @@ const AI_ROOM_AGENTS = {
   catalog: {name:'Rafi · Product & Catalog Manager',role:'Produk affiliate, game & aplikasi',prompt:'Anda adalah Product & Catalog Manager VANNDIK. Bertanggung jawab pada katalog produk affiliate, game, aplikasi/tools, kategori, kelengkapan data, duplikasi dan status verifikasi. Produk tidak terverifikasi tidak boleh dipublikasikan.'},
   web: {name:'Nadia · Web Experience Manager',role:'Tema, halaman, navigasi & bahasa',prompt:'Anda adalah Web Experience Manager VANNDIK. Bertanggung jawab pada tema global/per halaman, halaman, navigasi, bahasa, responsivitas dan pengalaman pengunjung. Perubahan desain produksi perlu persetujuan bila berdampak luas.'}
 };
-async function callAiRoomProvider(env, provider, messages, requestedAgentId) {
-  if (provider !== 'openai') throw new Error('VANNDIK hanya mengizinkan OpenAI untuk AI Agent Room.');
-  if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY belum dipasang pada Cloudflare Pages Secrets.');
+async function callAiRoomProvider(env, messages, requestedAgentId) {
+  if (!env.AI || typeof env.AI.run !== 'function') {
+    throw new Error('Cloudflare Workers AI belum terhubung. Periksa binding AI pada Cloudflare Pages.');
+  }
+  const model = String(env.CF_AI_MODEL || '@cf/google/gemma-4-26b-a4b-it').trim();
   const roster = Object.entries(AI_ROOM_AGENTS).map(([id,a]) => ({id,name:a.name,role:a.role,expertise:a.prompt}));
   const now = new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',dateStyle:'full',timeStyle:'long'}).format(new Date());
   const locked = requestedAgentId !== 'team';
   const system = [
-    'Anda adalah mesin orkestrasi percakapan grup kantor VANNDIK. Semua agen menggunakan kemampuan penalaran LLM OpenAI yang sama, tetapi setiap agen memiliki identitas, pengetahuan kerja, tanggung jawab, dan gaya penilaian sendiri.',
+    'Anda adalah mesin orkestrasi percakapan grup kantor VANNDIK. Semua agen menggunakan kemampuan model AI yang sama, tetapi setiap agen memiliki identitas, pengetahuan kerja, tanggung jawab, dan gaya penilaian sendiri.',
     'WAKTU SEKARANG: '+now+' (WIB, Asia/Jakarta). Pahami konteks waktu ini untuk kata seperti hari ini, besok, sudah terlambat, dan jadwal.',
     'DAFTAR KARYAWAN: '+JSON.stringify(roster),
     locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara pada giliran ini.' : 'Direktur berbicara kepada grup/Tim VANNDIK. Pilih TEPAT SATU agen paling relevan untuk menjawab. Tim VANNDIK boleh dipilih bila koordinasi lintas divisi atau pembagian tugas paling tepat. Jangan membuat semua agen menjawab.',
@@ -429,7 +431,7 @@ async function callAiRoomProvider(env, provider, messages, requestedAgentId) {
     'BERPIKIR: tangkap pola, pahami gambaran besar dan dampak lintas divisi, cari akar masalah, ajukan pertanyaan tajam bila informasi penting belum ada, sederhanakan hal teknis, pertimbangkan alternatif, proaktif dan adaptif. Jangan asal setuju.',
     'KOMUNIKASI: Bahasa Indonesia yang alami, hangat, profesional, seperti rekan kerja yang cakap—bukan template, bukan bahasa robot, tidak selalu memakai daftar. Jawab sesuai kebutuhan dan jangan terlalu panjang tanpa alasan.',
     'KEJUJURAN: bedakan fakta, dugaan, dan rekomendasi. Jangan mengaku telah mencari internet, membaca data, mengubah CMS/database, menerbitkan konten, atau menjalankan tindakan jika belum ada tool yang benar-benar melakukannya. Jangan meminta/menampilkan rahasia. Publikasi dan tindakan berisiko tetap memerlukan persetujuan Direktur.',
-    'KELUARAN WAJIB JSON valid saja dengan bentuk {"speaker_id":"id_agen","message":"isi jawaban natural"}. speaker_id harus salah satu ID dalam daftar karyawan. Jangan gunakan markdown fence.'
+    'FORMAT KELUARAN: balas hanya dengan satu objek JSON valid berbentuk {"speaker_id":"id_agen","message":"isi jawaban natural"}. speaker_id harus salah satu ID dalam daftar karyawan. Jangan gunakan markdown fence atau teks di luar JSON.'
   ].join('\n\n');
   const input = messages.slice(-14).map(m => ({
     role: m.role === 'assistant' ? 'assistant' : 'user',
@@ -437,28 +439,26 @@ async function callAiRoomProvider(env, provider, messages, requestedAgentId) {
       ? '['+(AI_ROOM_AGENTS[m.agent_id]?.name || 'Karyawan AI')+'] '+m.content
       : (m.agent_id === 'team' ? '[Direktur berbicara ke grup] ' : '[Direktur memanggil '+(AI_ROOM_AGENTS[m.agent_id]?.name || 'agen')+'] ')+m.content
   }));
-  // The Responses API requires the word JSON in the input when json_object output mode is enabled.
-  const lastUserMessage = [...input].reverse().find(message => message.role === 'user');
-  if (lastUserMessage) lastUserMessage.content += '\n\nFormat keluaran wajib: JSON.';
-  const model = String(env.OPENAI_MODEL || 'gpt-6.2-sol').trim();
-  const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {'content-type':'application/json','authorization':'Bearer '+env.OPENAI_API_KEY},
-    body: JSON.stringify({model,instructions:system,input,reasoning:{effort:'low'},text:{format:{type:'json_object'}},max_output_tokens:2400,store:false}),
-    signal: AbortSignal.timeout(45000)
+  const result = await env.AI.run(model, {
+    messages: [{role:'system',content:system}, ...input],
+    max_tokens: 1400,
+    temperature: 0.35
   });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const message = String(data.error?.message || 'HTTP '+response.status).slice(0,220);
-    throw new Error('OpenAI API: '+message);
+  const raw = String(result?.response || result?.output_text || '').trim();
+  if (!raw) throw new Error('Cloudflare Workers AI tidak mengembalikan jawaban. Coba kirim ulang.');
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
   }
-  const raw = (data.output || []).flatMap(item => item.content || []).filter(part => part.type === 'output_text').map(part => part.text || '').join('').trim();
-  if (!raw) { const reason=data.incomplete_details?.reason||data.status||'tanpa detail'; throw new Error('OpenAI tidak mengembalikan teks jawaban (status: '+reason+').'); }
-  let result;
-  try { result = JSON.parse(raw); } catch { throw new Error('Format respons orkestrasi AI tidak valid. Silakan kirim ulang.'); }
-  const speakerId = locked ? requestedAgentId : String(result.speaker_id || 'team');
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error('Format jawaban AI tidak valid. Coba kirim ulang dengan instruksi lebih singkat.');
+  }
+  const speakerId = locked ? requestedAgentId : String(parsed.speaker_id || 'team');
   if (!AI_ROOM_AGENTS[speakerId]) throw new Error('Orkestrator memilih agen yang tidak dikenal.');
-  const answer = String(result.message || '').trim();
+  const answer = String(parsed.message || '').trim();
   if (!answer) throw new Error('Agen tidak mengembalikan jawaban.');
   return {answer,model,speakerId};
 }
@@ -543,8 +543,8 @@ export async function onRequest({ request, env }) {
     if (path === 'ai-room/messages' && method === 'GET') {
       await ensureAiRoomTables(env);
       const rows=await env.CMS_DB.prepare('SELECT id,role,agent_id,content,provider,created_at FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all();
-      const providers={openai:!!env.OPENAI_API_KEY};
-      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,model:String(env.OPENAI_MODEL||'gpt-6.2-sol')});
+      const providers={cloudflare_ai:!!env.AI};
+      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,model:String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it')});
     }
     if (path === 'ai-room/messages' && method === 'DELETE') {
       await ensureAiRoomTables(env);
@@ -562,10 +562,10 @@ export async function onRequest({ request, env }) {
       if(!quota.meta?.changes)return json({error:'Batas aman ruang AI tercapai: maksimal 20 pesan per hari. Kuota lokal reset pukul 00.00 UTC. Kuota provider gratis juga berlaku.'},429);
       const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
-      let answer='',used='openai',model='';
-      try{const result=await callAiRoomProvider(env,'openai',conversation,agentId);answer=result.answer;model=result.model;var speakerId=result.speakerId;}
-      catch(error){try{await env.CMS_DB.prepare('UPDATE cms_ai_room_usage SET jobs=CASE WHEN jobs>0 THEN jobs-1 ELSE 0 END WHERE admin_id=? AND day=?').bind(admin.id,day).run();}catch{}return json({error:String(error?.message||'OpenAI API gagal').slice(0,350)},503);}
-      if(!answer)return json({error:'OpenAI tidak mengembalikan jawaban.'},503);
+      let answer='',used='cloudflare_ai',model='';
+      try{const result=await callAiRoomProvider(env,conversation,agentId);answer=result.answer;model=result.model;var speakerId=result.speakerId;}
+      catch(error){try{await env.CMS_DB.prepare('UPDATE cms_ai_room_usage SET jobs=CASE WHEN jobs>0 THEN jobs-1 ELSE 0 END WHERE admin_id=? AND day=?').bind(admin.id,day).run();}catch{}const detail=String(error?.message||'Cloudflare Workers AI gagal');const friendly=/quota|daily limit|neurons|rate.?limit|capacity|429|3040/i.test(detail)?'Kuota harian atau kapasitas Cloudflare Workers AI sedang habis. Coba lagi setelah kuota reset atau beberapa saat lagi.':'AI Agent Room: '+detail;return json({error:friendly.slice(0,350)},503);}
+      if(!answer)return json({error:'Cloudflare Workers AI tidak mengembalikan jawaban.'},503);
       const userId=uid(),assistantId=uid();
       await env.CMS_DB.batch([
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
