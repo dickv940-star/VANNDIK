@@ -502,9 +502,25 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory) {
     {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input)},
     {id:'cloudflare_ai',ready:!!env.AI&&typeof env.AI.run==='function',run:async()=>{
       const model=String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it').trim();
-      const result=await env.AI.run(model,{messages:[{role:'system',content:system},...input],max_tokens:1400,temperature:0.35});
-      const raw=String(result?.response||result?.output_text||'').trim();
-      if(!raw) throw new Error('Cloudflare Workers AI tidak mengembalikan jawaban.');
+      // Gemma 4 enables its reasoning mode by default. Disable it for this
+      // short synchronous chat turn so the token budget is used for the answer.
+      const result=await env.AI.run(model,{
+        messages:[{role:'system',content:system},...input],
+        max_tokens:1800,
+        temperature:0.35,
+        chat_template_kwargs:{enable_thinking:false}
+      });
+      const raw=String(
+        result?.response ??
+        result?.output_text ??
+        result?.choices?.[0]?.message?.content ??
+        result?.result?.response ??
+        ''
+      ).trim();
+      if(!raw) {
+        const keys=result&&typeof result==='object'?Object.keys(result).join(', '):typeof result;
+        throw new Error('Cloudflare Workers AI mengembalikan respons kosong (struktur: '+(keys||'tanpa field')+').');
+      }
       return {raw,model,provider:'cloudflare_ai'};
     }},
     {id:'gemma_hosted',ready:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'gemma_hosted',baseUrl:String(env.GEMMA_API_URL),key:env.GEMMA_API_KEY,model:String(env.GEMMA_MODEL||'google/gemma-3-27b-it'),system,input})},
