@@ -902,7 +902,9 @@ const pageTitle = 'VANNDIK CMS';
     async function loadSettings(){const data=await api('settings');settingsCache=data.settings||{};return settingsCache;}
     async function saveSettings(settings){await api('settings',{method:'PUT',body:JSON.stringify({settings})});Object.assign(settingsCache,Object.fromEntries(Object.entries(settings).map(([k,v])=>[k,typeof v==='string'?v:JSON.stringify(v)])));notify('Pengaturan berhasil disimpan.');}
 
+    let aiRoomPollTimer=null;
     async function renderAiRoom(){
+      if(aiRoomPollTimer)clearInterval(aiRoomPollTimer);
       const agents=[
         {id:'team',name:'Tim VANNDIK',role:'Chief of Staff · Koordinator semua divisi',icon:'✦'},
         {id:'sysadmin',name:'Arka',role:'System Administrator · Infrastruktur & keamanan',icon:'⌘'},
@@ -945,6 +947,11 @@ const pageTitle = 'VANNDIK CMS';
       input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}});
       $('#aiRoomClear').addEventListener('click',async()=>{if(!confirm('Hapus seluruh riwayat percakapan AI Agent Room?'))return;try{await api('ai-room/messages',{method:'DELETE',body:'{}'});drawMessages([]);notify('Riwayat percakapan dihapus.');}catch(e){notify(e.message,true);}});
       loadRoom();
+      // Retry worker runs every five minutes; refresh the room periodically so completed replies appear without a manual reload.
+      aiRoomPollTimer=setInterval(()=>{
+        if(!document.getElementById('aiRoomMessages')){clearInterval(aiRoomPollTimer);aiRoomPollTimer=null;return;}
+        if(!busy)loadRoom();
+      },15000);
     }
 
     async function renderThemes(){
