@@ -46,6 +46,10 @@ const pageTitle = 'VANNDIK CMS';
       <nav id="mainNav" aria-label="Navigasi CMS">
         <button class="nav-item active" data-view="overview"><span>⌂</span><span class="nav-copy">Ringkasan<small>Dashboard utama</small></span></button>
         <div class="nav-section">
+          <div class="side-label nav-group-label">AI WORKSPACE</div>
+          <button class="nav-item" data-view="airoom"><span>✦</span><span class="nav-copy">AI Agent Room<small>Ruang diskusi karyawan AI</small></span></button>
+        </div>
+        <div class="nav-section">
           <div class="side-label nav-group-label">POSTINGAN</div>
           <button class="nav-item" data-view="article"><span>▤</span><span class="nav-copy">Artikel<small>Semua postingan</small></span><em id="nav-article">0</em></button>
           <button class="nav-item" data-view="news"><span>◷</span><span class="nav-copy">Berita<small>Update & informasi</small></span><em id="nav-news">0</em></button>
@@ -478,6 +482,9 @@ const pageTitle = 'VANNDIK CMS';
     .affiliate-empty{grid-column:1/-1;display:grid;justify-items:center;gap:9px;padding:48px 18px;border:1px dashed #344761;border-radius:10px;background:#101a2a;text-align:center}.affiliate-empty>span{color:#69baff;font-size:30px}.affiliate-empty b{color:#e7f0ff;font:700 13px Manrope}.affiliate-empty p{max-width:430px;margin:0 0 7px;color:#8fa2bc;font-size:10px;line-height:1.7}
     @media(max-width:1050px){.affiliate-product-grid{grid-template-columns:1fr}.affiliate-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:760px){.affiliate-head{align-items:flex-start;flex-direction:column}.affiliate-head .blogger-create{width:100%}.affiliate-toolbar{align-items:stretch;flex-direction:column}.affiliate-toolbar .blogger-search{width:100%}.affiliate-product-card{grid-template-columns:112px minmax(0,1fr);gap:11px;padding:10px}.affiliate-product-visual,.affiliate-product-image,.affiliate-product-placeholder{min-height:138px}.affiliate-product-info h3{font-size:11px}.affiliate-updated{display:none}.affiliate-summary{gap:8px}.affiliate-summary article{padding:13px}.affiliate-summary article b{font-size:23px}}
+
+    .ai-room{display:grid;grid-template-columns:245px minmax(0,1fr);gap:14px;min-height:620px}.ai-room-side,.ai-room-chat{background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}.ai-room-side{padding:15px}.ai-room-side h3{font:700 12px Manrope;margin:2px 0 12px}.ai-agent{display:flex;align-items:center;gap:10px;width:100%;padding:10px;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--text);text-align:left;margin:3px 0}.ai-agent:hover,.ai-agent.active{background:#12213a;border-color:#28466d}.ai-agent .ai-avatar{display:grid;place-items:center;width:31px;height:31px;flex:none;border-radius:9px;background:#173b6b;color:#8edcff;font-weight:800}.ai-agent b{display:block;font-size:11px}.ai-agent small{display:block;color:var(--muted);font-size:9px;margin-top:3px}.ai-room-status{font-size:9px;line-height:1.8;color:var(--muted);padding:12px 4px 0}.ai-room-chat{display:flex;flex-direction:column;min-height:620px;overflow:hidden}.ai-room-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:15px 17px;border-bottom:1px solid var(--line)}.ai-room-head h2{font:700 15px Manrope;margin:0}.ai-room-head p{font-size:10px;color:var(--muted);margin:5px 0 0}.ai-room-messages{display:flex;flex-direction:column;gap:12px;padding:18px;flex:1;min-height:350px;max-height:560px;overflow:auto}.ai-room-msg{max-width:min(820px,94%);padding:12px 14px;border:1px solid #26354c;border-radius:9px;background:#0b1422;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font-size:12px}.ai-room-msg.user{align-self:flex-end;background:#10264a;border-color:#28538b}.ai-room-msg.assistant{align-self:flex-start}.ai-room-msg .msg-meta{font-size:9px;color:#91a7c4;margin-bottom:6px}.ai-room-msg p{margin:0}.ai-room-compose{padding:13px;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px}.ai-room-compose textarea{width:100%;min-height:70px;max-height:180px;resize:vertical;background:#080e19;border:1px solid #2b3850;border-radius:7px;padding:11px;color:var(--text);outline:none}.ai-room-compose button,.ai-room-clear{border:0;border-radius:7px;background:#1769ff;color:#fff;padding:0 17px;font-weight:700}.ai-room-clear{background:transparent;border:1px solid var(--line);padding:7px 10px;font-size:10px}.ai-provider-line{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.ai-provider-pill{font-size:9px;border:1px solid var(--line);border-radius:20px;padding:4px 8px;color:var(--muted)}.ai-provider-pill.ready{color:#7ce7b0;border-color:#286b4d}.ai-room-empty{margin:auto;text-align:center;max-width:430px;color:var(--muted);line-height:1.7;padding:35px}.ai-room-empty b{display:block;color:var(--text);font:700 16px Manrope;margin-bottom:8px}@media(max-width:850px){.ai-room{grid-template-columns:1fr}.ai-room-side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px}.ai-room-side h3,.ai-room-status{grid-column:1/-1}.ai-room-chat{min-height:540px}}@media(max-width:520px){.ai-room-side{grid-template-columns:1fr 1fr}.ai-room-compose{grid-template-columns:1fr}.ai-room-compose button{min-height:42px}.ai-room-head{align-items:flex-start}}
+
   </style>
 
   <script>
@@ -500,7 +507,7 @@ const pageTitle = 'VANNDIK CMS';
     });
     const authScreen = $('#authScreen'), appShell = $('#appShell'), authMessage = $('#authMessage');
     const view = $('#view'), modalRoot = $('#modalRoot'), toastEl = $('#toast');
-    const labels = {overview:'Ringkasan',article:'Artikel',news:'Berita',product:'Produk Affiliate',game:'Game',app:'Aplikasi & Tools',themes:'Tema & Tampilan',pages:'Halaman & Navigasi',media:'Media Library',backup:'Backup & Restore',security:'Keamanan Admin'};
+    const labels = {overview:'Ringkasan',article:'Artikel',news:'Berita',product:'Produk Affiliate',game:'Game',app:'Aplikasi & Tools',themes:'Tema & Tampilan',pages:'Halaman & Navigasi',media:'Media Library',backup:'Backup & Restore',security:'Keamanan Admin',airoom:'VANNDIK AI Agent Room'};
     let currentAdmin = null, currentType = 'article', settingsCache = {}, installPrompt = null, toastTimer;
 
     async function api(path, options = {}) {
@@ -588,6 +595,7 @@ const pageTitle = 'VANNDIK CMS';
       else if (name === 'media') renderMedia();
       else if (name === 'backup') renderBackup();
       else if (name === 'security') renderSecurity();
+      else if (name === 'airoom') renderAiRoom();
     }
     $$( '#mainNav [data-view]' ).forEach(button => button.addEventListener('click',()=>openView(button.dataset.view)));
     $('#sidebarCreate').addEventListener('click',()=>{openView('article');openEditor('article');});
@@ -892,6 +900,28 @@ const pageTitle = 'VANNDIK CMS';
     function parseSetting(key,fallback={}) { try{return JSON.parse(settingsCache[key]||'');}catch{return fallback;} }
     async function loadSettings(){const data=await api('settings');settingsCache=data.settings||{};return settingsCache;}
     async function saveSettings(settings){await api('settings',{method:'PUT',body:JSON.stringify({settings})});Object.assign(settingsCache,Object.fromEntries(Object.entries(settings).map(([k,v])=>[k,typeof v==='string'?v:JSON.stringify(v)])));notify('Pengaturan berhasil disimpan.');}
+
+    async function renderAiRoom(){
+      const agents=[
+        {id:'team',name:'Tim VANNDIK',role:'Koordinator seluruh agen',icon:'✦'},
+        {id:'researcher',name:'Ethan',role:'Research & verifikasi',icon:'R'},
+        {id:'writer',name:'Sophia',role:'Content Writer',icon:'W'},
+        {id:'seo',name:'Daniel',role:'SEO Specialist',icon:'S'},
+        {id:'analyst',name:'Isabella',role:'Data Analyst',icon:'A'},
+        {id:'editor',name:'Lucas',role:'Quality Editor',icon:'Q'}
+      ];
+      let activeAgent='team',busy=false;
+      view.innerHTML='<div class="page-head"><div><div class="eyebrow">AI WORKSPACE · MULTI-AGENT</div><h1>VANNDIK AI Agent Room</h1><p>Ruang komunikasi langsung dengan tim AI. Perintah diproses melalui LLM yang tersedia dan kuota gratisnya.</p></div></div><div class="ai-room"><aside class="ai-room-side"><h3>RUANG DISKUSI</h3><div id="aiAgentList"></div><div class="ai-room-status" id="aiProviderStatus">Memeriksa koneksi LLM...</div></aside><section class="ai-room-chat"><header class="ai-room-head"><div><h2 id="aiRoomTitle">Tim VANNDIK</h2><p id="aiRoomSubtitle">Diskusi bersama seluruh karyawan AI</p><div class="ai-provider-line" id="aiProviderPills"></div></div><button class="ai-room-clear" id="aiRoomClear" type="button">Hapus riwayat</button></header><div class="ai-room-messages" id="aiRoomMessages"><div class="ai-room-empty"><b>Selamat datang di AI Agent Room</b>Tulis instruksi atau pertanyaan Anda. Pilih Tim VANNDIK untuk koordinasi umum atau hubungi agen tertentu.</div></div><form class="ai-room-compose" id="aiRoomForm"><textarea id="aiRoomInput" maxlength="3000" placeholder="Tulis perintah untuk tim AI VANNDIK..." required></textarea><button id="aiRoomSend" type="submit">Kirim perintah ↗</button></form></section></div>';
+      const agentList=$('#aiAgentList'),messagesEl=$('#aiRoomMessages'),input=$('#aiRoomInput'),send=$('#aiRoomSend');
+      const esc=escapeHTML;
+      function drawAgents(){agentList.innerHTML=agents.map(a=>'<button type="button" class="ai-agent '+(a.id===activeAgent?'active':'')+'" data-agent="'+a.id+'"><span class="ai-avatar">'+a.icon+'</span><span><b>'+esc(a.name)+'</b><small>'+esc(a.role)+'</small></span></button>').join('');$('[data-agent]',agentList).forEach(btn=>btn.addEventListener('click',()=>{activeAgent=btn.dataset.agent;const a=agents.find(x=>x.id===activeAgent);drawAgents();$('#aiRoomTitle').textContent=a.name;$('#aiRoomSubtitle').textContent=a.role;input.placeholder='Tulis pesan untuk '+a.name+'...';}));}
+      function drawMessages(items){if(!items.length){messagesEl.innerHTML='<div class="ai-room-empty"><b>Belum ada percakapan</b>Mulai dengan menyapa tim atau berikan tugas pertama Anda.</div>';return;}messagesEl.innerHTML=items.map(m=>{const agent=agents.find(a=>a.id===m.agent_id)||agents[0];const who=m.role==='user'?'Direktur VANNDIK':agent.name;const provider=m.provider?(' · '+m.provider.toUpperCase()):'';return '<article class="ai-room-msg '+(m.role==='user'?'user':'assistant')+'"><div class="msg-meta">'+esc(who)+esc(provider)+'</div><p>'+esc(m.content)+'</p></article>';}).join('');messagesEl.scrollTop=messagesEl.scrollHeight;}
+      async function loadRoom(){try{const data=await api('ai-room/messages');drawMessages(data.messages||[]);const names={gemini:'Gemini',cloudflare:'Cloudflare AI',groq:'Groq'};$('#aiProviderPills').innerHTML=Object.entries(data.providers||{}).map(([key,ready])=>'<span class="ai-provider-pill '+(ready?'ready':'')+'">'+(ready?'● ':'○ ')+names[key]+'</span>').join('');const ready=Object.values(data.providers||{}).some(Boolean);$('#aiProviderStatus').textContent=ready?'LLM terhubung jika kuota tersedia. Urutan: Gemini → Cloudflare → Groq.':'Belum ada provider aktif. Tambahkan binding Workers AI atau secrets GEMINI_API_KEY / GROQ_API_KEY.';}catch(e){$('#aiProviderStatus').textContent=e.message;}}
+      drawAgents();await loadRoom();
+      $('#aiRoomForm').addEventListener('submit',async event=>{event.preventDefault();const message=input.value.trim();if(!message||busy)return;busy=true;send.disabled=true;send.textContent='Memproses...';input.disabled=true;const local=[...messagesEl.querySelectorAll('.ai-room-msg')];const optimistic=messagesEl.innerHTML;messagesEl.innerHTML=optimistic+(optimistic.includes('ai-room-empty')?'':'')+'<article class="ai-room-msg user"><div class="msg-meta">Direktur VANNDIK</div><p>'+esc(message)+'</p></article><article class="ai-room-msg assistant"><div class="msg-meta">Tim AI</div><p>Memproses instruksi melalui LLM yang tersedia...</p></article>';messagesEl.scrollTop=messagesEl.scrollHeight;try{await api('ai-room/messages',{method:'POST',body:JSON.stringify({message,agentId:activeAgent})});input.value='';await loadRoom();}catch(e){notify(e.message,true);await loadRoom();}finally{busy=false;send.disabled=false;send.textContent='Kirim perintah ↗';input.disabled=false;input.focus();}});
+      $('#aiRoomClear').addEventListener('click',async()=>{if(!confirm('Hapus seluruh riwayat percakapan AI Agent Room?'))return;try{await api('ai-room/messages',{method:'DELETE',body:'{}'});drawMessages([]);notify('Riwayat percakapan dihapus.');}catch(e){notify(e.message,true);}});
+    }
+
     async function renderThemes(){
       try{await loadSettings();}catch(e){notify(e.message,true);}
       const global=parseSetting('theme.global',{mode:'dark',primary:'#1769FF',accent:'#42D9FF',background:'#05060A'});
