@@ -399,6 +399,10 @@ function verifiedAffiliateProduct(item){
 async function ensureAiRoomTables(env) {
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_messages (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, role TEXT NOT NULL, agent_id TEXT NOT NULL DEFAULT 'team', content TEXT NOT NULL, provider TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_admin_created ON cms_ai_room_messages(admin_id,created_at)").run();
+  const messageColumns=await env.CMS_DB.prepare('PRAGMA table_info(cms_ai_room_messages)').all();
+  const messageColumnNames=new Set((messageColumns.results||[]).map(column=>column.name));
+  if(!messageColumnNames.has('model'))await env.CMS_DB.prepare("ALTER TABLE cms_ai_room_messages ADD COLUMN model TEXT NOT NULL DEFAULT ''").run();
+  if(!messageColumnNames.has('task_tier'))await env.CMS_DB.prepare("ALTER TABLE cms_ai_room_messages ADD COLUMN task_tier TEXT NOT NULL DEFAULT ''").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_memory (memory_key TEXT PRIMARY KEY, memory_value TEXT NOT NULL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_jobs (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, agent_id TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0, next_retry_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_jobs_due ON cms_ai_room_jobs(status,next_retry_at)").run();
@@ -428,7 +432,34 @@ const AI_ROOM_AGENTS = {
   catalog: {name:'Rafi · Product & Catalog Manager',role:'Produk affiliate, game & aplikasi',prompt:'Anda adalah Product & Catalog Manager VANNDIK. Bertanggung jawab pada katalog produk affiliate, game, aplikasi/tools, kategori, kelengkapan data, duplikasi dan status verifikasi. Produk tidak terverifikasi tidak boleh dipublikasikan.'},
   web: {name:'Nadia · Web Experience Manager',role:'Tema, halaman, navigasi & bahasa',prompt:'Anda adalah Web Experience Manager VANNDIK. Bertanggung jawab pada tema global/per halaman, halaman, navigasi, bahasa, responsivitas dan pengalaman pengunjung. Perubahan desain produksi perlu persetujuan bila berdampak luas.'}
 };
-function buildAiRoomSystem(requestedAgentId, memory) {
+function classifyAiRoomTask(message, requestedAgentId='team') {
+  const text=String(message||'').trim();
+  const lower=text.toLocaleLowerCase('id-ID');
+  const workPattern=/(buatkan|buatlah|tulis(kan)?|susun(kan)?|rancang|implementasi|implementasikan|perbaiki|perbaikan|debug|coding|kode|program|website|cms|api|integrasi|deploy|build|audit|analisis|analisa|riset|penelitian|strategi|seo|artikel|berita|konten|copywriting|kampanye|campaign|laporan|data|statistik|jadwal|target|optimasi|evaluasi|bandingkan|kompetitor|affiliate|otomatisasi|workflow|database|cloudflare|github|youtube|instagram|facebook|shopee|error|bug|keamanan|migrasi|rencana kerja|kerjakan|selesaikan|task|project|research|write|develop|fix|implement|analyze|analysis|strategy|report|schedule|integration|automation|publish|marketing)/i;
+  const lightPattern=/(halo|hai|hi|hello|apa kabar|terima kasih|makasih|selamat pagi|selamat siang|selamat sore|selamat malam|ngobrol|cerita santai|bercanda|haha|wkwk)/i;
+  const isWork=text.length>260||workPattern.test(lower)||(!lightPattern.test(lower)&&requestedAgentId!=='team'&&text.length>100);
+  return {
+    tier:isWork?'work':'chat',
+    complexity:isWork?'high_or_multi_step':'low_or_conversational',
+    requested_agent:requestedAgentId,
+    reason:isWork?'Permintaan terdeteksi membutuhkan pekerjaan, analisis, atau beberapa langkah.':'Percakapan ringan atau pertanyaan sederhana.',
+    policy:isWork?'Prioritaskan model kerja paling mampu yang dikonfigurasi gratis.':'Prioritaskan model cepat dan hemat kuota.'
+  };
+}
+function modelForProvider(env, providerId, task, agentId='team') {
+  const tier=task?.tier==='work'?'WORK':'CHAT';
+  const agent=String(agentId||'team').replace(/[^a-z0-9]/gi,'_').toUpperCase();
+  const prefix={gemini:'GEMINI',cloudflare_ai:'CF_AI',gemma_hosted:'GEMMA',groq:'GROQ',openrouter_free:'OPENROUTER'}[providerId];
+  if(!prefix)return '';
+  const agentSpecific=prefix+'_'+agent+'_'+tier+'_MODEL';
+  const tierSpecific=prefix+'_'+tier+'_MODEL';
+  const common=prefix+'_MODEL';
+  const defaults={gemini:'gemini-2.5-flash',cloudflare_ai:'@cf/google/gemma-4-26b-a4b-it',gemma_hosted:'google/gemma-3-27b-it',groq:'llama-3.3-70b-versatile',openrouter_free:''};
+  const selected=String(env[agentSpecific]||env[tierSpecific]||env[common]||defaults[providerId]).trim();
+  if(providerId==='openrouter_free'&&!selected.endsWith(':free'))return '';
+  return selected;
+}
+function buildAiRoomSystem(requestedAgentId, memory, task) {
   const roster = Object.entries(AI_ROOM_AGENTS).map(([id,a]) => ({id,name:a.name,role:a.role,expertise:a.prompt}));
   const now = new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',dateStyle:'full',timeStyle:'long'}).format(new Date());
   const locked = requestedAgentId !== 'team';
@@ -437,6 +468,7 @@ function buildAiRoomSystem(requestedAgentId, memory) {
     'WAKTU SEKARANG: '+now+' (WIB, Asia/Jakarta).',
     'MEMORI PUSAT VANNDIK (sumber kebenaran lintas provider): '+JSON.stringify(memory),
     'DAFTAR KARYAWAN: '+JSON.stringify(roster),
+    'ROUTING TUGAS: '+JSON.stringify(task)+'. Pilih kedalaman penalaran sesuai tier. Untuk tier work, susun langkah, cek asumsi, berikan hasil terstruktur dan tandai blocker. Untuk tier chat, jawab cepat dan natural tanpa analisis berlebihan.',
     locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara.' : 'Direktur berbicara kepada grup. Pilih TEPAT SATU agen paling relevan.',
     'BACA RIWAYAT: gunakan konteks percakapan bersama dan lanjutkan secara alami. Jangan mengulang jawaban.',
     'ETIKA GRUP: satu pembicara setiap giliran. Jangan membuat dialog palsu atas nama agen lain.',
@@ -489,9 +521,9 @@ function aiRoomConversation(messages) {
       : (m.agent_id === 'team' ? '[Direktur berbicara ke grup] ' : '[Direktur memanggil '+(AI_ROOM_AGENTS[m.agent_id]?.name || 'agen')+'] ')+m.content
   }));
 }
-async function callGemini(env, system, input) {
+async function callGemini(env, system, input, selectedModel) {
   if (!env.GEMINI_API_KEY || String(env.GEMINI_FREE_ONLY || '').toLowerCase() !== 'true') throw new Error('Gemini tidak dikonfigurasi sebagai provider gratis.');
-  const model=String(env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+  const model=String(selectedModel || env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
   const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(env.GEMINI_API_KEY),{
     method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:input.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),generationConfig:{temperature:0.35,maxOutputTokens:1400,responseMimeType:'application/json'}})
@@ -513,21 +545,24 @@ async function callOpenAiCompatible(env, {provider,baseUrl,key,model,system,inpu
   if(!raw) throw new Error(provider+' tidak mengembalikan jawaban.');
   return {raw,model,provider};
 }
-async function callAiRoomProvider(env, messages, requestedAgentId, memory) {
-  const system=buildAiRoomSystem(requestedAgentId,memory);
+async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskMessage='') {
+  const latestUserMessage=String(taskMessage||[...(messages||[])].reverse().find(item=>item?.role==='user')?.content||'');
+  const task=classifyAiRoomTask(latestUserMessage,requestedAgentId);
+  const system=buildAiRoomSystem(requestedAgentId,memory,task);
   const input=aiRoomConversation(messages);
   const attempts=[];
   const providers=[
-    {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input)},
+    {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input,modelForProvider(env,'gemini',task,requestedAgentId))},
     {id:'cloudflare_ai',ready:!!env.AI&&typeof env.AI.run==='function',run:async()=>{
-      const model=String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it').trim();
-      // Gemma 4 enables its reasoning mode by default. Disable it for this
-      // short synchronous chat turn so the token budget is used for the answer.
+      const model=modelForProvider(env,'cloudflare_ai',task,requestedAgentId);
+      // Use fast responses for casual chat and enable Gemma 4 reasoning for real work.
+      // The work tier receives a larger output budget; this may consume more free Neurons.
+      const isWork=task.tier==='work';
       const result=await env.AI.run(model,{
         messages:[{role:'system',content:system},...input],
-        max_tokens:1800,
-        temperature:0.35,
-        chat_template_kwargs:{enable_thinking:false}
+        max_tokens:isWork?4096:1800,
+        temperature:isWork?0.2:0.35,
+        chat_template_kwargs:{enable_thinking:isWork}
       });
       const raw=String(
         result?.response ??
@@ -542,16 +577,21 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory) {
       }
       return {raw,model,provider:'cloudflare_ai'};
     }},
-    {id:'gemma_hosted',ready:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'gemma_hosted',baseUrl:String(env.GEMMA_API_URL),key:env.GEMMA_API_KEY,model:String(env.GEMMA_MODEL||'google/gemma-3-27b-it'),system,input})},
-    {id:'groq',ready:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'groq',baseUrl:'https://api.groq.com/openai/v1',key:env.GROQ_API_KEY,model:String(env.GROQ_MODEL||'llama-3.3-70b-versatile'),system,input})},
-    {id:'openrouter_free',ready:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free'),run:()=>callOpenAiCompatible(env,{provider:'openrouter_free',baseUrl:'https://openrouter.ai/api/v1',key:env.OPENROUTER_API_KEY,model:String(env.OPENROUTER_MODEL),system,input})}
+    {id:'gemma_hosted',ready:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'gemma_hosted',baseUrl:String(env.GEMMA_API_URL),key:env.GEMMA_API_KEY,model:modelForProvider(env,'gemma_hosted',task,requestedAgentId),system,input})},
+    {id:'groq',ready:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'groq',baseUrl:'https://api.groq.com/openai/v1',key:env.GROQ_API_KEY,model:modelForProvider(env,'groq',task,requestedAgentId),system,input})},
+    {id:'openrouter_free',ready:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&!!modelForProvider(env,'openrouter_free',task,requestedAgentId),run:()=>callOpenAiCompatible(env,{provider:'openrouter_free',baseUrl:'https://openrouter.ai/api/v1',key:env.OPENROUTER_API_KEY,model:modelForProvider(env,'openrouter_free',task,requestedAgentId),system,input})}
   ];
-  for(const provider of providers){
+  const providerMap=new Map(providers.map(provider=>[provider.id,provider]));
+  const order=task.tier==='work'
+    ? ['gemini','gemma_hosted','groq','openrouter_free','cloudflare_ai']
+    : ['cloudflare_ai','gemini','groq','gemma_hosted','openrouter_free'];
+  for(const providerId of order){
+    const provider=providerMap.get(providerId);
     if(!provider.ready){attempts.push({provider:provider.id,status:'skipped',reason:'not_configured_as_free'});continue;}
     try{
       const result=await provider.run();
       const parsed=parseAiRoomReply(result.raw,requestedAgentId);
-      return {...parsed,model:result.model,provider:result.provider,attempts};
+      return {...parsed,model:result.model,provider:result.provider,attempts,task};
     }catch(error){
       const detail=String(error?.message||'provider error').slice(0,260);
       attempts.push({provider:provider.id,status:'failed',reason:detail});
@@ -643,10 +683,10 @@ export async function onRequest({ request, env }) {
           const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 14').bind(job.admin_id).all();
           const conversation=(history.results||[]).reverse();
           const memory=await getCentralAiMemory(env);
-          const result=await callAiRoomProvider(env,conversation,job.agent_id,memory);
+          const result=await callAiRoomProvider(env,conversation,job.agent_id,memory,job.message);
           const replyId=uid();
           await env.CMS_DB.batch([
-            env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,result.answer,result.provider),
+            env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,result.answer,result.provider,result.model,result.task?.tier||'chat'),
             env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',attempts=attempts+1,last_error='',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id)
           ]);
           results.push({id:job.id,status:'completed',provider:result.provider,model:result.model});
@@ -667,16 +707,17 @@ export async function onRequest({ request, env }) {
 
     if (path === 'ai-room/messages' && method === 'GET') {
       await ensureAiRoomTables(env);
-      const rows=await env.CMS_DB.prepare('SELECT id,role,agent_id,content,provider,created_at FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all();
+      const rows=await env.CMS_DB.prepare('SELECT id,role,agent_id,content,provider,model,task_tier,created_at FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all();
       const memory=await getCentralAiMemory(env);
       const providers={
         gemini:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',
         cloudflare_ai:!!env.AI,
         gemma_hosted:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',
         groq:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',
-        openrouter_free:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free')
+        openrouter_free:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&!!(modelForProvider(env,'openrouter_free',{tier:'work'},'team')||modelForProvider(env,'openrouter_free',{tier:'chat'},'team'))
       };
-      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,memory,provider_order:['gemini','cloudflare_ai','gemma_hosted','groq','openrouter_free'],model:String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it')});
+      const routing={strategy:'task-and-agent-aware-free-only',chat_priority:['cloudflare_ai','gemini','groq','gemma_hosted','openrouter_free'],work_priority:['gemini','gemma_hosted','groq','openrouter_free','cloudflare_ai'],models:Object.fromEntries(['gemini','cloudflare_ai','gemma_hosted','groq','openrouter_free'].map(id=>[id,{chat:modelForProvider(env,id,{tier:'chat'}),work:modelForProvider(env,id,{tier:'work'})}])),agent_models:Object.fromEntries(Object.keys(AI_ROOM_AGENTS).map(agentId=>{const choose=tier=>{const order=tier==='work'?['gemini','gemma_hosted','groq','openrouter_free','cloudflare_ai']:['cloudflare_ai','gemini','groq','gemma_hosted','openrouter_free'];const provider=order.find(id=>providers[id]&&modelForProvider(env,id,{tier},agentId));return provider?{provider,model:modelForProvider(env,provider,{tier},agentId)}:{provider:'none',model:'Tidak tersedia'};};return [agentId,{chat:choose('chat'),work:choose('work')}];}))};
+      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,memory,provider_order:routing.chat_priority,routing});
     }
     if (path === 'ai-room/memory' && method === 'GET') {
       await ensureAiRoomTables(env);
@@ -714,11 +755,11 @@ export async function onRequest({ request, env }) {
       const agent=AI_ROOM_AGENTS[agentId];if(!agent)return json({error:'Agen tidak dikenal.'},400);
       const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
-      let answer='',used='',model='',attempts=[],speakerId='team';
+      let answer='',used='',model='',attempts=[],speakerId='team',resultTaskTier='chat';
       try{
         const memory=await getCentralAiMemory(env);
         const result=await callAiRoomProvider(env,conversation,agentId,memory);
-        answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;
+        answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;resultTaskTier=result.task?.tier||'chat';
       }catch(error){
         const detail=String(error?.message||'Semua provider AI tidak tersedia.');
         const jobId=uid(),userId=uid();
@@ -735,10 +776,10 @@ export async function onRequest({ request, env }) {
       const userId=uid(),assistantId=uid();
       await env.CMS_DB.batch([
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
-        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used)
+        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used,model,resultTaskTier)
       ]);
       await audit(env,admin,'ai.room.message','ai-room',assistantId,{agent:agentId,provider:used,model});
-      return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used,model,attempts});
+      return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used,model,task_tier:resultTaskTier,attempts});
     }
 
     if (path === 'product/analyze' && method === 'POST') {
