@@ -428,7 +428,35 @@ const AI_ROOM_AGENTS = {
   catalog: {name:'Rafi · Product & Catalog Manager',role:'Produk affiliate, game & aplikasi',prompt:'Anda adalah Product & Catalog Manager VANNDIK. Bertanggung jawab pada katalog produk affiliate, game, aplikasi/tools, kategori, kelengkapan data, duplikasi dan status verifikasi. Produk tidak terverifikasi tidak boleh dipublikasikan.'},
   web: {name:'Nadia · Web Experience Manager',role:'Tema, halaman, navigasi & bahasa',prompt:'Anda adalah Web Experience Manager VANNDIK. Bertanggung jawab pada tema global/per halaman, halaman, navigasi, bahasa, responsivitas dan pengalaman pengunjung. Perubahan desain produksi perlu persetujuan bila berdampak luas.'}
 };
-function buildAiRoomSystem(requestedAgentId, memory) {
+function classifyAiRoomTask(message, requestedAgentId='team') {
+  const text=String(message||'').trim();
+  const lower=text.toLocaleLowerCase('id-ID');
+  const workPattern=/(buatkan|buatlah|tulis(kan)?|susun(kan)?|rancang|implementasi|implementasikan|perbaiki|perbaikan|debug|coding|kode|program|website|cms|api|integrasi|deploy|build|audit|analisis|analisa|riset|penelitian|strategi|seo|artikel|berita|konten|copywriting|kampanye|campaign|laporan|data|statistik|jadwal|target|optimasi|evaluasi|bandingkan|kompetitor|affiliate|otomatisasi|workflow|database|cloudflare|github|youtube|instagram|facebook|shopee|error|bug|keamanan|migrasi|rencana kerja|kerjakan|selesaikan|task|project|research|write|develop|fix|implement|analyze|analysis|strategy|report|schedule|integration|automation|publish|marketing)/i;
+  const lightPattern=/(halo|hai|hi|hello|apa kabar|terima kasih|makasih|selamat pagi|selamat siang|selamat sore|selamat malam|ngobrol|cerita santai|bercanda|haha|wkwk)/i;
+  const isWork=text.length>260||workPattern.test(lower)||(!lightPattern.test(lower)&&requestedAgentId!=='team'&&text.length>100);
+  return {
+    tier:isWork?'work':'chat',
+    complexity:isWork?'high_or_multi_step':'low_or_conversational',
+    requested_agent:requestedAgentId,
+    reason:isWork?'Permintaan terdeteksi membutuhkan pekerjaan, analisis, atau beberapa langkah.':'Percakapan ringan atau pertanyaan sederhana.',
+    policy:isWork?'Prioritaskan model kerja paling mampu yang dikonfigurasi gratis.':'Prioritaskan model cepat dan hemat kuota.'
+  };
+}
+function modelForProvider(env, providerId, task) {
+  const tier=task?.tier==='work'?'WORK':'CHAT';
+  const names={
+    gemini:['GEMINI_'+tier+'_MODEL','GEMINI_MODEL','gemini-2.5-flash'],
+    cloudflare_ai:['CF_AI_'+tier+'_MODEL','CF_AI_MODEL','@cf/google/gemma-4-26b-a4b-it'],
+    gemma_hosted:['GEMMA_'+tier+'_MODEL','GEMMA_MODEL','google/gemma-3-27b-it'],
+    groq:['GROQ_'+tier+'_MODEL','GROQ_MODEL','llama-3.3-70b-versatile'],
+    openrouter_free:['OPENROUTER_'+tier+'_MODEL','OPENROUTER_MODEL','']
+  }[providerId];
+  if(!names)return '';
+  const selected=String(env[names[0]]||env[names[1]]||names[2]).trim();
+  if(providerId==='openrouter_free'&&!selected.endsWith(':free'))return '';
+  return selected;
+}
+function buildAiRoomSystem(requestedAgentId, memory, task) {
   const roster = Object.entries(AI_ROOM_AGENTS).map(([id,a]) => ({id,name:a.name,role:a.role,expertise:a.prompt}));
   const now = new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',dateStyle:'full',timeStyle:'long'}).format(new Date());
   const locked = requestedAgentId !== 'team';
@@ -437,6 +465,7 @@ function buildAiRoomSystem(requestedAgentId, memory) {
     'WAKTU SEKARANG: '+now+' (WIB, Asia/Jakarta).',
     'MEMORI PUSAT VANNDIK (sumber kebenaran lintas provider): '+JSON.stringify(memory),
     'DAFTAR KARYAWAN: '+JSON.stringify(roster),
+    'ROUTING TUGAS: '+JSON.stringify(task)+'. Pilih kedalaman penalaran sesuai tier. Untuk tier work, susun langkah, cek asumsi, berikan hasil terstruktur dan tandai blocker. Untuk tier chat, jawab cepat dan natural tanpa analisis berlebihan.',
     locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara.' : 'Direktur berbicara kepada grup. Pilih TEPAT SATU agen paling relevan.',
     'BACA RIWAYAT: gunakan konteks percakapan bersama dan lanjutkan secara alami. Jangan mengulang jawaban.',
     'ETIKA GRUP: satu pembicara setiap giliran. Jangan membuat dialog palsu atas nama agen lain.',
@@ -489,9 +518,9 @@ function aiRoomConversation(messages) {
       : (m.agent_id === 'team' ? '[Direktur berbicara ke grup] ' : '[Direktur memanggil '+(AI_ROOM_AGENTS[m.agent_id]?.name || 'agen')+'] ')+m.content
   }));
 }
-async function callGemini(env, system, input) {
+async function callGemini(env, system, input, selectedModel) {
   if (!env.GEMINI_API_KEY || String(env.GEMINI_FREE_ONLY || '').toLowerCase() !== 'true') throw new Error('Gemini tidak dikonfigurasi sebagai provider gratis.');
-  const model=String(env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+  const model=String(selectedModel || env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
   const response=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(env.GEMINI_API_KEY),{
     method:'POST',headers:{'content-type':'application/json'},
     body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents:input.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),generationConfig:{temperature:0.35,maxOutputTokens:1400,responseMimeType:'application/json'}})
@@ -514,13 +543,15 @@ async function callOpenAiCompatible(env, {provider,baseUrl,key,model,system,inpu
   return {raw,model,provider};
 }
 async function callAiRoomProvider(env, messages, requestedAgentId, memory) {
-  const system=buildAiRoomSystem(requestedAgentId,memory);
+  const latestUserMessage=[...(messages||[])].reverse().find(item=>item?.role==='user')?.content||'';
+  const task=classifyAiRoomTask(latestUserMessage,requestedAgentId);
+  const system=buildAiRoomSystem(requestedAgentId,memory,task);
   const input=aiRoomConversation(messages);
   const attempts=[];
   const providers=[
-    {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input)},
+    {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input,modelForProvider(env,'gemini',task))},
     {id:'cloudflare_ai',ready:!!env.AI&&typeof env.AI.run==='function',run:async()=>{
-      const model=String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it').trim();
+      const model=modelForProvider(env,'cloudflare_ai',task);
       // Gemma 4 enables its reasoning mode by default. Disable it for this
       // short synchronous chat turn so the token budget is used for the answer.
       const result=await env.AI.run(model,{
@@ -542,16 +573,21 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory) {
       }
       return {raw,model,provider:'cloudflare_ai'};
     }},
-    {id:'gemma_hosted',ready:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'gemma_hosted',baseUrl:String(env.GEMMA_API_URL),key:env.GEMMA_API_KEY,model:String(env.GEMMA_MODEL||'google/gemma-3-27b-it'),system,input})},
-    {id:'groq',ready:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'groq',baseUrl:'https://api.groq.com/openai/v1',key:env.GROQ_API_KEY,model:String(env.GROQ_MODEL||'llama-3.3-70b-versatile'),system,input})},
-    {id:'openrouter_free',ready:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free'),run:()=>callOpenAiCompatible(env,{provider:'openrouter_free',baseUrl:'https://openrouter.ai/api/v1',key:env.OPENROUTER_API_KEY,model:String(env.OPENROUTER_MODEL),system,input})}
+    {id:'gemma_hosted',ready:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'gemma_hosted',baseUrl:String(env.GEMMA_API_URL),key:env.GEMMA_API_KEY,model:modelForProvider(env,'gemma_hosted',task),system,input})},
+    {id:'groq',ready:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'groq',baseUrl:'https://api.groq.com/openai/v1',key:env.GROQ_API_KEY,model:modelForProvider(env,'groq',task),system,input})},
+    {id:'openrouter_free',ready:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free'),run:()=>callOpenAiCompatible(env,{provider:'openrouter_free',baseUrl:'https://openrouter.ai/api/v1',key:env.OPENROUTER_API_KEY,model:modelForProvider(env,'openrouter_free',task),system,input})}
   ];
-  for(const provider of providers){
+  const providerMap=new Map(providers.map(provider=>[provider.id,provider]));
+  const order=task.tier==='work'
+    ? ['gemini','gemma_hosted','groq','openrouter_free','cloudflare_ai']
+    : ['cloudflare_ai','gemini','groq','gemma_hosted','openrouter_free'];
+  for(const providerId of order){
+    const provider=providerMap.get(providerId);
     if(!provider.ready){attempts.push({provider:provider.id,status:'skipped',reason:'not_configured_as_free'});continue;}
     try{
       const result=await provider.run();
       const parsed=parseAiRoomReply(result.raw,requestedAgentId);
-      return {...parsed,model:result.model,provider:result.provider,attempts};
+      return {...parsed,model:result.model,provider:result.provider,attempts,task};
     }catch(error){
       const detail=String(error?.message||'provider error').slice(0,260);
       attempts.push({provider:provider.id,status:'failed',reason:detail});
@@ -676,7 +712,8 @@ export async function onRequest({ request, env }) {
         groq:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',
         openrouter_free:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free')
       };
-      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,memory,provider_order:['gemini','cloudflare_ai','gemma_hosted','groq','openrouter_free'],model:String(env.CF_AI_MODEL||'@cf/google/gemma-4-26b-a4b-it')});
+      const routing={strategy:'task-aware-free-only',chat_priority:['cloudflare_ai','gemini','groq','gemma_hosted','openrouter_free'],work_priority:['gemini','gemma_hosted','groq','openrouter_free','cloudflare_ai'],models:Object.fromEntries(['gemini','cloudflare_ai','gemma_hosted','groq','openrouter_free'].map(id=>[id,{chat:modelForProvider(env,id,{tier:'chat'}),work:modelForProvider(env,id,{tier:'work'})}]))};
+      return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,memory,provider_order:routing.chat_priority,routing});
     }
     if (path === 'ai-room/memory' && method === 'GET') {
       await ensureAiRoomTables(env);
