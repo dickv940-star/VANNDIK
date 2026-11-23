@@ -555,13 +555,14 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskM
     {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input,modelForProvider(env,'gemini',task,requestedAgentId))},
     {id:'cloudflare_ai',ready:!!env.AI&&typeof env.AI.run==='function',run:async()=>{
       const model=modelForProvider(env,'cloudflare_ai',task,requestedAgentId);
-      // Gemma 4 enables its reasoning mode by default. Disable it for this
-      // short synchronous chat turn so the token budget is used for the answer.
+      // Use fast responses for casual chat and enable Gemma 4 reasoning for real work.
+      // The work tier receives a larger output budget; this may consume more free Neurons.
+      const isWork=task.tier==='work';
       const result=await env.AI.run(model,{
         messages:[{role:'system',content:system},...input],
-        max_tokens:1800,
-        temperature:0.35,
-        chat_template_kwargs:{enable_thinking:false}
+        max_tokens:isWork?4096:1800,
+        temperature:isWork?0.2:0.35,
+        chat_template_kwargs:{enable_thinking:isWork}
       });
       const raw=String(
         result?.response ??
