@@ -442,17 +442,16 @@ function classifyAiRoomTask(message, requestedAgentId='team') {
     policy:isWork?'Prioritaskan model kerja paling mampu yang dikonfigurasi gratis.':'Prioritaskan model cepat dan hemat kuota.'
   };
 }
-function modelForProvider(env, providerId, task) {
+function modelForProvider(env, providerId, task, agentId='team') {
   const tier=task?.tier==='work'?'WORK':'CHAT';
-  const names={
-    gemini:['GEMINI_'+tier+'_MODEL','GEMINI_MODEL','gemini-2.5-flash'],
-    cloudflare_ai:['CF_AI_'+tier+'_MODEL','CF_AI_MODEL','@cf/google/gemma-4-26b-a4b-it'],
-    gemma_hosted:['GEMMA_'+tier+'_MODEL','GEMMA_MODEL','google/gemma-3-27b-it'],
-    groq:['GROQ_'+tier+'_MODEL','GROQ_MODEL','llama-3.3-70b-versatile'],
-    openrouter_free:['OPENROUTER_'+tier+'_MODEL','OPENROUTER_MODEL','']
-  }[providerId];
-  if(!names)return '';
-  const selected=String(env[names[0]]||env[names[1]]||names[2]).trim();
+  const agent=String(agentId||'team').replace(/[^a-z0-9]/gi,'_').toUpperCase();
+  const prefix={gemini:'GEMINI',cloudflare_ai:'CF_AI',gemma_hosted:'GEMMA',groq:'GROQ',openrouter_free:'OPENROUTER'}[providerId];
+  if(!prefix)return '';
+  const agentSpecific=prefix+'_'+agent+'_'+tier+'_MODEL';
+  const tierSpecific=prefix+'_'+tier+'_MODEL';
+  const common=prefix+'_MODEL';
+  const defaults={gemini:'gemini-2.5-flash',cloudflare_ai:'@cf/google/gemma-4-26b-a4b-it',gemma_hosted:'google/gemma-3-27b-it',groq:'llama-3.3-70b-versatile',openrouter_free:''};
+  const selected=String(env[agentSpecific]||env[tierSpecific]||env[common]||defaults[providerId]).trim();
   if(providerId==='openrouter_free'&&!selected.endsWith(':free'))return '';
   return selected;
 }
@@ -549,9 +548,9 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory) {
   const input=aiRoomConversation(messages);
   const attempts=[];
   const providers=[
-    {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input,modelForProvider(env,'gemini',task))},
+    {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input,modelForProvider(env,'gemini',task,requestedAgentId))},
     {id:'cloudflare_ai',ready:!!env.AI&&typeof env.AI.run==='function',run:async()=>{
-      const model=modelForProvider(env,'cloudflare_ai',task);
+      const model=modelForProvider(env,'cloudflare_ai',task,requestedAgentId);
       // Gemma 4 enables its reasoning mode by default. Disable it for this
       // short synchronous chat turn so the token budget is used for the answer.
       const result=await env.AI.run(model,{
@@ -573,9 +572,9 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory) {
       }
       return {raw,model,provider:'cloudflare_ai'};
     }},
-    {id:'gemma_hosted',ready:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'gemma_hosted',baseUrl:String(env.GEMMA_API_URL),key:env.GEMMA_API_KEY,model:modelForProvider(env,'gemma_hosted',task),system,input})},
-    {id:'groq',ready:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'groq',baseUrl:'https://api.groq.com/openai/v1',key:env.GROQ_API_KEY,model:modelForProvider(env,'groq',task),system,input})},
-    {id:'openrouter_free',ready:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free'),run:()=>callOpenAiCompatible(env,{provider:'openrouter_free',baseUrl:'https://openrouter.ai/api/v1',key:env.OPENROUTER_API_KEY,model:modelForProvider(env,'openrouter_free',task),system,input})}
+    {id:'gemma_hosted',ready:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'gemma_hosted',baseUrl:String(env.GEMMA_API_URL),key:env.GEMMA_API_KEY,model:modelForProvider(env,'gemma_hosted',task,requestedAgentId),system,input})},
+    {id:'groq',ready:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',run:()=>callOpenAiCompatible(env,{provider:'groq',baseUrl:'https://api.groq.com/openai/v1',key:env.GROQ_API_KEY,model:modelForProvider(env,'groq',task,requestedAgentId),system,input})},
+    {id:'openrouter_free',ready:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&!!modelForProvider(env,'openrouter_free',task,requestedAgentId),run:()=>callOpenAiCompatible(env,{provider:'openrouter_free',baseUrl:'https://openrouter.ai/api/v1',key:env.OPENROUTER_API_KEY,model:modelForProvider(env,'openrouter_free',task,requestedAgentId),system,input})}
   ];
   const providerMap=new Map(providers.map(provider=>[provider.id,provider]));
   const order=task.tier==='work'
@@ -712,7 +711,7 @@ export async function onRequest({ request, env }) {
         groq:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',
         openrouter_free:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free')
       };
-      const routing={strategy:'task-aware-free-only',chat_priority:['cloudflare_ai','gemini','groq','gemma_hosted','openrouter_free'],work_priority:['gemini','gemma_hosted','groq','openrouter_free','cloudflare_ai'],models:Object.fromEntries(['gemini','cloudflare_ai','gemma_hosted','groq','openrouter_free'].map(id=>[id,{chat:modelForProvider(env,id,{tier:'chat'}),work:modelForProvider(env,id,{tier:'work'})}]))};
+      const routing={strategy:'task-and-agent-aware-free-only',chat_priority:['cloudflare_ai','gemini','groq','gemma_hosted','openrouter_free'],work_priority:['gemini','gemma_hosted','groq','openrouter_free','cloudflare_ai'],models:Object.fromEntries(['gemini','cloudflare_ai','gemma_hosted','groq','openrouter_free'].map(id=>[id,{chat:modelForProvider(env,id,{tier:'chat'}),work:modelForProvider(env,id,{tier:'work'})}])),agent_models:Object.fromEntries(Object.keys(AI_ROOM_AGENTS).map(agentId=>[agentId,{chat:modelForProvider(env,'cloudflare_ai',{tier:'chat'},agentId),work:modelForProvider(env,'gemini',{tier:'work'},agentId)}]))};
       return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,memory,provider_order:routing.chat_priority,routing});
     }
     if (path === 'ai-room/memory' && method === 'GET') {
