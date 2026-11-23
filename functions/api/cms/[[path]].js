@@ -555,25 +555,35 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskM
     {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input,modelForProvider(env,'gemini',task,requestedAgentId))},
     {id:'cloudflare_ai',ready:!!env.AI&&typeof env.AI.run==='function',run:async()=>{
       const model=modelForProvider(env,'cloudflare_ai',task,requestedAgentId);
-      // Use fast responses for casual chat and enable Gemma 4 reasoning for real work.
-      // The work tier receives a larger output budget; this may consume more free Neurons.
+      // Keep the final-answer channel enabled for both chat and work.
+      // Gemma 4 can spend the entire completion budget on reasoning_content
+      // when thinking is enabled, leaving choices[0].message.content empty.
       const isWork=task.tier==='work';
       const result=await env.AI.run(model,{
         messages:[{role:'system',content:system},...input],
         max_tokens:isWork?4096:1800,
         temperature:isWork?0.2:0.35,
-        chat_template_kwargs:{enable_thinking:isWork}
+        chat_template_kwargs:{enable_thinking:false}
       });
-      const raw=String(
+      const choice=result?.choices?.[0];
+      const message=choice?.message;
+      const candidate=
         result?.response ??
         result?.output_text ??
-        result?.choices?.[0]?.message?.content ??
+        message?.content ??
+        choice?.text ??
         result?.result?.response ??
-        ''
-      ).trim();
+        '';
+      const raw=(Array.isArray(candidate)
+        ? candidate.map(part=>typeof part==='string'?part:(part?.text||part?.content||'')).join('')
+        : typeof candidate==='string'?candidate:String(candidate??'')).trim();
       if(!raw) {
-        const keys=result&&typeof result==='object'?Object.keys(result).join(', '):typeof result;
-        throw new Error('Cloudflare Workers AI mengembalikan respons kosong (struktur: '+(keys||'tanpa field')+').');
+        const detail=[
+          'finish_reason='+(choice?.finish_reason||'unknown'),
+          'message_fields='+(message&&typeof message==='object'?Object.keys(message).join(','):'none'),
+          'completion_tokens='+(result?.usage?.completion_tokens??'unknown')
+        ].join('; ');
+        throw new Error('Cloudflare Workers AI tidak menghasilkan teks jawaban akhir ('+detail+').');
       }
       return {raw,model,provider:'cloudflare_ai'};
     }},
