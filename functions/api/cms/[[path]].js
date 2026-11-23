@@ -399,6 +399,10 @@ function verifiedAffiliateProduct(item){
 async function ensureAiRoomTables(env) {
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_messages (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, role TEXT NOT NULL, agent_id TEXT NOT NULL DEFAULT 'team', content TEXT NOT NULL, provider TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_admin_created ON cms_ai_room_messages(admin_id,created_at)").run();
+  const messageColumns=await env.CMS_DB.prepare('PRAGMA table_info(cms_ai_room_messages)').all();
+  const messageColumnNames=new Set((messageColumns.results||[]).map(column=>column.name));
+  if(!messageColumnNames.has('model'))await env.CMS_DB.prepare("ALTER TABLE cms_ai_room_messages ADD COLUMN model TEXT NOT NULL DEFAULT ''").run();
+  if(!messageColumnNames.has('task_tier'))await env.CMS_DB.prepare("ALTER TABLE cms_ai_room_messages ADD COLUMN task_tier TEXT NOT NULL DEFAULT ''").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_memory (memory_key TEXT PRIMARY KEY, memory_value TEXT NOT NULL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_jobs (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, agent_id TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0, next_retry_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_jobs_due ON cms_ai_room_jobs(status,next_retry_at)").run();
@@ -681,7 +685,7 @@ export async function onRequest({ request, env }) {
           const result=await callAiRoomProvider(env,conversation,job.agent_id,memory);
           const replyId=uid();
           await env.CMS_DB.batch([
-            env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,result.answer,result.provider),
+            env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,result.answer,result.provider,result.model,result.task?.tier||'chat'),
             env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',attempts=attempts+1,last_error='',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id)
           ]);
           results.push({id:job.id,status:'completed',provider:result.provider,model:result.model});
@@ -702,7 +706,7 @@ export async function onRequest({ request, env }) {
 
     if (path === 'ai-room/messages' && method === 'GET') {
       await ensureAiRoomTables(env);
-      const rows=await env.CMS_DB.prepare('SELECT id,role,agent_id,content,provider,created_at FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all();
+      const rows=await env.CMS_DB.prepare('SELECT id,role,agent_id,content,provider,model,task_tier,created_at FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all();
       const memory=await getCentralAiMemory(env);
       const providers={
         gemini:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',
@@ -750,11 +754,11 @@ export async function onRequest({ request, env }) {
       const agent=AI_ROOM_AGENTS[agentId];if(!agent)return json({error:'Agen tidak dikenal.'},400);
       const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
-      let answer='',used='',model='',attempts=[],speakerId='team';
+      let answer='',used='',model='',attempts=[],speakerId='team',resultTaskTier='chat';
       try{
         const memory=await getCentralAiMemory(env);
         const result=await callAiRoomProvider(env,conversation,agentId,memory);
-        answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;
+        answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;resultTaskTier=result.task?.tier||'chat';
       }catch(error){
         const detail=String(error?.message||'Semua provider AI tidak tersedia.');
         const jobId=uid(),userId=uid();
@@ -771,10 +775,10 @@ export async function onRequest({ request, env }) {
       const userId=uid(),assistantId=uid();
       await env.CMS_DB.batch([
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
-        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used)
+        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used,model,resultTaskTier)
       ]);
       await audit(env,admin,'ai.room.message','ai-room',assistantId,{agent:agentId,provider:used,model});
-      return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used,model,attempts});
+      return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used,model,task_tier:resultTaskTier,attempts});
     }
 
     if (path === 'product/analyze' && method === 'POST') {
