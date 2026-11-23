@@ -7,7 +7,7 @@ The Agent Room classifies each incoming message into one of two execution tiers:
 - `chat`: greetings, casual conversation, and short/simple questions. The router prioritizes the fast/light provider order.
 - `work`: implementation, coding, research, SEO, writing, analytics, planning, integrations, debugging, and multi-step tasks. The router prioritizes the configured work models and uses the free-only fallback chain.
 
-The classifier is deterministic and rule-based. It does not spend an extra model call to classify the message. A future classifier may be introduced only if its additional inference cost is justified and it remains behind the free-only policy.
+The classifier is deterministic and rule-based. It does not spend an extra model call to classify the message. On the default Gemma 4 Cloudflare route, chat disables extended reasoning for speed while work enables reasoning and receives a larger output budget. This improves depth without adding a second classification call; work requests may consume more free Neurons. A future classifier may be introduced only if its additional inference cost is justified and it remains behind the free-only policy.
 
 ## Provider order
 
