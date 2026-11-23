@@ -545,8 +545,8 @@ async function callOpenAiCompatible(env, {provider,baseUrl,key,model,system,inpu
   if(!raw) throw new Error(provider+' tidak mengembalikan jawaban.');
   return {raw,model,provider};
 }
-async function callAiRoomProvider(env, messages, requestedAgentId, memory) {
-  const latestUserMessage=[...(messages||[])].reverse().find(item=>item?.role==='user')?.content||'';
+async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskMessage='') {
+  const latestUserMessage=String(taskMessage||[...(messages||[])].reverse().find(item=>item?.role==='user')?.content||'');
   const task=classifyAiRoomTask(latestUserMessage,requestedAgentId);
   const system=buildAiRoomSystem(requestedAgentId,memory,task);
   const input=aiRoomConversation(messages);
@@ -682,7 +682,7 @@ export async function onRequest({ request, env }) {
           const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 14').bind(job.admin_id).all();
           const conversation=(history.results||[]).reverse();
           const memory=await getCentralAiMemory(env);
-          const result=await callAiRoomProvider(env,conversation,job.agent_id,memory);
+          const result=await callAiRoomProvider(env,conversation,job.agent_id,memory,job.message);
           const replyId=uid();
           await env.CMS_DB.batch([
             env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,result.answer,result.provider,result.model,result.task?.tier||'chat'),
@@ -713,7 +713,7 @@ export async function onRequest({ request, env }) {
         cloudflare_ai:!!env.AI,
         gemma_hosted:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',
         groq:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',
-        openrouter_free:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&String(env.OPENROUTER_MODEL||'').endsWith(':free')
+        openrouter_free:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&!!modelForProvider(env,'openrouter_free',{tier:'work'},'team')
       };
       const routing={strategy:'task-and-agent-aware-free-only',chat_priority:['cloudflare_ai','gemini','groq','gemma_hosted','openrouter_free'],work_priority:['gemini','gemma_hosted','groq','openrouter_free','cloudflare_ai'],models:Object.fromEntries(['gemini','cloudflare_ai','gemma_hosted','groq','openrouter_free'].map(id=>[id,{chat:modelForProvider(env,id,{tier:'chat'}),work:modelForProvider(env,id,{tier:'work'})}])),agent_models:Object.fromEntries(Object.keys(AI_ROOM_AGENTS).map(agentId=>[agentId,{chat:modelForProvider(env,'cloudflare_ai',{tier:'chat'},agentId),work:modelForProvider(env,'gemini',{tier:'work'},agentId)}]))};
       return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,memory,provider_order:routing.chat_priority,routing});
