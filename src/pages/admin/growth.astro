@@ -12,6 +12,7 @@
 <div class="panel"><h2>Google Analytics 4 · Trafik website</h2><div class="google-kpis" id="gaKpis"><div class="google-empty">Memuat data GA4…</div></div><div class="google-subtitle">Tren performa harian</div><div class="chart-tabs"><button class="chart-tab active" data-chart="ga-users">Pengguna</button><button class="chart-tab" data-chart="ga-sessions">Sesi</button><button class="chart-tab" data-chart="ga-views">Tampilan</button></div><div id="gaTrend"><div class="google-empty">Menunggu data…</div></div><div class="chart-legend"><span><i style="background:#56d5ff"></i>Data harian aktual</span></div><div class="google-subtitle">Halaman terpopuler</div><div class="google-list" id="gaPages"><div class="google-empty">Menunggu data…</div></div><div class="google-source">Sumber: Google Analytics Data API · data aktual properti terhubung</div></div>
 <div class="panel"><h2>Google Search Console · Penelusuran</h2><div class="google-kpis" id="scKpis"><div class="google-empty">Memuat data Search Console…</div></div><div class="google-subtitle">Tren performa pencarian</div><div class="chart-tabs"><button class="chart-tab active" data-chart="sc-clicks">Klik</button><button class="chart-tab" data-chart="sc-impressions">Impresi</button></div><div id="scTrend"><div class="google-empty">Menunggu data…</div></div><div class="chart-legend"><span><i style="background:#f5b84b"></i>Data harian aktual</span></div><div class="google-subtitle">Kueri pencarian teratas</div><div class="google-list" id="scQueries"><div class="google-empty">Menunggu data…</div></div><div class="google-subtitle">Halaman teratas dari Google</div><div class="google-list" id="scPages"><div class="google-empty">Menunggu data…</div></div><div class="google-source">Sumber: Google Search Console API · data aktual properti terhubung; data terbaru dapat tertunda</div></div>
 </section>
+<section class="google-grid"><div class="panel"><h2>YouTube Analytics · Channel & Shorts</h2><div class="google-kpis" id="ytKpis"><div class="google-empty">Memuat YouTube Analytics…</div></div><div class="google-subtitle">Tren performa konten</div><div class="chart-tabs"><button class="chart-tab active" data-chart="yt-views">Views</button><button class="chart-tab" data-chart="yt-likes">Likes</button><button class="chart-tab" data-chart="yt-subs">Subscriber baru</button><button class="chart-tab" data-chart="yt-watch">Waktu tonton (menit)</button></div><div id="ytTrend"><div class="google-empty">Menunggu data…</div></div><div class="google-source">Sumber: YouTube Analytics API · hanya data channel yang diotorisasi</div></div></section>
 <div class="panel table-wrap"><h2>Klik terbaru</h2><table class="table"><thead><tr><th>Waktu</th><th>Produk</th><th>Halaman</th><th>Marketplace</th><th>Negara</th></tr></thead><tbody id="recent"><tr><td colspan="5">Memuat…</td></tr></tbody></table></div>
 <div class="notice">Privasi: sistem tidak menyimpan alamat IP, nama, email, atau identitas pengunjung. Hubungkan Google Search Console dan GA4 melalui <a href="/admin/growth-settings/">pengaturan integrasi Google</a>. Klik tidak sama dengan pembelian; komisi aktual harus mengikuti laporan affiliate masing-masing platform.</div>
 </main>
@@ -19,7 +20,7 @@
 const $=id=>document.getElementById(id),fmt=n=>new Intl.NumberFormat('id-ID').format(n||0);
 function rows(id,items,key){const root=$(id);if(!items.length){root.innerHTML='<div class="empty">Belum ada data.</div>';return}const max=Math.max(...items.map(x=>+x.clicks||0),1);root.innerHTML=items.map(x=>'<div><div class="rowline"><span>'+String(x[key]||'Unknown').replace(/[&<>"]/g,'')+'</span><b>'+fmt(x.clicks)+'</b></div><div class="track"><i style="width:'+Math.round(x.clicks/max*100)+'%"></i></div></div>').join('')}
 const safe=v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-const chartState={ga:[],sc:[],affiliate:[],active:{ga:'ga-users',sc:'sc-clicks',affiliate:'affiliate'}};
+const chartState={ga:[],sc:[],yt:[],affiliate:[],active:{ga:'ga-users',sc:'sc-clicks',yt:'yt-views',affiliate:'affiliate'}};
 function drawLineChart(id,items,getValue,getDate,stroke){
  const root=$(id);if(!items?.length){root.innerHTML='<div class="google-empty">Belum ada data pada periode ini.</div>';return}
  const width=720,height=220,left=48,right=14,top=14,bottom=34,innerW=width-left-right,innerH=height-top-bottom;
@@ -33,32 +34,36 @@ function drawLineChart(id,items,getValue,getDate,stroke){
  root.innerHTML='<svg class="line-chart" viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Grafik tren harian"><g>'+grid+'</g><polyline class="chart-line" stroke="'+stroke+'" points="'+poly+'"/>'+dots+labels+'</svg>';
 }
 function renderSelectedCharts(){
- const gaMetric=chartState.active.ga,scMetric=chartState.active.sc;
+ const gaMetric=chartState.active.ga,scMetric=chartState.active.sc,ytMetric=chartState.active.yt;
  const gaIndex=gaMetric==='ga-sessions'?1:gaMetric==='ga-views'?2:0;
  drawLineChart('gaTrend',chartState.ga,r=>Number(r.metricValues?.[gaIndex]?.value||0),r=>r.dimensionValues?.[0]?.value,'#56d5ff');
  const scIsImpressions=scMetric==='sc-impressions';
  drawLineChart('scTrend',chartState.sc,r=>Number(scIsImpressions?r.impressions||0:r.clicks||0),r=>r.keys?.[0]||'','#f5b84b');
+ const ytKey=ytMetric==='yt-likes'?'likes':ytMetric==='yt-subs'?'subscribersGained':ytMetric==='yt-watch'?'estimatedMinutesWatched':'views';
+ drawLineChart('ytTrend',chartState.yt,r=>Number(r[ytKey]||0),r=>r.day||'','#ff6262');
  drawLineChart('daily',chartState.affiliate,r=>Number(r.clicks||0),r=>r.day||'','#56d5ff');
 }
 function setChartActive(key){
- const group=key.startsWith('ga-')?'ga':key.startsWith('sc-')?'sc':'affiliate';
+ const group=key.startsWith('ga-')?'ga':key.startsWith('sc-')?'sc':key.startsWith('yt-')?'yt':'affiliate';
  chartState.active[group]=key;
  document.querySelectorAll('[data-chart]').forEach(btn=>btn.classList.toggle('active',btn.dataset.chart===key));
  renderSelectedCharts();
 }
 document.querySelectorAll('[data-chart]').forEach(btn=>btn.addEventListener('click',()=>setChartActive(btn.dataset.chart)));
 function renderGoogleList(id,items,label,value){const root=$(id);root.innerHTML=items?.length?items.slice(0,7).map(item=>'<div class="google-list-item"><span title="'+safe(label(item))+'">'+safe(label(item))+'</span><b>'+fmt(value(item))+'</b></div>').join(''):'<div class="google-empty">Belum ada data untuk ditampilkan.</div>'}
-function renderGoogleReport(data){const ga=data?.analytics,sc=data?.searchConsole;
+function renderGoogleReport(data){const ga=data?.analytics,sc=data?.searchConsole,yt=data?.youtube;
 $('gaKpis').innerHTML=ga?ga.totals.map(x=>'<div class="google-kpi"><span>'+safe(({users:'Pengguna',sessions:'Sesi',pageViews:'Tampilan halaman'})[x.metric]||x.metric)+'</span><b>'+fmt(x.value)+'</b></div>').join(''):'<div class="google-empty">Data GA4 belum tersedia. Periksa akses properti dan API.</div>';
 chartState.ga=ga?.rows||[];
 renderGoogleList('gaPages',ga?.topPages||[],r=>r.page,r=>r.views);
 $('scKpis').innerHTML=sc?'<div class="google-kpi"><span>Klik</span><b>'+fmt(sc.clicks)+'</b></div><div class="google-kpi"><span>Impresi</span><b>'+fmt(sc.impressions)+'</b></div><div class="google-kpi"><span>CTR rata-rata</span><b>'+(Number(sc.ctr||0)*100).toFixed(1)+'%</b></div><div class="google-kpi"><span>Posisi rata-rata</span><b>'+Number(sc.position||0).toFixed(1)+'</b></div>':'<div class="google-empty">Data Search Console belum tersedia. Periksa izin dan properti.</div>';
 chartState.sc=sc?.rows||[];
+chartState.yt=yt?.rows||[];
+$('ytKpis').innerHTML=yt?'<div class="google-kpi"><span>Views Shorts</span><b>'+fmt(yt.shortsViews)+'</b></div><div class="google-kpi"><span>Waktu tonton</span><b>'+fmt(yt.watchMinutes)+'</b></div><div class="google-kpi"><span>Likes</span><b>'+fmt(yt.likes)+'</b></div><div class="google-kpi"><span>Subscriber baru</span><b>'+fmt(yt.subscribersGained)+'</b></div>':'<div class="google-empty">YouTube belum terhubung atau laporan tidak tersedia.</div>';
 renderGoogleList('scQueries',sc?.queries||[],r=>r.keys?.[0]||'(kueri tidak tersedia)',r=>r.clicks);
 renderGoogleList('scPages',sc?.pages||[],r=>r.keys?.[0]||'/',r=>r.clicks);
 if(data?.warnings?.length){const warning='<div class="google-error">'+data.warnings.map(safe).join(' · ')+'</div>'; $('gaPages').insertAdjacentHTML('afterend',warning)}
 }
 async function load(){ $('status').textContent='Memuat…';try{const days=$('range').value,[a,b]=await Promise.all([fetch('/api/cms/growth/stats?days='+days,{credentials:'same-origin'}),fetch('/api/cms/growth/events',{credentials:'same-origin'})]);if(a.status===401||b.status===401){location.href='/admin/';return}if(!a.ok||!b.ok)throw Error('API tidak dapat dimuat');const d=await a.json(),e=await b.json();$('total').textContent=fmt(d.totalClicks);$('topProduct').textContent=d.products[0]?.product_name||'—';$('topCountry').textContent=d.countries[0]?.country||'—';$('topMarket').textContent=d.marketplaces[0]?.marketplace||'—';rows('products',d.products,'product_name');rows('countries',d.countries,'country');rows('markets',d.marketplaces,'marketplace');const ds=d.days||[];chartState.affiliate=ds;renderSelectedCharts();$('recent').innerHTML=e.items.length?e.items.slice(0,30).map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString('id-ID')+'</td><td>'+String(x.product_name||'—').replace(/[&<>"]/g,'')+'</td><td>'+String(x.page_path||'—').replace(/[&<>"]/g,'')+'</td><td>'+String(x.marketplace||'—').replace(/[&<>"]/g,'')+'</td><td>'+String(x.country||'—').replace(/[&<>"]/g,'')+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada klik tercatat.</td></tr>';$('status').textContent='Diperbarui '+new Date().toLocaleTimeString('id-ID')}catch(err){$('status').textContent=err.message;$('status').className='error'}
-try{const response=await fetch('/api/cms/google-growth/report?days='+$('range').value,{credentials:'same-origin'});if(response.status===401){location.href='/admin/';return}const report=await response.json();if(!response.ok)throw Error(report.error||'Laporan Google tidak dapat dimuat');renderGoogleReport(report);renderSelectedCharts()}catch(err){$('gaKpis').innerHTML='<div class="google-error">'+safe(err.message)+'</div>';$('scKpis').innerHTML='<div class="google-error">'+safe(err.message)+'</div>';$('gaTrend').innerHTML='<div class="google-empty">Laporan tidak tersedia.</div>';$('scTrend').innerHTML='<div class="google-empty">Laporan tidak tersedia.</div>'}}
+try{const response=await fetch('/api/cms/google-growth/report?days='+$('range').value,{credentials:'same-origin'});if(response.status===401){location.href='/admin/';return}const report=await response.json();if(!response.ok)throw Error(report.error||'Laporan Google tidak dapat dimuat');renderGoogleReport(report);renderSelectedCharts()}catch(err){$('gaKpis').innerHTML='<div class="google-error">'+safe(err.message)+'</div>';$('scKpis').innerHTML='<div class="google-error">'+safe(err.message)+'</div>';$('ytKpis').innerHTML='<div class="google-error">'+safe(err.message)+'</div>';$('ytTrend').innerHTML='<div class="google-empty">Laporan YouTube tidak tersedia.</div>';$('gaTrend').innerHTML='<div class="google-empty">Laporan tidak tersedia.</div>';$('scTrend').innerHTML='<div class="google-empty">Laporan tidak tersedia.</div>'}}
 $('refresh').addEventListener('click',load);$('range').addEventListener('change',load);load();
 </script></body></html>
