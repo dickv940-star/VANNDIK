@@ -572,10 +572,15 @@ function parseAiRoomReply(raw, requestedAgentId) {
       if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
     }
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    // Preserve a genuine plain-text model answer instead of discarding it.
-    if(source.length>=2 && !/^\s*[{[]/.test(source)) parsed={message:source};
-    else throw new Error('Format jawaban AI tidak valid.');
+  if (Array.isArray(parsed)) {
+    // Some model responses are valid JSON arrays rather than the requested object.
+    parsed={message:extractAiRoomText(parsed)||source};
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    // Model output is not guaranteed to obey JSON mode. Preserve the actual
+    // returned text, including malformed JSON-looking text, as a plain reply.
+    if(source.length>=1) parsed={message:source};
+    else throw new Error('Provider mengembalikan respons kosong.');
   }
   const action = parsed.action && typeof parsed.action === 'object' && parsed.action.type === 'create_content'
     ? {type:'create_content',content:parsed.action.content}
