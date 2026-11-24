@@ -76,7 +76,7 @@ export async function onRequest({ request, env }) {
         const metric = String(row.metric || '').toLowerCase().trim();
         const date = String(row.date || '').trim();
         const value = Number(row.value);
-        if (!platforms.has(platform) || !metrics.has(metric) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || !Number.isFinite(value) || value < 0 || value > 1e12) {
+        if (!platforms.has(platform) || !metrics.has(metric) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(value) || value < 0 || value > 1e12) {
           return json({ error: 'Format baris tidak valid. Periksa platform, metric, date (YYYY-MM-DD), dan value.' }, 400);
         }
         statements.push(env.CMS_DB.prepare(`INSERT INTO cms_social_metrics(id,platform,account_label,metric,metric_date,metric_value,imported_at)
