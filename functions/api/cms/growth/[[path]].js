@@ -64,6 +64,7 @@ export async function onRequest({ request, env }) {
     if (path === 'import' && request.method === 'POST') {
       const admin = await requireAdmin(request, env);
       if (!admin) return json({ error: 'Silakan login ke CMS terlebih dahulu.' }, 401);
+      if (Number(request.headers.get('content-length') || 0) > 2 * 1024 * 1024) return json({ error: 'File CSV terlalu besar. Pecah menjadi beberapa file.' }, 413);
       const data = await request.json();
       const rows = Array.isArray(data.rows) ? data.rows : [];
       const platforms = new Set(['youtube','instagram','facebook','tiktok','pinterest','linkedin']);
@@ -84,7 +85,7 @@ export async function onRequest({ request, env }) {
           DO UPDATE SET metric_value=excluded.metric_value,imported_at=excluded.imported_at`)
           .bind(uid(), platform, account, metric, date, value, new Date().toISOString()));
       }
-      await env.CMS_DB.batch(statements);
+      for (let i = 0; i < statements.length; i += 100) await env.CMS_DB.batch(statements.slice(i, i + 100));
       await audit(env, admin, 'growth.social.import', 'social-metrics', '', { rows: rows.length, platforms: [...new Set(rows.map(x => String(x.platform || '').toLowerCase()))] });
       return json({ ok: true, imported: rows.length });
     }
