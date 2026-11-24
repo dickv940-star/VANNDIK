@@ -125,7 +125,7 @@ export async function onRequest({ request, env }) {
       auth.searchParams.set('client_id', clientId(env));
       auth.searchParams.set('redirect_uri', REDIRECT_URI);
       auth.searchParams.set('response_type', 'code');
-      auth.searchParams.set('scope', 'openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly');
+      auth.searchParams.set('scope', 'openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly');
       auth.searchParams.set('access_type', 'offline');
       auth.searchParams.set('prompt', 'consent');
       auth.searchParams.set('include_granted_scopes', 'true');
@@ -153,7 +153,7 @@ export async function onRequest({ request, env }) {
       const config = await env.CMS_DB.prepare("SELECT search_console_site,ga4_property_id FROM cms_google_growth_config WHERE id='primary'").first();
       if (!config?.search_console_site && !config?.ga4_property_id) return json({ error: 'Masukkan properti Search Console atau GA4 terlebih dahulu.' }, 400);
       const token = await getAccessToken(env);
-      const result = { periodDays: days, searchConsole: null, analytics: null, warnings: [] };
+      const result = { periodDays: days, searchConsole: null, analytics: null, youtube: null, warnings: [] };
       if (config.search_console_site) {
         try {
           const data = await googlePost('https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(config.search_console_site) + '/searchAnalytics/query', token, {
@@ -172,6 +172,34 @@ export async function onRequest({ request, env }) {
           const totals = data.rows || [];
           result.analytics = { rows: totals, totals: (data.totals?.[0]?.metricValues || []).map((x, i) => ({ metric: ['users','sessions','pageViews'][i], value: Number(x.value || 0) })) };
         } catch (e) { result.warnings.push('GA4: ' + e.message); }
+      }
+      try {
+        const params = new URLSearchParams({
+          ids: 'channel==MINE',
+          startDate: dateDaysAgo(days + 2),
+          endDate: dateDaysAgo(2),
+          metrics: 'views,estimatedMinutesWatched,likes,subscribersGained',
+          dimensions: 'day,creatorContentType',
+          sort: 'day',
+          maxResults: '200'
+        });
+        const yt = await googleGet('https://youtubeanalytics.googleapis.com/v2/reports?' + params.toString(), token);
+        const headers = (yt.columnHeaders || []).map(x => x.name);
+        const rows = (yt.rows || []).map(row => Object.fromEntries(headers.map((key, index) => [key, row[index]])));
+        const shorts = rows.filter(row => String(row.creatorContentType || '').toUpperCase() === 'SHORTS');
+        const sum = key => shorts.reduce((total, row) => total + Number(row[key] || 0), 0);
+        result.youtube = {
+          rows: shorts,
+          shortsViews: sum('views'),
+          watchMinutes: sum('estimatedMinutesWatched'),
+          likes: sum('likes'),
+          subscribersGained: sum('subscribersGained'),
+          contentType: 'SHORTS',
+          startDate: dateDaysAgo(days + 2),
+          endDate: dateDaysAgo(2)
+        };
+      } catch (e) {
+        result.warnings.push('YouTube Analytics: ' + e.message);
       }
       return json(result);
     }
