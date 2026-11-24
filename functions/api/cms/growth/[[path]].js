@@ -56,11 +56,12 @@ export async function onRequest({ request, env }) {
       if (!admin) return json({ error: 'Silakan login ke CMS terlebih dahulu.' }, 401);
       const range = Math.min(90, Math.max(1, Number(url.searchParams.get('days') || 30)));
       const since = new Date(Date.now() - range * 86400000).toISOString().slice(0,10);
-      const [summary, latest] = await Promise.all([
+      const [summary, latest, daily] = await Promise.all([
         env.CMS_DB.prepare('SELECT platform,metric,SUM(metric_value) value,COUNT(*) days,MAX(metric_date) latest_date FROM cms_social_metrics WHERE metric_date>=? GROUP BY platform,metric ORDER BY platform,metric').bind(since).all(),
-        env.CMS_DB.prepare('SELECT platform,MAX(imported_at) last_import FROM cms_social_metrics GROUP BY platform ORDER BY platform').all()
+        env.CMS_DB.prepare('SELECT platform,MAX(imported_at) last_import FROM cms_social_metrics GROUP BY platform ORDER BY platform').all(),
+        env.CMS_DB.prepare('SELECT platform,metric,metric_date day,SUM(metric_value) value FROM cms_social_metrics WHERE metric_date>=? GROUP BY platform,metric,metric_date ORDER BY metric_date').bind(since).all()
       ]);
-      return json({ range, items: summary.results || [], lastImports: latest.results || [] });
+      return json({ range, items: summary.results || [], lastImports: latest.results || [], daily: daily.results || [] });
     }
     if (path === 'import' && request.method === 'POST') {
       const admin = await requireAdmin(request, env);
