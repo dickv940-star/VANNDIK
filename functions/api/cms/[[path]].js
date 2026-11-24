@@ -467,7 +467,9 @@ async function createAiRoomDraft(env, admin, requested) {
   if(!['article','news','game','app'].includes(type)) throw new Error('Agen hanya boleh membuat draft artikel, berita, game, atau aplikasi. Produk affiliate memakai alur verifikasi produk tersendiri.');
   const item=clean({...requested,type,status:'draft',published_at:null});
   if(!item.title||item.title.length<8||!item.body||item.body.length<300) throw new Error('Draft harus memiliki judul dan isi minimal 300 karakter.');
-  if(!safeUrl(item.image_url)||!safeUrl(item.affiliate_url)||!safeUrl(item.target_url)) throw new Error('URL draft tidak valid.');
+  // Editorial drafts (news/articles) do not require affiliate or image URLs.
+  // Validate only URLs that are actually supplied; never invent placeholder links.
+  for(const field of ['image_url','affiliate_url','target_url']) if(item[field] && !safeUrl(item[field])) throw new Error('URL '+field+' tidak valid.');
   if(!item.slug){
     const baseSlug=String(item.title).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,72)||'konten';
     let slug=baseSlug,suffix=1;
