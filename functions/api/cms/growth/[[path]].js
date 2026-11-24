@@ -2,6 +2,7 @@ const COOKIE = 'vanndik_cms_session';
 const json = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } });
 const sha = async value => btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)))));
 const uid = () => crypto.randomUUID();
+const audit = (env, admin, action, target = '', id = '', details = {}) => env.CMS_DB.prepare('INSERT INTO cms_audit_logs(id,admin_id,action,target_type,target_id,details) VALUES(?,?,?,?,?,?)').bind(uid(), admin?.id || null, action, target, id, JSON.stringify(details)).run();
 const cookie = req => (req.headers.get('cookie') || '').split(';').map(x => x.trim()).find(x => x.startsWith(COOKIE + '='))?.slice(COOKIE.length + 1) || '';
 async function requireAdmin(request, env) {
   const token = cookie(request);
