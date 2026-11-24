@@ -98,19 +98,74 @@ a{color:#8ddfff;text-decoration:none;font-size:11px;transition:color .2s}a:hover
 .notice{margin-top:14px}
 @media(max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.panels{grid-template-columns:1fr}.google-grid{grid-template-columns:1fr}.panels>.panel{min-height:0}}
 @media(max-width:480px){.wrap{padding:14px 11px 36px}.top{margin-bottom:24px}.grid{gap:8px}.card{padding:13px;min-height:105px}.label{font-size:9px}.value{font-size:21px}.hint{font-size:9px}.panel{padding:14px}.toolbar select,.toolbar button{font-size:10px}.google-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Growth Intelligence visual system v2 */
+:root{--bg:#070b14;--surface:#0c1422;--surface-2:#101c2d;--line:#22364e;--muted:#8ea2bb;--text:#edf5ff;--cyan:#36d9f5;--violet:#9a8cff}
+body{background:radial-gradient(ellipse at 12% 0%,#0d42602b,transparent 30%),radial-gradient(ellipse at 92% 12%,#46327a24,transparent 28%),#070b14}
+body:before{opacity:.075;background-size:48px 48px}
+.wrap{max-width:1480px;padding:28px clamp(18px,3vw,44px) 76px}
+.top{position:sticky;top:12px;z-index:20;margin:0 0 34px;padding:12px 18px;min-height:58px;border-color:#263c55;background:rgba(8,17,30,.88);box-shadow:0 14px 38px #0005}
+.brand{font-size:11px;letter-spacing:2.1px}.top a{font-size:11px;font-weight:650}
+.eyebrow{font-size:10px;letter-spacing:2.4px;color:#64e5f5}
+.heading{font-size:clamp(34px,4.4vw,54px);letter-spacing:-2px;margin:13px 0 10px;line-height:1.04}
+.sub{max-width:720px;font-size:13px;line-height:1.75;color:#9aacc2}
+.toolbar{margin:24px 0 20px;gap:9px}
+.toolbar select,.toolbar button{min-height:40px;border-radius:10px;font-size:11px}
+.toolbar select{background:#0d1929;border-color:#2a4059;color:#e5f2ff;padding-inline:14px}
+.toolbar button{background:linear-gradient(115deg,#08799a,#2456bd);border:1px solid #2d9fc5;box-shadow:0 5px 18px #087da52b}
+#status{padding:7px 10px;border:1px solid #20364d;border-radius:999px;background:#0b1725;color:#9cb5ce;min-height:28px}
+.grid{gap:14px}
+.card,.panel{border:1px solid #223750;border-radius:16px;background:linear-gradient(150deg,rgba(16,30,48,.98),rgba(9,17,29,.98));box-shadow:0 12px 32px #0003,inset 0 1px #ffffff09}
+.card{min-height:132px;padding:20px 21px}
+.card:before,.panel:before{left:20px;right:20px;background:linear-gradient(90deg,transparent,#39d9ed70,#8d80ff55,transparent)}
+.card:after{background:#30d9ef0b}
+.label{font-size:10px;letter-spacing:1.05px;color:#9bb0c8}
+.value{font-size:clamp(24px,2.3vw,34px);margin-top:12px;text-shadow:none}
+.hint{font-size:10px;color:#7f96b1;margin-top:8px}
+.panels{gap:14px;margin-top:14px}
+.panel{padding:21px;min-height:230px}
+.panel h2{font-size:13px;letter-spacing:.1px;margin-bottom:18px;color:#f1f7ff}
+.panel h2:before{height:16px;width:3px;background:#48dff3;box-shadow:0 0 12px #24cce9a8}
+.google-grid{gap:14px;margin-top:14px}
+.google-kpi{background:linear-gradient(145deg,#101f32,#0c1726);border-color:#263e58;border-radius:12px;padding:14px}
+.google-kpi span{font-size:9px;color:#9ab1ca;letter-spacing:.55px}
+.google-kpi b{font-size:clamp(18px,1.7vw,23px);margin-top:8px}
+.google-kpi small{font-size:9px;color:#829ab5;line-height:1.5}
+.google-subtitle{font-size:9px;letter-spacing:1px;color:#8eaac6;margin:20px 0 10px}
+.google-source{font-size:9px;color:#8299b2;line-height:1.65}
+.google-empty,.empty{color:#91a5bd;font-size:11px;padding:14px 0}
+.chart-tab{border-radius:8px;padding:8px 12px;background:#0d1b2b;border-color:#2a405a}
+.chart-tab.active{background:#12354a;border-color:#39cde7;box-shadow:0 0 0 1px #39cde71c;color:#e9fcff}
+.table-wrap{margin-top:14px;padding:20px 21px}
+.table-wrap h2{padding:0;margin:0 0 14px}
+.table{font-size:11px;min-width:700px}
+.table th{font-size:9px;letter-spacing:.9px;color:#91a9c3;background:#101d2e}
+.table td{padding-block:14px;color:#d1dfed}
+.table tbody tr:hover{background:#14263a}
+.notice{margin-top:16px;padding:16px 18px;background:#0b1726;border-color:#29425c;color:#9bb0c8;font-size:10px}
+.section-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:30px 0 13px}
+.section-heading h2{margin:0;color:#eaf4ff;font-size:14px;letter-spacing:-.2px;font-weight:800}
+.section-heading p{margin:5px 0 0;color:#8198b3;font-size:10px;line-height:1.6}
+.section-kicker{font-size:9px;letter-spacing:1.3px;text-transform:uppercase;color:#54d9ed;font-weight:800;white-space:nowrap}
+.panels .panel{min-width:0}
+.google-grid>.panel{min-width:0}
+:focus-visible{outline:2px solid #4adcf1;outline-offset:3px}
+@media(max-width:760px){.wrap{padding-top:16px}.top{position:static;margin-bottom:28px}.section-heading{margin-top:25px}}
+@media(max-width:560px){.wrap{padding:12px 12px 42px}.top{padding:12px 14px}.top>div:last-child{gap:12px}.heading{font-size:34px;letter-spacing:-1.3px}.toolbar{margin:18px 0 15px}.toolbar select,.toolbar button{min-height:38px}.card{min-height:112px;padding:15px}.panel{padding:16px}.google-kpi{padding:12px}.table-wrap{padding:15px}.section-heading{align-items:flex-start;flex-direction:column;gap:4px}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 </style></head><body><main class="wrap">
 <div class="top"><div class="brand">VANNDIK<span>.</span> INTELLIGENCE</div><div><a href="/admin/growth-settings/">Google Integrations</a>　<a href="/admin/">← Kembali ke CMS</a></div></div>
 <div class="eyebrow">GROWTH & REVENUE</div><h1 class="heading">Growth Intelligence</h1><p class="sub">Pantau interaksi tautan affiliate di website. Data ini adalah klik keluar, bukan transaksi atau komisi marketplace.</p>
 <div class="toolbar"><select id="range"><option value="7">7 hari</option><option value="30" selected>30 hari</option><option value="90">90 hari</option></select><button id="refresh">Muat ulang data</button><span id="status" class="muted"></span></div>
-<section class="grid"><div class="card"><div class="label">Affiliate clicks</div><div class="value" id="total">—</div><div class="hint">Klik keluar tercatat</div></div><div class="card"><div class="label">Produk teratas</div><div class="value" id="topProduct">—</div><div class="hint">Berdasarkan jumlah klik</div></div><div class="card"><div class="label">Negara teratas</div><div class="value" id="topCountry">—</div><div class="hint">Header negara Cloudflare</div></div><div class="card"><div class="label">Marketplace teratas</div><div class="value" id="topMarket">—</div><div class="hint">Hostname tujuan</div></div></section>
-<section class="panels"><div class="panel"><h2>Tren klik harian</h2><div class="chart-tabs"><button class="chart-tab active" data-chart="affiliate">Klik affiliate</button></div><div id="daily"><span class="empty">Memuat…</span></div></div><div class="panel"><h2>Marketplace</h2><div class="rows" id="markets"></div></div><div class="panel"><h2>Produk paling banyak diklik</h2><div class="rows" id="products"></div></div><div class="panel"><h2>Negara pengunjung</h2><div class="rows" id="countries"></div></div></section>
-<section class="google-grid">
+<div class="section-heading"><div><h2>Ringkasan affiliate</h2><p>Performa klik keluar berdasarkan periode yang dipilih</p></div><span class="section-kicker">01 / Affiliate</span></div><section class="grid"><div class="card"><div class="label">Affiliate clicks</div><div class="value" id="total">—</div><div class="hint">Klik keluar tercatat</div></div><div class="card"><div class="label">Produk teratas</div><div class="value" id="topProduct">—</div><div class="hint">Berdasarkan jumlah klik</div></div><div class="card"><div class="label">Negara teratas</div><div class="value" id="topCountry">—</div><div class="hint">Header negara Cloudflare</div></div><div class="card"><div class="label">Marketplace teratas</div><div class="value" id="topMarket">—</div><div class="hint">Hostname tujuan</div></div></section>
+<div class="section-heading"><div><h2>Perilaku pengunjung</h2><p>Marketplace, produk, dan negara asal klik yang tercatat</p></div><span class="section-kicker">02 / Audience</span></div><section class="panels"><div class="panel"><h2>Tren klik harian</h2><div class="chart-tabs"><button class="chart-tab active" data-chart="affiliate">Klik affiliate</button></div><div id="daily"><span class="empty">Memuat…</span></div></div><div class="panel"><h2>Marketplace</h2><div class="rows" id="markets"></div></div><div class="panel"><h2>Produk paling banyak diklik</h2><div class="rows" id="products"></div></div><div class="panel"><h2>Negara pengunjung</h2><div class="rows" id="countries"></div></div></section>
+<div class="section-heading"><div><h2>Website & search performance</h2><p>Analitik kunjungan website dan visibilitas organik dari Google</p></div><span class="section-kicker">03 / Acquisition</span></div><section class="google-grid">
 <div class="panel"><h2>Google Analytics 4 · Trafik website</h2><div class="google-kpis" id="gaKpis"><div class="google-empty">Memuat data GA4…</div></div><div class="google-subtitle">Tren performa harian</div><div class="chart-tabs"><button class="chart-tab active" data-chart="ga-users">Pengguna</button><button class="chart-tab" data-chart="ga-sessions">Sesi</button><button class="chart-tab" data-chart="ga-views">Tampilan</button></div><div id="gaTrend"><div class="google-empty">Menunggu data…</div></div><div class="chart-legend"><span><i style="background:#56d5ff"></i>Data harian aktual</span></div><div class="google-subtitle">Halaman terpopuler</div><div class="google-list" id="gaPages"><div class="google-empty">Menunggu data…</div></div><div class="google-source">Sumber: Google Analytics Data API · data aktual properti terhubung</div></div>
 <div class="panel"><h2>Google Search Console · Penelusuran</h2><div class="google-kpis" id="scKpis"><div class="google-empty">Memuat data Search Console…</div></div><div class="google-subtitle">Tren performa pencarian</div><div class="chart-tabs"><button class="chart-tab active" data-chart="sc-clicks">Klik</button><button class="chart-tab" data-chart="sc-impressions">Impresi</button></div><div id="scTrend"><div class="google-empty">Menunggu data…</div></div><div class="chart-legend"><span><i style="background:#f5b84b"></i>Data harian aktual</span></div><div class="google-subtitle">Kueri pencarian teratas</div><div class="google-list" id="scQueries"><div class="google-empty">Menunggu data…</div></div><div class="google-subtitle">Halaman teratas dari Google</div><div class="google-list" id="scPages"><div class="google-empty">Menunggu data…</div></div><div class="google-source">Sumber: Google Search Console API · data aktual properti terhubung; data terbaru dapat tertunda</div></div>
 </section>
-<section class="google-grid"><div class="panel"><h2>YouTube Analytics · Channel & Shorts</h2><div class="google-kpis" id="ytKpis"><div class="google-empty">Memuat YouTube Analytics…</div></div><div class="google-subtitle">Tren performa konten</div><div class="chart-tabs"><button class="chart-tab active" data-chart="yt-views">Views</button><button class="chart-tab" data-chart="yt-likes">Likes</button><button class="chart-tab" data-chart="yt-subs">Subscriber baru</button><button class="chart-tab" data-chart="yt-watch">Waktu tonton (menit)</button></div><div id="ytTrend"><div class="google-empty">Menunggu data…</div></div><div class="google-source">Sumber: YouTube Analytics API · hanya data channel yang diotorisasi</div></div></section>
+<div class="section-heading"><div><h2>Social & video channels</h2><p>Performa kanal eksternal sesuai data yang tersedia dan diimpor</p></div><span class="section-kicker">04 / Channels</span></div><section class="google-grid"><div class="panel"><h2>YouTube Analytics · Channel & Shorts</h2><div class="google-kpis" id="ytKpis"><div class="google-empty">Memuat YouTube Analytics…</div></div><div class="google-subtitle">Tren performa konten</div><div class="chart-tabs"><button class="chart-tab active" data-chart="yt-views">Views</button><button class="chart-tab" data-chart="yt-likes">Likes</button><button class="chart-tab" data-chart="yt-subs">Subscriber baru</button><button class="chart-tab" data-chart="yt-watch">Waktu tonton (menit)</button></div><div id="ytTrend"><div class="google-empty">Menunggu data…</div></div><div class="google-source">Sumber: YouTube Analytics API · hanya data channel yang diotorisasi</div></div></section>
 <section class="google-grid"><div class="panel"><h2>Social Media Analytics · Multi-platform</h2><p class="google-source">Data aktual dari impor CSV laporan platform. API langsung dapat ditambahkan saat akses resmi tersedia.</p><div class="google-kpis" id="socialKpis"><div class="google-empty">Memuat statistik media sosial…</div></div><div class="google-subtitle">Pilih kanal dan metrik</div><div class="toolbar"><select id="socialPlatform"><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="youtube">YouTube</option><option value="tiktok">TikTok</option><option value="pinterest">Pinterest</option><option value="linkedin">LinkedIn</option></select><select id="socialMetric"><option value="views">Views</option><option value="reach">Reach</option><option value="impressions">Impressions</option><option value="likes">Likes</option><option value="comments">Comments</option><option value="shares">Shares</option><option value="followers">Followers</option><option value="subscribers">Subscribers</option><option value="clicks">Clicks</option><option value="watch_minutes">Watch minutes</option></select></div><div id="socialTrend"><div class="google-empty">Belum ada data sosial.</div></div><div class="google-source" id="socialImportInfo">Belum ada data impor.</div></div></section>
-<div class="panel table-wrap"><h2>Klik terbaru</h2><table class="table"><thead><tr><th>Waktu</th><th>Produk</th><th>Halaman</th><th>Marketplace</th><th>Negara</th></tr></thead><tbody id="recent"><tr><td colspan="5">Memuat…</td></tr></tbody></table></div>
+<div class="section-heading"><div><h2>Aktivitas terbaru</h2><p>Log klik affiliate terbaru yang diterima website</p></div><span class="section-kicker">05 / Activity</span></div><div class="panel table-wrap"><h2>Klik terbaru</h2><table class="table"><thead><tr><th>Waktu</th><th>Produk</th><th>Halaman</th><th>Marketplace</th><th>Negara</th></tr></thead><tbody id="recent"><tr><td colspan="5">Memuat…</td></tr></tbody></table></div>
 <div class="notice">Privasi: sistem tidak menyimpan alamat IP, nama, email, atau identitas pengunjung. Hubungkan Google Search Console dan GA4 melalui <a href="/admin/growth-settings/">pengaturan integrasi Google</a>. Klik tidak sama dengan pembelian; komisi aktual harus mengikuti laporan affiliate masing-masing platform.</div>
 </main>
 <script>
