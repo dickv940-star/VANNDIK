@@ -224,7 +224,7 @@ function setChartActive(key){
  renderSelectedCharts();
 }
 document.querySelectorAll('[data-chart]').forEach(btn=>btn.addEventListener('click',()=>setChartActive(btn.dataset.chart)));
-function renderSocialSummary(data){const items=data?.items||[],platforms=['instagram','facebook','youtube','tiktok','pinterest','linkedin'];$('socialKpis').innerHTML=platforms.map(platform=>{const metrics=items.filter(x=>x.platform===platform);const latest=(data?.lastImports||[]).find(x=>x.platform===platform);const total=metrics.length;return '<div class="google-kpi"><span>'+platform.toUpperCase()+'</span><b>'+fmt(total)+'</b><small>'+(total?'Titik metrik · impor '+new Date(latest.last_import).toLocaleDateString('id-ID'):'Belum terhubung / belum impor')+'</small></div>'}).join('');const count=(data?.daily||[]).length;$('socialImportInfo').textContent=count?'Tersedia '+fmt(count)+' titik data harian dari laporan yang diimpor.':'Belum ada data CSV. Impor laporan dari Pengaturan Growth.';}
+function renderSocialSummary(data){const items=data?.items||[],platforms=['instagram','facebook','youtube','tiktok','pinterest','linkedin'];$('socialKpis').innerHTML=platforms.map(platform=>{const metrics=items.filter(x=>x.platform===platform);const latest=(data?.lastImports||[]).find(x=>x.platform===platform);const total=metrics.length;return '<div class="google-kpi"><span>'+platform.toUpperCase()+'</span><b>'+fmt(total)+'</b><small>'+(total?'jenis metrik tersedia · impor '+(latest?.last_import?new Date(latest.last_import).toLocaleDateString('id-ID'):'tanggal tidak tersedia'):'Belum ada data impor')+'</small></div>'}).join('');const count=(data?.daily||[]).length;$('socialImportInfo').textContent=count?'Tersedia '+fmt(count)+' titik data harian dari laporan yang diimpor.':'Belum ada data CSV. Impor laporan dari Pengaturan Growth.';}
 function renderGoogleList(id,items,label,value){const root=$(id);root.innerHTML=items?.length?items.slice(0,7).map(item=>'<div class="google-list-item"><span title="'+safe(label(item))+'">'+safe(label(item))+'</span><b>'+fmt(value(item))+'</b></div>').join(''):'<div class="google-empty">Belum ada data untuk ditampilkan.</div>'}
 function renderGoogleReport(data){const ga=data?.analytics,sc=data?.searchConsole,yt=data?.youtube;
 $('gaKpis').innerHTML=ga?ga.totals.map(x=>'<div class="google-kpi"><span>'+safe(({users:'Pengguna',sessions:'Sesi',pageViews:'Tampilan halaman'})[x.metric]||x.metric)+'</span><b>'+fmt(x.value)+'</b></div>').join(''):'<div class="google-empty">Data GA4 belum tersedia. Periksa akses properti dan API.</div>';
@@ -236,9 +236,61 @@ chartState.yt=yt?.rows||[];
 $('ytKpis').innerHTML=yt?'<div class="google-kpi"><span>Views Shorts</span><b>'+fmt(yt.shortsViews)+'</b></div><div class="google-kpi"><span>Waktu tonton</span><b>'+fmt(yt.watchMinutes)+'</b></div><div class="google-kpi"><span>Likes</span><b>'+fmt(yt.likes)+'</b></div><div class="google-kpi"><span>Subscriber baru</span><b>'+fmt(yt.subscribersGained)+'</b></div>':'<div class="google-empty">YouTube belum terhubung atau laporan tidak tersedia.</div>';
 renderGoogleList('scQueries',sc?.queries||[],r=>r.keys?.[0]||'(kueri tidak tersedia)',r=>r.clicks);
 renderGoogleList('scPages',sc?.pages||[],r=>r.keys?.[0]||'/',r=>r.clicks);
-if(data?.warnings?.length){const warning='<div class="google-error">'+data.warnings.map(safe).join(' · ')+'</div>'; $('gaPages').insertAdjacentHTML('afterend',warning)}
+const oldWarning=$('googleWarnings');if(oldWarning)oldWarning.remove();if(data?.warnings?.length){const warning=document.createElement('div');warning.id='googleWarnings';warning.className='google-error';warning.textContent=data.warnings.join(' · ');$('gaPages').insertAdjacentElement('afterend',warning)}
 }
-async function load(){ $('status').textContent='Memuat…';try{const days=$('range').value,[a,b,c]=await Promise.all([fetch('/api/cms/growth/stats?days='+days,{credentials:'same-origin'}),fetch('/api/cms/growth/events',{credentials:'same-origin'}),fetch('/api/cms/growth/social?days='+days,{credentials:'same-origin'})]);if(a.status===401||b.status===401||c.status===401){location.href='/admin/';return}if(!a.ok||!b.ok||!c.ok)throw Error('API tidak dapat dimuat');const d=await a.json(),e=await b.json(),social=await c.json();$('total').textContent=fmt(d.totalClicks);$('topProduct').textContent=d.products[0]?.product_name||'—';$('topCountry').textContent=d.countries[0]?.country||'—';$('topMarket').textContent=d.marketplaces[0]?.marketplace||'—';rows('products',d.products,'product_name');rows('countries',d.countries,'country');rows('markets',d.marketplaces,'marketplace');const ds=d.days||[];chartState.affiliate=ds;chartState.social=social.daily||[];renderSocialSummary(social);renderSelectedCharts();$('recent').innerHTML=e.items.length?e.items.slice(0,30).map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString('id-ID')+'</td><td>'+String(x.product_name||'—').replace(/[&<>"]/g,'')+'</td><td>'+String(x.page_path||'—').replace(/[&<>"]/g,'')+'</td><td>'+String(x.marketplace||'—').replace(/[&<>"]/g,'')+'</td><td>'+String(x.country||'—').replace(/[&<>"]/g,'')+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada klik tercatat.</td></tr>';$('status').textContent='Diperbarui '+new Date().toLocaleTimeString('id-ID')}catch(err){$('status').textContent=err.message;$('status').className='error'}
-try{const response=await fetch('/api/cms/google-growth/report?days='+$('range').value,{credentials:'same-origin'});if(response.status===401){location.href='/admin/';return}const report=await response.json();if(!response.ok)throw Error(report.error||'Laporan Google tidak dapat dimuat');renderGoogleReport(report);renderSelectedCharts()}catch(err){$('gaKpis').innerHTML='<div class="google-error">'+safe(err.message)+'</div>';$('scKpis').innerHTML='<div class="google-error">'+safe(err.message)+'</div>';$('ytKpis').innerHTML='<div class="google-error">'+safe(err.message)+'</div>';$('ytTrend').innerHTML='<div class="google-empty">Laporan YouTube tidak tersedia.</div>';$('gaTrend').innerHTML='<div class="google-empty">Laporan tidak tersedia.</div>';$('scTrend').innerHTML='<div class="google-empty">Laporan tidak tersedia.</div>'}}
-$('refresh').addEventListener('click',load);$('range').addEventListener('change',load);load();
+async function requestJson(path){
+ const response=await fetch(path,{credentials:'same-origin',cache:'no-store'});
+ if(response.status===401){location.href='/admin/';throw new Error('Sesi admin berakhir. Silakan login kembali.')}
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok)throw new Error(data.error||'Permintaan gagal ('+response.status+')');
+ return data;
+}
+function showLoadError(id,message){const root=$(id);if(root)root.innerHTML='<div class="google-error">'+safe(message)+'</div>'}
+async function load(){
+ const days=$('range').value,states=[];
+ $('status').textContent='Memuat sumber data…';$('status').className='muted';
+ const jobs=await Promise.allSettled([
+  requestJson('/api/cms/growth/stats?days='+days),
+  requestJson('/api/cms/growth/events'),
+  requestJson('/api/cms/growth/social?days='+days),
+  requestJson('/api/cms/google-growth/report?days='+days)
+ ]);
+ const [affiliateResult,eventsResult,socialResult,googleResult]=jobs;
+ if(affiliateResult.status==='fulfilled'){
+  const d=affiliateResult.value;
+  $('total').textContent=fmt(d.totalClicks);
+  $('topProduct').textContent=d.products?.[0]?.product_name||'—';
+  $('topCountry').textContent=d.countries?.[0]?.country||'—';
+  $('topMarket').textContent=d.marketplaces?.[0]?.marketplace||'—';
+  rows('products',d.products||[],'product_name');rows('countries',d.countries||[],'country');rows('markets',d.marketplaces||[],'marketplace');
+  chartState.affiliate=d.days||[];states.push('Affiliate OK');
+ }else{
+  $('total').textContent='—';$('topProduct').textContent='—';$('topCountry').textContent='—';$('topMarket').textContent='—';
+  ['products','countries','markets'].forEach(id=>showLoadError(id,affiliateResult.reason?.message||'Data affiliate gagal dimuat'));
+  chartState.affiliate=[];states.push('Affiliate: '+(affiliateResult.reason?.message||'gagal'));
+ }
+ if(eventsResult.status==='fulfilled'){
+  const items=eventsResult.value.items||[];
+  $('recent').innerHTML=items.length?items.slice(0,30).map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString('id-ID')+'</td><td>'+safe(x.product_name||'—')+'</td><td>'+safe(x.page_path||'—')+'</td><td>'+safe(x.marketplace||'—')+'</td><td>'+safe(x.country||'—')+'</td></tr>').join(''):'<tr><td colspan="5">Belum ada klik tercatat. Klik affiliate akan muncul setelah tracking aktif dan ada pengunjung yang mengekliknya.</td></tr>';
+  states.push('Log klik OK');
+ }else{
+  $('recent').innerHTML='<tr><td colspan="5">'+safe(eventsResult.reason?.message||'Log klik gagal dimuat')+'</td></tr>';
+  states.push('Log klik: '+(eventsResult.reason?.message||'gagal'));
+ }
+ if(socialResult.status==='fulfilled'){
+  const social=socialResult.value;chartState.social=social.daily||[];renderSocialSummary(social);states.push('Social OK');
+ }else{
+  chartState.social=[];showLoadError('socialKpis',socialResult.reason?.message||'Data media sosial gagal dimuat');
+  $('socialImportInfo').textContent='Tidak dapat membaca data impor: '+(socialResult.reason?.message||'permintaan gagal');states.push('Social: '+(socialResult.reason?.message||'gagal'));
+ }
+ if(googleResult.status==='fulfilled'){
+  renderGoogleReport(googleResult.value);states.push('Google API OK');
+ }else{
+  ['gaKpis','scKpis','ytKpis'].forEach(id=>showLoadError(id,googleResult.reason?.message||'Laporan Google gagal dimuat'));
+  ['gaTrend','scTrend','ytTrend'].forEach(id=>showLoadError(id,'Laporan belum tersedia. Periksa koneksi dan izin API.'));
+  states.push('Google API: '+(googleResult.reason?.message||'gagal'));
+ }
+ renderSelectedCharts();
+ $('status').textContent='Pembaruan '+new Date().toLocaleTimeString('id-ID')+' · '+states.join(' · ');
+}$('refresh').addEventListener('click',load);$('range').addEventListener('change',load);load();
 </script></body></html>
