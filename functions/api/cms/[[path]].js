@@ -468,6 +468,12 @@ async function createAiRoomDraft(env, admin, requested) {
   const item=clean({...requested,type,status:'draft',published_at:null});
   if(!item.title||item.title.length<8||!item.body||item.body.length<300) throw new Error('Draft harus memiliki judul dan isi minimal 300 karakter.');
   if(!safeUrl(item.image_url)||!safeUrl(item.affiliate_url)||!safeUrl(item.target_url)) throw new Error('URL draft tidak valid.');
+  if(!item.slug){
+    const baseSlug=String(item.title).normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,72)||'konten';
+    let slug=baseSlug,suffix=1;
+    while(await env.CMS_DB.prepare('SELECT id FROM cms_content WHERE slug=? LIMIT 1').bind(slug).first())slug=(baseSlug.slice(0,78)+'-'+suffix++).slice(0,90);
+    item.slug=slug;
+  }
   const existing=await env.CMS_DB.prepare('SELECT id,type,title,status FROM cms_content WHERE slug=? LIMIT 1').bind(item.slug).first();
   if(existing) return {id:existing.id,type:existing.type,title:existing.title,status:existing.status,already_exists:true};
   const id=uid(),seo=makeSeo({...item,...requested});
@@ -582,9 +588,17 @@ function parseAiRoomReply(raw, requestedAgentId) {
     if(source.length>=1) parsed={message:source};
     else throw new Error('Provider mengembalikan respons kosong.');
   }
+  const wrappedContent=parsed.content && typeof parsed.content==='object' && !Array.isArray(parsed.content) ? parsed.content : null;
+  const wrappedType=String(wrappedContent?.type||'').toLowerCase();
+  const looksLikeCmsDraft=!!wrappedContent&&['article','news','game','app'].includes(wrappedType)&&
+    !!wrappedContent.title&&!!wrappedContent.body;
   const action = parsed.action && typeof parsed.action === 'object' && parsed.action.type === 'create_content'
     ? {type:'create_content',content:parsed.action.content}
-    : null;
+    : parsed.type==='create_content'&&wrappedContent
+      ? {type:'create_content',content:wrappedContent}
+      : looksLikeCmsDraft
+        ? {type:'create_content',content:wrappedContent}
+        : null;
   // Unwrap nested Workers AI envelopes recursively, including content arrays,
   // {type:"text",content:[{type:"output_text",text:"..."}]}, and JSON strings.
   const answer=extractAiRoomText(parsed)||(action?'Draft sedang disiapkan untuk disimpan ke workspace CMS.':'');
