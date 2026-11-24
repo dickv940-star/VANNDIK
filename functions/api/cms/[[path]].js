@@ -913,10 +913,11 @@ export async function onRequest({ request, env }) {
       await ensureAiRoomTables(env);
       const days=Math.max(7,Math.min(90,Number(url.searchParams.get('days')||30)));
       const since=`-${days-1} days`;
-      const [statusRows,dailyRows,agentRows,totals]=await Promise.all([
+      const [statusRows,dailyRows,agentRows,responseRows,totals]=await Promise.all([
         env.CMS_DB.prepare("SELECT status,COUNT(*) AS total FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY status").bind(admin.id,since).all(),
         env.CMS_DB.prepare("SELECT date(created_at) AS day,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing') THEN 1 ELSE 0 END) AS pending FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY date(created_at) ORDER BY day").bind(admin.id,since).all(),
         env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing') THEN 1 ELSE 0 END) AS pending,MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY total DESC,agent_id").bind(admin.id,since).all(),
+        env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS responses,MAX(created_at) AS last_response FROM cms_ai_room_messages WHERE admin_id=? AND role='assistant' AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY responses DESC,agent_id").bind(admin.id,since).all(),
         env.CMS_DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed, SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed, SUM(CASE WHEN status IN ('queued','processing') THEN 1 ELSE 0 END) AS pending, MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?)").bind(admin.id,since).first()
       ]);
       const byStatus={queued:0,processing:0,completed:0,paused:0,failed:0};
@@ -927,7 +928,7 @@ export async function onRequest({ request, env }) {
         const row=(dailyRows.results||[]).find(x=>x.day===day);
         return {day,total:Number(row?.total||0),completed:Number(row?.completed||0),failed:Number(row?.failed||0),pending:Number(row?.pending||0)};
       });
-      return json({period_days:days,generated_at:new Date().toISOString(),totals:{total:Number(totals?.total||0),completed:Number(totals?.completed||0),failed:Number(totals?.failed||0),pending:Number(totals?.pending||0),last_activity:totals?.last_activity||null},by_status:byStatus,daily,agents:(agentRows.results||[]).map(x=>({...x,total:Number(x.total||0),completed:Number(x.completed||0),failed:Number(x.failed||0),pending:Number(x.pending||0)})),source:'D1 · cms_ai_room_jobs'});
+      return json({period_days:days,generated_at:new Date().toISOString(),totals:{total:Number(totals?.total||0),completed:Number(totals?.completed||0),failed:Number(totals?.failed||0),pending:Number(totals?.pending||0),last_activity:totals?.last_activity||null},by_status:byStatus,daily,agents:(agentRows.results||[]).map(x=>({...x,total:Number(x.total||0),completed:Number(x.completed||0),failed:Number(x.failed||0),pending:Number(x.pending||0)})),agent_responses:(responseRows.results||[]).map(x=>({...x,responses:Number(x.responses||0)})),source:'D1 · cms_ai_room_jobs + cms_ai_room_messages'});
     }
     if (path === 'ai-room/jobs' && method === 'GET') {
       await ensureAiRoomTables(env);
@@ -970,6 +971,14 @@ export async function onRequest({ request, env }) {
         const cmsContext=await getAiRoomCmsContext(env);
         const result=await callAiRoomProvider(env,conversation,agentId,memory,message,cmsContext);
         answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;resultTaskTier=result.task?.tier||'chat';
+        // Attribute the job to the agent who actually produced the reply, not the group mailbox.
+        const executingAgentId=AI_ROOM_AGENTS[speakerId]?speakerId:(AI_ROOM_AGENTS[agentId]?agentId:'team');
+        if(executingAgentId!==agentId){
+          await env.CMS_DB.batch([
+            env.CMS_DB.prepare('UPDATE cms_ai_room_jobs SET agent_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(executingAgentId,jobId),
+            env.CMS_DB.prepare("UPDATE cms_ai_room_activity SET agent_id=? WHERE job_id=? AND event_type='started'").bind(executingAgentId,jobId)
+          ]);
+        }
         if(result.action?.type==='create_content') {
           await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
           await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,agentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
