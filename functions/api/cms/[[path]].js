@@ -540,6 +540,27 @@ function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}) {
     'FORMAT KELUARAN: balas hanya JSON valid berbentuk {"speaker_id":"id_agen","message":"isi jawaban natural","action":null} atau action create_content sesuai skema alat. speaker_id harus salah satu ID dalam daftar.'
   ].join('\n\n');
 }
+function extractAiRoomText(value, depth=0) {
+  if(depth>8 || value===null || value===undefined)return '';
+  if(typeof value==='string'){
+    const source=value.trim();
+    if(!source)return '';
+    if(/^[{[]/.test(source)){
+      try{return extractAiRoomText(JSON.parse(source),depth+1);}catch{}
+    }
+    return source;
+  }
+  if(Array.isArray(value))return value.map(item=>extractAiRoomText(item,depth+1)).filter(Boolean).join('\\n');
+  if(typeof value==='object'){
+    for(const key of ['message','answer','reply','output_text','text','response','content','output','generated_text','parts','choices']){
+      if(value[key]!==undefined&&value[key]!==null){
+        const text=extractAiRoomText(value[key],depth+1);
+        if(text)return text;
+      }
+    }
+  }
+  return '';
+}
 function parseAiRoomReply(raw, requestedAgentId) {
   const source=String(raw||'').trim();
   let parsed;
@@ -556,23 +577,18 @@ function parseAiRoomReply(raw, requestedAgentId) {
     if(source.length>=2 && !/^\s*[{[]/.test(source)) parsed={message:source};
     else throw new Error('Format jawaban AI tidak valid.');
   }
-  const nestedMessage=parsed.message && typeof parsed.message==='object'
-    ? (parsed.message.content||parsed.message.text||parsed.message.output||parsed.message.answer||'')
-    : parsed.message;
-  const contentObject=parsed.content && typeof parsed.content==='object' ? parsed.content : null;
-  const alternateMessage=parsed.answer||parsed.reply||parsed.output_text||parsed.text||parsed.response||
-    (typeof parsed.content==='string'?parsed.content:'')||
-    contentObject?.message||contentObject?.answer||contentObject?.reply||contentObject?.text||
-    contentObject?.output_text||contentObject?.response||
-    (typeof contentObject?.content==='string'?contentObject.content:'');
   const action = parsed.action && typeof parsed.action === 'object' && parsed.action.type === 'create_content'
     ? {type:'create_content',content:parsed.action.content}
     : null;
-  // A valid create-content action can be returned without a separate narration.
-  const answer = String(nestedMessage||alternateMessage||(action?'Draft sedang disiapkan untuk disimpan ke workspace CMS.':'')).trim();
+  // Unwrap nested Workers AI envelopes recursively, including content arrays,
+  // {type:"text",content:[{type:"output_text",text:"..."}]}, and JSON strings.
+  const answer=extractAiRoomText(parsed)||(action?'Draft sedang disiapkan untuk disimpan ke workspace CMS.':'');
   if (!answer) {
     const keys=Object.keys(parsed).slice(0,12).join(',');
-    throw new Error('Respons AI berbentuk JSON tetapi tidak memiliki message/answer (field: '+(keys||'kosong')+').');
+    const content=parsed.content;
+    const contentShape=Array.isArray(content)?'array':content===null?'null':typeof content;
+    const nestedKeys=content&&typeof content==='object'?Object.keys(content).slice(0,10).join(','):'';
+    throw new Error('Respons AI tidak memiliki teks yang dapat dibaca (field: '+(keys||'kosong')+'; content_type: '+contentShape+'; content_fields: '+nestedKeys+').');
   }
 
   // A directly addressed agent is authoritative; never let the model change it.
