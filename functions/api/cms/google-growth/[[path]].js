@@ -193,16 +193,15 @@ export async function onRequest({ request, env }) {
           });
           const gaRows = data.rows || [];
           const metricNames = ['users','sessions','pageViews'];
-          const totalsFromRows = metricNames.map((metric, i) => ({
-            metric,
-            value: gaRows.reduce((sum, row) => sum + Number(row.metricValues?.[i]?.value || 0), 0)
-          }));
           const totals = data.totals?.[0]?.metricValues;
           result.analytics = {
             rows: gaRows,
-            totals: totals?.length ? totals.map((x, i) => ({ metric: metricNames[i], value: Number(x.value || 0) })) : totalsFromRows,
+            // Never sum daily distinct users to estimate period-wide unique users.
+            // Use Google's own aggregated totals only; daily rows remain chart-only.
+            totals: totals?.length ? totals.map((x, i) => ({ metric: metricNames[i], value: Number(x.value || 0) })) : [],
             topPages: []
           };
+          if (!totals?.length) result.warnings.push('GA4: Google tidak mengembalikan agregasi total; KPI periode disembunyikan agar tidak menampilkan penjumlahan pengguna harian yang keliru.');
           try {
             const pages = await googlePost('https://analyticsdata.googleapis.com/v1beta/properties/' + config.ga4_property_id + ':runReport', token, {
               dateRanges: [{ startDate: days + 'daysAgo', endDate: 'yesterday' }],
