@@ -797,6 +797,8 @@ const pageTitle = 'VANNDIK CMS';
       };
       $('#execRefresh').addEventListener('click',async()=>{ $('#execRefresh').disabled=true; $('#execRefresh').textContent='Memuat…'; await refreshExecutive(); $('#execRefresh').disabled=false; $('#execRefresh').textContent='↻ Perbarui'; });
       await refreshExecutive();
+      if(window.__vanndikExecRefresh)clearInterval(window.__vanndikExecRefresh);
+      window.__vanndikExecRefresh=setInterval(()=>{if(!document.hidden)refreshExecutive()},300000);
       $('#quickArticle').addEventListener('click',()=>openEditor('article'));
       $$('[data-create]').forEach(button=>button.addEventListener('click',()=>openEditor(button.dataset.create)));
       try {
