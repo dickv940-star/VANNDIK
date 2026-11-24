@@ -964,6 +964,7 @@ export async function onRequest({ request, env }) {
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
       let answer='',used='',model='',attempts=[],speakerId='team',resultTaskTier='chat';
       const jobId=uid();
+      let executingAgentId=agentId;
       await env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,stage,progress,started_at,heartbeat_at) VALUES(?,?,?,?, 'processing',0,CURRENT_TIMESTAMP,'Memanggil provider AI gratis',20,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(jobId,admin.id,agentId,message).run();
       await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,agentId,'started','Memanggil provider AI gratis','processing','Permintaan Direktur diterima; satu pemanggilan model dimulai.').run();
       try{
@@ -972,7 +973,7 @@ export async function onRequest({ request, env }) {
         const result=await callAiRoomProvider(env,conversation,agentId,memory,message,cmsContext);
         answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;resultTaskTier=result.task?.tier||'chat';
         // Attribute the job to the agent who actually produced the reply, not the group mailbox.
-        const executingAgentId=AI_ROOM_AGENTS[speakerId]?speakerId:(AI_ROOM_AGENTS[agentId]?agentId:'team');
+        executingAgentId=AI_ROOM_AGENTS[speakerId]?speakerId:(AI_ROOM_AGENTS[agentId]?agentId:'team');
         if(executingAgentId!==agentId){
           await env.CMS_DB.batch([
             env.CMS_DB.prepare('UPDATE cms_ai_room_jobs SET agent_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(executingAgentId,jobId),
