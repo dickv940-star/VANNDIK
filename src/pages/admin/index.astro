@@ -594,7 +594,7 @@ const pageTitle = 'VANNDIK CMS';
         if (window.__vanndikExecRefresh) { clearInterval(window.__vanndikExecRefresh); window.__vanndikExecRefresh = null; }
         if (window.__vanndikExecClock) { clearInterval(window.__vanndikExecClock); window.__vanndikExecClock = null; }
       }
-      $('.nav-item').forEach(button => button.classList.toggle('active',button.dataset.view===name));
+      $$('.nav-item').forEach(button => button.classList.toggle('active',button.dataset.view===name));
       $('#topTitle').textContent = labels[name] || 'VANNDIK CMS';
       $('#sidebar').classList.remove('open');
       if (name === 'overview') renderOverview();
@@ -782,7 +782,7 @@ const pageTitle = 'VANNDIK CMS';
             Object.entries(platformNames).map(([id,name])=>{const imported=(socialData.lastImports||[]).find(x=>x.platform===id);return '<div class="exec-integration"><span class="exec-state '+(imported?'imported':'pending')+'"></span><div><b>'+name+'</b><small>'+(imported?'CSV terakhir diimpor '+escapeHTML(new Date(imported.last_import).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})):'Belum ada koneksi API atau impor CSV')+'</small></div><span class="exec-pending-label">'+(imported?'DATA DIIMPOR':'BELUM TERHUBUNG')+'</span></div>';}).join('');
           const socialItems=socialData.items||[];
           $('#execSocialMetrics').innerHTML=socialItems.length?socialItems.map(x=>'<article class="exec-social-card"><small>'+escapeHTML((platformNames[x.platform]||x.platform).toUpperCase())+' · '+escapeHTML(x.metric.replaceAll('_',' '))+'</small><b>'+fmt(x.value)+'</b><span>'+escapeHTML(x.days)+' hari data · terakhir '+escapeHTML(x.latest_date)+'</span></article>').join(''):'<div class="empty-state">Belum ada statistik media sosial yang diimpor. Gunakan template CSV di halaman integrasi. Data impor akan diberi label terpisah dari API resmi.</div>';
-          $('[data-google-connect]').forEach(btn=>btn.addEventListener('click',()=>{window.location.href='/admin/growth-settings/';}));
+          $$('[data-google-connect]').forEach(btn=>btn.addEventListener('click',()=>{window.location.href='/admin/growth-settings/';}));
         } catch(e) {
           $('#execIntegrations').innerHTML='<div class="empty-state">Status integrasi belum dapat dibaca: '+escapeHTML(e.message)+'</div>';
           ['execUsers','execSessions','execViews','execSearchClicks','execImpressions','execShortsViews','execShortsWatch','execShortsSubs'].forEach(id=>setMetric(id,'—','Sumber belum tersedia'));
