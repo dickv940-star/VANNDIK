@@ -891,6 +891,7 @@ export async function onRequest({ request, env }) {
           const actionResult=await createAiRoomDraft(env,admin,result.action.content);
           answer+='\n\nDraft berhasil disimpan di workspace '+actionResult.workspace+' (status Draft): '+actionResult.title+'. ID: '+actionResult.id+'. Buka menu '+actionResult.workspace+' di CMS untuk meninjau dan menyetujui sebelum publikasi.';
         }
+        if(!answer)throw new Error('Provider tidak mengembalikan jawaban yang dapat digunakan.');
       }catch(error){
         const detail=String(error?.message||'Semua provider AI tidak tersedia.');
         const userId=uid();
