@@ -690,6 +690,9 @@ const pageTitle = 'VANNDIK CMS';
             <article><small>Klik affiliate</small><strong id="execAffiliate">—</strong><span id="execAffiliateNote">Pelacakan internal · 30 hari</span></article>
             <article><small>Google Search clicks</small><strong id="execSearchClicks">—</strong><span id="execSearchNote">Search Console · belum tersedia</span></article>
             <article><small>Search impressions</small><strong id="execImpressions">—</strong><span id="execImpressionsNote">Search Console · belum tersedia</span></article>
+            <article><small>YouTube Shorts views</small><strong id="execShortsViews">—</strong><span id="execShortsViewsNote">YouTube Analytics · belum terhubung</span></article>
+            <article><small>Waktu tonton Shorts</small><strong id="execShortsWatch">—</strong><span id="execShortsWatchNote">Menit · belum terhubung</span></article>
+            <article><small>Subscriber baru</small><strong id="execShortsSubs">—</strong><span id="execShortsSubsNote">YouTube Analytics · belum terhubung</span></article>
           </div>
           <div class="exec-lower">
             <section class="exec-subpanel"><div class="exec-subhead"><div><b>Tren klik affiliate</b><small>Aktivitas klik yang tercatat di website</small></div><span>30 HARI</span></div><div id="execClickChart" class="exec-chart"><div class="empty-state">Memuat data klik…</div></div><div class="exec-footnote" id="execClickFreshness">Sumber: D1 · affiliate_click_events</div></section>
@@ -745,26 +748,30 @@ const pageTitle = 'VANNDIK CMS';
           const status=await api('google-growth/status');
           integrationRows.push({name:'Google Analytics 4',detail:status.connected?(status.ga4PropertyId?'Akun '+status.email+' · properti '+status.ga4PropertyId:'Akun terhubung · ID properti belum diatur'):'Belum terhubung',state:status.connected?'connected':'disconnected',action:status.configured&&!status.connected?'Hubungkan Google':'Atur koneksi'});
           integrationRows.push({name:'Google Search Console',detail:status.connected?(status.searchConsoleSite||'Properti belum diatur'):'Menunggu koneksi Google',state:status.connected?'connected':'disconnected',action:status.configured&&!status.connected?'Hubungkan Google':'Atur properti'});
-          if(status.connected&&(status.ga4PropertyId||status.searchConsoleSite)){
-            try {
-              const report=await api('google-growth/report?days=30');
-              const metric=key=>Number(report.analytics?.totals?.find(x=>x.metric===key)?.value||0);
-              const hasGA=!!report.analytics;
-              setMetric('execUsers',hasGA?fmt(metric('users')):'—',hasGA?'GA4 · 30 hari · sampai kemarin':'GA4 · belum ada laporan');
-              setMetric('execSessions',hasGA?fmt(metric('sessions')):'—',hasGA?'GA4 · 30 hari · sampai kemarin':'GA4 · belum ada laporan');
-              setMetric('execViews',hasGA?fmt(metric('pageViews')):'—',hasGA?'GA4 · 30 hari · sampai kemarin':'GA4 · belum ada laporan');
-              const sc=report.searchConsole;
-              setMetric('execSearchClicks',sc?fmt(sc.clicks):'—',sc?'Search Console · data tertunda beberapa hari':'Search Console · belum tersedia');
-              setMetric('execImpressions',sc?fmt(sc.impressions):'—',sc?'Search Console · data tertunda beberapa hari':'Search Console · belum tersedia');
-            } catch(e) { setMetric('execUsers','—','GA4 · '+e.message);setMetric('execSessions','—','GA4 · laporan belum tersedia');setMetric('execViews','—','GA4 · laporan belum tersedia');setMetric('execSearchClicks','—','Search Console · laporan belum tersedia');setMetric('execImpressions','—','Search Console · laporan belum tersedia'); }
-          } else {
-            ['execUsers','execSessions','execViews','execSearchClicks','execImpressions'].forEach(id=>setMetric(id,'—','Hubungkan dan atur properti Google terlebih dahulu'));
+          let report=null;
+          if(status.connected){
+            try { report=await api('google-growth/report?days=30'); }
+            catch(e) { integrationRows.push({name:'Google reporting',detail:e.message,state:'pending',action:'Periksa setup'}); }
           }
+          const metric=key=>Number(report?.analytics?.totals?.find(x=>x.metric===key)?.value||0);
+          const hasGA=!!report?.analytics;
+          setMetric('execUsers',hasGA?fmt(metric('users')):'—',hasGA?'GA4 · 30 hari · sampai kemarin':'GA4 · belum tersedia');
+          setMetric('execSessions',hasGA?fmt(metric('sessions')):'—',hasGA?'GA4 · 30 hari · sampai kemarin':'GA4 · belum tersedia');
+          setMetric('execViews',hasGA?fmt(metric('pageViews')):'—',hasGA?'GA4 · 30 hari · sampai kemarin':'GA4 · belum tersedia');
+          const sc=report?.searchConsole;
+          setMetric('execSearchClicks',sc?fmt(sc.clicks):'—',sc?'Search Console · data tertunda':'Search Console · belum tersedia');
+          setMetric('execImpressions',sc?fmt(sc.impressions):'—',sc?'Search Console · data tertunda':'Search Console · belum tersedia');
+          const yt=report?.youtube;
+          setMetric('execShortsViews',yt?fmt(yt.shortsViews):'—',yt?'YouTube Analytics · Shorts · '+yt.startDate+'—'+yt.endDate:'YouTube · '+(status.connected?'API belum tersedia / perlu izin ulang':'belum terhubung'));
+          setMetric('execShortsWatch',yt?fmt(Math.round(yt.watchMinutes)):'—',yt?'Menit ditonton · Shorts':'YouTube Analytics · belum tersedia');
+          setMetric('execShortsSubs',yt?fmt(yt.subscribersGained):'—',yt?'Subscriber bertambah · Shorts':'YouTube Analytics · belum tersedia');
+          integrationRows.push({name:'YouTube Analytics',detail:yt?'Akun '+status.email+' · data Shorts berhasil dibaca':'Google OAuth '+(status.connected?'aktif · cek izin YouTube Analytics API':'belum terhubung'),state:yt?'connected':status.connected?'pending':'disconnected',action:status.connected?'Atur koneksi':'Hubungkan Google'});
           $('#execIntegrations').innerHTML=integrationRows.map(x=>'<div class="exec-integration"><span class="exec-state '+x.state+'"></span><div><b>'+escapeHTML(x.name)+'</b><small>'+escapeHTML(x.detail)+'</small></div><button data-google-connect>'+escapeHTML(x.action)+'</button></div>').join('')+
-            ['YouTube','Instagram','Facebook','TikTok','Pinterest','LinkedIn'].map(name=>'<div class="exec-integration"><span class="exec-state pending"></span><div><b>'+name+'</b><small>Belum terhubung · konektor resmi belum dikonfigurasi</small></div><span class="exec-pending-label">MENUNGGU SETUP</span></div>').join('');
+            ['Instagram','Facebook','TikTok','Pinterest','LinkedIn'].map(name=>'<div class="exec-integration"><span class="exec-state pending"></span><div><b>'+name+'</b><small>Belum terhubung · konektor resmi dan izin aplikasi belum dikonfigurasi</small></div><span class="exec-pending-label">MENUNGGU SETUP</span></div>').join('');
           $('[data-google-connect]').forEach(btn=>btn.addEventListener('click',()=>{window.location.href='/admin/growth-settings/';}));
         } catch(e) {
           $('#execIntegrations').innerHTML='<div class="empty-state">Status integrasi belum dapat dibaca: '+escapeHTML(e.message)+'</div>';
+          ['execUsers','execSessions','execViews','execSearchClicks','execImpressions','execShortsViews','execShortsWatch','execShortsSubs'].forEach(id=>setMetric(id,'—','Sumber belum tersedia'));
         }
         try {
           const [queue,room]=await Promise.all([api('ai-room/jobs'),api('ai-room/messages')]);
