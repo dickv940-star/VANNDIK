@@ -8,13 +8,14 @@ export default {
   },
   async scheduled(controller, env, ctx) {
     const base = String(env.VANNDIK_CMS_URL || "").replace(/\/$/, "");
-    if (!base || !env.VANNDIK_CRON_TOKEN) {
+    const cronToken = env.AI_JOBS_CRON_TOKEN || env.VANNDIK_CRON_TOKEN;
+    if (!base || !cronToken) {
       console.error("Scheduler configuration is incomplete.");
       return;
     }
     const response = await fetch(base + "/api/cms/ai-room/jobs/process", {
       method: "POST",
-      headers: { authorization: "Bearer " + env.VANNDIK_CRON_TOKEN }
+      headers: { authorization: "Bearer " + cronToken }
     });
     const detail = await response.text();
     if (!response.ok) {
