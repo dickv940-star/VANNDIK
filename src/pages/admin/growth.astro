@@ -153,10 +153,10 @@ body:before{opacity:.075;background-size:48px 48px}
 @media(max-width:760px){.wrap{padding-top:16px}.top{position:static;margin-bottom:28px}.section-heading{margin-top:25px}}
 @media(max-width:560px){.wrap{padding:12px 12px 42px}.top{padding:12px 14px}.top>div:last-child{gap:12px}.heading{font-size:34px;letter-spacing:-1.3px}.toolbar{margin:18px 0 15px}.toolbar select,.toolbar button{min-height:38px}.card{min-height:112px;padding:15px}.panel{padding:16px}.google-kpi{padding:12px}.table-wrap{padding:15px}.section-heading{align-items:flex-start;flex-direction:column;gap:4px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
-</style></head><body><main class="wrap">
+.source-status{display:inline-flex;align-items:center;min-height:36px;padding:8px 12px;border:1px solid rgba(86,213,255,.28);border-radius:12px;background:rgba(30,110,145,.14);color:#bceeff;font-size:12px;font-weight:650;line-height:1.45;max-width:min(100%,720px);white-space:normal}.source-status:empty{display:none}@media(max-width:680px){.toolbar{align-items:stretch}.source-status{width:100%;max-width:none;box-sizing:border-box}}</style></head><body><main class="wrap">
 <div class="top"><div class="brand">VANNDIK<span>.</span> INTELLIGENCE</div><div><a href="/admin/growth-settings/">Google Integrations</a>　<a href="/admin/">← Kembali ke CMS</a></div></div>
 <div class="eyebrow">GROWTH & REVENUE</div><h1 class="heading">Growth Intelligence</h1><p class="sub">Pantau interaksi tautan affiliate di website. Data ini adalah klik keluar, bukan transaksi atau komisi marketplace.</p>
-<div class="toolbar"><select id="range"><option value="7">7 hari</option><option value="30" selected>30 hari</option><option value="90">90 hari</option></select><button id="refresh">Muat ulang data</button><span id="status" class="muted"></span></div>
+<div class="toolbar"><select id="range"><option value="7">7 hari</option><option value="30" selected>30 hari</option><option value="90">90 hari</option></select><button id="refresh">Muat ulang data</button><span id="status" class="source-status" role="status" aria-live="polite">Memeriksa sumber data…</span></div>
 <div class="section-heading"><div><h2>Ringkasan affiliate</h2><p>Performa klik keluar berdasarkan periode yang dipilih</p></div><span class="section-kicker">01 / Affiliate</span></div><section class="grid"><div class="card"><div class="label">Affiliate clicks</div><div class="value" id="total">—</div><div class="hint">Klik keluar tercatat</div></div><div class="card"><div class="label">Produk teratas</div><div class="value" id="topProduct">—</div><div class="hint">Berdasarkan jumlah klik</div></div><div class="card"><div class="label">Negara teratas</div><div class="value" id="topCountry">—</div><div class="hint">Header negara Cloudflare</div></div><div class="card"><div class="label">Marketplace teratas</div><div class="value" id="topMarket">—</div><div class="hint">Hostname tujuan</div></div></section>
 <div class="section-heading"><div><h2>Perilaku pengunjung</h2><p>Marketplace, produk, dan negara asal klik yang tercatat</p></div><span class="section-kicker">02 / Audience</span></div><section class="panels"><div class="panel"><h2>Tren klik harian</h2><div class="chart-tabs"><button class="chart-tab active" data-chart="affiliate">Klik affiliate</button></div><div id="daily"><span class="empty">Memuat…</span></div></div><div class="panel"><h2>Marketplace</h2><div class="rows" id="markets"></div></div><div class="panel"><h2>Produk paling banyak diklik</h2><div class="rows" id="products"></div></div><div class="panel"><h2>Negara pengunjung</h2><div class="rows" id="countries"></div></div></section>
 <div class="section-heading"><div><h2>Website & search performance</h2><p>Analitik kunjungan website dan visibilitas organik dari Google</p></div><span class="section-kicker">03 / Acquisition</span></div><section class="google-grid">
@@ -178,8 +178,8 @@ function drawLineChart(id,items,getValue,getDate,stroke){
  if(!Array.isArray(items)||!items.length){root.innerHTML='<div class="google-empty">Belum ada data aktual pada periode ini.</div>';return}
  const parseDay=value=>{
   const raw=String(value??'').trim();
-  const normalized=/^\\d{8}$/.test(raw)?raw.slice(0,4)+'-'+raw.slice(4,6)+'-'+raw.slice(6,8):raw.slice(0,10);
-  const match=normalized.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+  const normalized=/^\d{8}$/.test(raw)?raw.slice(0,4)+'-'+raw.slice(4,6)+'-'+raw.slice(6,8):raw.slice(0,10);
+  const match=normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if(!match)return null;
   const time=Date.UTC(Number(match[1]),Number(match[2])-1,Number(match[3]));
   const check=new Date(time);
