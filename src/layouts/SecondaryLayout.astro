@@ -152,6 +152,7 @@ const languages = [
           marketplace: host.includes('shopee') ? 'Shopee' : host.includes('tiktok') ? 'TikTok Shop' : host.includes('tokopedia') ? 'Tokopedia' : host.includes('lazada') ? 'Lazada' : host.includes('amazon') ? 'Amazon' : host.includes('aliexpress') ? 'AliExpress' : host.includes('etsy') ? 'Etsy' : 'eBay'
         };
         fetch('/api/track/affiliate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), keepalive: true }).catch(() => {});
+        if (typeof window.gtag === 'function') window.gtag('event', 'affiliate_click', { item_id: payload.productId, item_name: payload.productName, link_url: payload.destination, marketplace: payload.marketplace, page_path: payload.pagePath });
       }, { capture: true });
     </script>
     <style>
