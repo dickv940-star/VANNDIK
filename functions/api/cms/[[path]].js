@@ -533,17 +533,35 @@ function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}) {
   ].join('\n\n');
 }
 function parseAiRoomReply(raw, requestedAgentId) {
+  const source=String(raw||'').trim();
   let parsed;
-  try { parsed = JSON.parse(raw); } catch {
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
+  try { parsed = JSON.parse(source); } catch {
+    // Some Workers AI models wrap JSON in Markdown fences or prepend a short note.
+    const unfenced=source.replace(/^\x60{3}(?:json)?\s*/i,'').replace(/\s*\x60{3}$/,'').trim();
+    try { parsed=JSON.parse(unfenced); } catch {
+      const match = unfenced.match(/\{[\s\S]*\}/);
+      if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
+    }
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Format jawaban AI tidak valid.');
-  const answer = String(parsed.message || '').trim();
-  if (!answer) throw new Error('Agen tidak mengembalikan jawaban.');
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    // Preserve a genuine plain-text model answer instead of discarding it.
+    if(source.length>=2 && !/^\s*[{[]/.test(source)) parsed={message:source};
+    else throw new Error('Format jawaban AI tidak valid.');
+  }
+  const nestedMessage=parsed.message && typeof parsed.message==='object'
+    ? (parsed.message.content||parsed.message.text||parsed.message.output||'')
+    : parsed.message;
+  const alternateMessage=parsed.answer||parsed.reply||parsed.output_text||parsed.text||parsed.response||
+    (typeof parsed.content==='string'?parsed.content:'');
   const action = parsed.action && typeof parsed.action === 'object' && parsed.action.type === 'create_content'
     ? {type:'create_content',content:parsed.action.content}
     : null;
+  // A valid create-content action can be returned without a separate narration.
+  const answer = String(nestedMessage||alternateMessage||(action?'Draft sedang disiapkan untuk disimpan ke workspace CMS.':'')).trim();
+  if (!answer) {
+    const keys=Object.keys(parsed).slice(0,12).join(',');
+    throw new Error('Respons AI berbentuk JSON tetapi tidak memiliki message/answer (field: '+(keys||'kosong')+').');
+  }
 
   // A directly addressed agent is authoritative; never let the model change it.
   if (requestedAgentId !== 'team') {
