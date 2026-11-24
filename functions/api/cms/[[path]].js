@@ -567,42 +567,53 @@ function extractAiRoomText(value, depth=0) {
   }
   return '';
 }
+function findAiRoomDraft(value, depth=0) {
+  if(depth>10 || !value || typeof value!=='object') return null;
+  if(Array.isArray(value)) {
+    for(const item of value) { const found=findAiRoomDraft(item,depth+1); if(found)return found; }
+    return null;
+  }
+  const type=String(value.type||value.content_type||value.kind||'').toLowerCase();
+  if(['article','news','game','app'].includes(type) &&
+    String(value.title||'').trim() && String(value.body||'').trim()) return value;
+  // Models and Workers AI may wrap structured output in several envelopes:
+  // {type:"json",content:{type:"object",content:{type:"news",...}}}.
+  for(const key of ['action','content','result','data','output','response','message','parts','choices']) {
+    if(value[key]!==undefined && value[key]!==null) {
+      const found=findAiRoomDraft(value[key],depth+1);
+      if(found)return found;
+    }
+  }
+  return null;
+}
 function parseAiRoomReply(raw, requestedAgentId) {
   const source=String(raw||'').trim();
   let parsed;
-  try { parsed = JSON.parse(source); } catch {
-    // Some Workers AI models wrap JSON in Markdown fences or prepend a short note.
+  try { parsed=JSON.parse(source); } catch {
     const unfenced=source.replace(/^\x60{3}(?:json)?\s*/i,'').replace(/\s*\x60{3}$/,'').trim();
     try { parsed=JSON.parse(unfenced); } catch {
-      const match = unfenced.match(/\{[\s\S]*\}/);
-      if (match) { try { parsed = JSON.parse(match[0]); } catch {} }
+      const match=unfenced.match(/\{[\s\S]*\}/);
+      if(match) { try { parsed=JSON.parse(match[0]); } catch {} }
     }
   }
-  if (Array.isArray(parsed)) {
-    // Some model responses are valid JSON arrays rather than the requested object.
-    parsed={message:extractAiRoomText(parsed)||source};
-  }
-  if (!parsed || typeof parsed !== 'object') {
-    // Model output is not guaranteed to obey JSON mode. Preserve the actual
-    // returned text, including malformed JSON-looking text, as a plain reply.
+  if(Array.isArray(parsed)) parsed={message:extractAiRoomText(parsed)||source};
+  if(!parsed || typeof parsed!=='object') {
     if(source.length>=1) parsed={message:source};
     else throw new Error('Provider mengembalikan respons kosong.');
   }
-  const wrappedContent=parsed.content && typeof parsed.content==='object' && !Array.isArray(parsed.content) ? parsed.content : null;
-  const wrappedType=String(wrappedContent?.type||'').toLowerCase();
-  const looksLikeCmsDraft=!!wrappedContent&&['article','news','game','app'].includes(wrappedType)&&
-    !!wrappedContent.title&&!!wrappedContent.body;
-  const action = parsed.action && typeof parsed.action === 'object' && parsed.action.type === 'create_content'
-    ? {type:'create_content',content:parsed.action.content}
-    : parsed.type==='create_content'&&wrappedContent
-      ? {type:'create_content',content:wrappedContent}
-      : looksLikeCmsDraft
-        ? {type:'create_content',content:wrappedContent}
-        : null;
-  // Unwrap nested Workers AI envelopes recursively, including content arrays,
-  // {type:"text",content:[{type:"output_text",text:"..."}]}, and JSON strings.
-  const answer=extractAiRoomText(parsed)||(action?'Draft sedang disiapkan untuk disimpan ke workspace CMS.':'');
-  if (!answer) {
+
+  const explicitAction=parsed.action && typeof parsed.action==='object' && parsed.action.type==='create_content'
+    ? parsed.action : (parsed.type==='create_content' ? parsed : null);
+  const draft=findAiRoomDraft(explicitAction?.content || explicitAction || parsed);
+  const action=explicitAction
+    ? {type:'create_content',content:findAiRoomDraft(explicitAction.content)||explicitAction.content}
+    : draft ? {type:'create_content',content:draft} : null;
+
+  // Structured CMS objects contain useful editorial fields (title/body), not
+  // chat-text keys. Never stringify them as [object Object] or reject them.
+  const answer=extractAiRoomText(parsed) ||
+    (action ? 'Draft '+String(action.content.title||'konten')+' terdeteksi dan siap disimpan ke workspace CMS.' : '');
+  if(!answer) {
     const keys=Object.keys(parsed).slice(0,12).join(',');
     const content=parsed.content;
     const contentShape=Array.isArray(content)?'array':content===null?'null':typeof content;
@@ -610,29 +621,23 @@ function parseAiRoomReply(raw, requestedAgentId) {
     throw new Error('Respons AI tidak memiliki teks yang dapat dibaca (field: '+(keys||'kosong')+'; content_type: '+contentShape+'; content_fields: '+nestedKeys+').');
   }
 
-  // A directly addressed agent is authoritative; never let the model change it.
-  if (requestedAgentId !== 'team') {
-    if (!AI_ROOM_AGENTS[requestedAgentId]) throw new Error('ID agen tujuan tidak valid.');
+  if(requestedAgentId!=='team') {
+    if(!AI_ROOM_AGENTS[requestedAgentId]) throw new Error('ID agen tujuan tidak valid.');
     return {answer,speakerId:requestedAgentId,action};
   }
-
-  // Models sometimes return a display name (e.g. "Ethan") instead of the
-  // stable roster key ("researcher"). Normalize known IDs and names.
-  const rawSpeaker = String(parsed.speaker_id || '').trim().toLocaleLowerCase('id-ID');
-  let speakerId = Object.keys(AI_ROOM_AGENTS).find(id => id.toLocaleLowerCase('id-ID') === rawSpeaker);
-  if (!speakerId && rawSpeaker) {
-    speakerId = Object.entries(AI_ROOM_AGENTS).find(([id,agent]) => {
-      const fullName = String(agent.name || '').toLocaleLowerCase('id-ID');
-      const shortName = fullName.split(/[·|]/)[0].trim();
-      return rawSpeaker === fullName || rawSpeaker === shortName || rawSpeaker === id.toLocaleLowerCase('id-ID');
+  const rawSpeaker=String(parsed.speaker_id||parsed.speaker||'').trim().toLocaleLowerCase('id-ID');
+  let speakerId=Object.keys(AI_ROOM_AGENTS).find(id=>id.toLocaleLowerCase('id-ID')===rawSpeaker);
+  if(!speakerId && rawSpeaker) {
+    speakerId=Object.entries(AI_ROOM_AGENTS).find(([id,agent])=>{
+      const fullName=String(agent.name||'').toLocaleLowerCase('id-ID');
+      const shortName=fullName.split(/[·|]/)[0].trim();
+      return rawSpeaker===fullName || rawSpeaker===shortName || rawSpeaker===id.toLocaleLowerCase('id-ID');
     })?.[0];
   }
-
-  // Do not discard a valid answer just because the model used an unknown
-  // speaker label. Attribute it neutrally to the group coordinator.
-  if (!speakerId) speakerId = 'team';
+  if(!speakerId) speakerId='team';
   return {answer,speakerId,action};
 }
+
 function aiRoomConversation(messages) {
   return messages.filter(m => m.role === 'user' || m.role === 'assistant').slice(-14).map(m => ({
     role:m.role === 'assistant' ? 'assistant' : 'user',
