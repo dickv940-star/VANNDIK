@@ -11,6 +11,11 @@ export async function onRequest({ request, env }) {
     const data = request.method === 'GET' ? Object.fromEntries(url.searchParams.entries()) : await request.json();
     const destination = clean(data.destination, 2000);
     if (!/^https?:\/\//i.test(destination)) return json({ error: 'Tujuan tautan tidak valid.' }, 400);
+    if (request.method === 'GET') {
+      const destinationHost = host(destination);
+      const allowed = ['shopee.co.id','shopee.com','shope.ee','tiktok.com','tokopedia.com','lazada.co.id','lazada.com','amazon.com','amazon.co.uk','amazon.de','aliexpress.com','etsy.com','ebay.com'];
+      if (!allowed.some(domain => destinationHost === domain || destinationHost.endsWith('.' + domain))) return json({ error: 'Domain tujuan tidak termasuk marketplace affiliate yang diizinkan.' }, 400);
+    }
     await env.CMS_DB.prepare(`CREATE TABLE IF NOT EXISTS affiliate_click_events (
       id TEXT PRIMARY KEY, event_type TEXT NOT NULL DEFAULT 'affiliate_click',
       product_name TEXT NOT NULL DEFAULT '', product_id TEXT NOT NULL DEFAULT '',
