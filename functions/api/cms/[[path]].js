@@ -405,7 +405,15 @@ async function ensureAiRoomTables(env) {
   if(!messageColumnNames.has('task_tier'))await env.CMS_DB.prepare("ALTER TABLE cms_ai_room_messages ADD COLUMN task_tier TEXT NOT NULL DEFAULT ''").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_memory (memory_key TEXT PRIMARY KEY, memory_value TEXT NOT NULL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_jobs (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, agent_id TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0, next_retry_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  const jobColumns=await env.CMS_DB.prepare('PRAGMA table_info(cms_ai_room_jobs)').all();
+  const jobColumnNames=new Set((jobColumns.results||[]).map(column=>column.name));
+  const jobAdditions=[
+    ['stage',"TEXT NOT NULL DEFAULT 'Queued'"],['progress','INTEGER NOT NULL DEFAULT 0'],['started_at','TEXT'],['finished_at','TEXT'],['heartbeat_at','TEXT'],['result_summary',"TEXT NOT NULL DEFAULT ''"]
+  ];
+  for(const [name,definition] of jobAdditions)if(!jobColumnNames.has(name))await env.CMS_DB.prepare('ALTER TABLE cms_ai_room_jobs ADD COLUMN '+name+' '+definition).run();
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_jobs_due ON cms_ai_room_jobs(status,next_retry_at)").run();
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_activity (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, job_id TEXT NOT NULL, agent_id TEXT NOT NULL, event_type TEXT NOT NULL, stage TEXT NOT NULL, status TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_activity_admin_created ON cms_ai_room_activity(admin_id,created_at)").run();
   const defaults = [
     ['identity','VANNDIK adalah website dan pusat kendali CMS digital yang dikelola melalui cloud. Pengguna menginginkan AI Office dengan Chief of Staff dan agen spesialis.'],
     ['goals','Mengelola artikel, berita, produk affiliate, game, aplikasi/tools, SEO, riset, media, serta integrasi kanal digital seperti YouTube, Instagram dan Facebook. Kembangkan bertahap dan verifikasi setiap integrasi sebelum menyatakan aktif.'],
@@ -759,9 +767,12 @@ export async function onRequest({ request, env }) {
     if (path === 'ai-room/jobs/process' && method === 'POST') {
       if (!env.AI_JOBS_CRON_TOKEN || request.headers.get('authorization') !== 'Bearer '+env.AI_JOBS_CRON_TOKEN) return json({error:'Unauthorized scheduler.'},401);
       await ensureAiRoomTables(env);
+      await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='queued',stage='Memulihkan proses yang terputus',progress=0,next_retry_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE status='processing' AND heartbeat_at < datetime('now','-10 minutes')").run();
       const due=await env.CMS_DB.prepare("SELECT * FROM cms_ai_room_jobs WHERE status='queued' AND next_retry_at<=CURRENT_TIMESTAMP ORDER BY created_at LIMIT 5").all();
       const results=[];
       for(const job of (due.results||[])){
+        await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='processing',stage='Memanggil provider AI gratis',progress=20,started_at=COALESCE(started_at,CURRENT_TIMESTAMP),heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id).run();
+        await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'started','Memanggil provider AI gratis','processing','Worker mulai menjalankan satu pemanggilan model untuk tugas ini.').run();
         try{
           const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 14').bind(job.admin_id).all();
           const conversation=(history.results||[]).reverse();
@@ -770,6 +781,8 @@ export async function onRequest({ request, env }) {
           const result=await callAiRoomProvider(env,conversation,job.agent_id,memory,job.message,cmsContext);
           let answer=result.answer, actionResult=null;
           if(result.action?.type==='create_content') {
+            await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id).run();
+            await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
             const jobAdmin=await env.CMS_DB.prepare('SELECT id,email,display_name,role FROM cms_admins WHERE id=? AND active=1').bind(job.admin_id).first();
             if(!jobAdmin) throw new Error('Admin pemilik antrean tidak aktif; draft tidak dibuat.');
             actionResult=await createAiRoomDraft(env,jobAdmin,result.action.content);
@@ -778,14 +791,18 @@ export async function onRequest({ request, env }) {
           const replyId=uid();
           await env.CMS_DB.batch([
             env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,answer,result.provider,result.model,result.task?.tier||'chat'),
-            env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',attempts=attempts+1,last_error='',updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id)
+            env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',stage='Selesai',progress=100,attempts=attempts+1,last_error='',finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(actionResult?'Draft CMS tersimpan: '+actionResult.title:'Balasan agen tersimpan di riwayat chat.',job.id)
           ]);
+          await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'completed','Selesai','completed',actionResult?'Draft tersimpan dan siap ditinjau Direktur.':'Balasan AI tersimpan di D1.').run();
           results.push({id:job.id,status:'completed',provider:result.provider,model:result.model});
         }catch(error){
           const attempts=Number(job.attempts||0)+1;
           const status=attempts>=8?'paused':'queued';
           const delay=Math.min(360,5*Math.pow(2,Math.min(attempts-1,6)));
-          await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,attempts=?,next_retry_at=datetime('now',?),last_error=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,attempts,'+'+delay+' minutes',String(error?.message||'Provider unavailable').slice(0,1000),job.id).run();
+          const errorText=String(error?.message||'Provider unavailable').slice(0,1000);
+          const stage=status==='paused'?'Dihentikan setelah batas retry':'Menunggu kuota/provider gratis';
+          await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=0,attempts=?,next_retry_at=datetime('now',?),last_error=?,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(status,stage,attempts,'+'+delay+' minutes',errorText,job.id).run();
+          await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'blocked',stage,status,errorText).run();
           results.push({id:job.id,status,attempts,retry_minutes:delay});
         }
       }
@@ -818,9 +835,18 @@ export async function onRequest({ request, env }) {
       await ensureAiRoomTables(env);
       return json({context:await getAiRoomCmsContext(env)});
     }
+    if (path === 'ai-room/monitor' && method === 'GET') {
+      await ensureAiRoomTables(env);
+      const [jobs,activity]=await Promise.all([
+        env.CMS_DB.prepare('SELECT id,agent_id,message,status,stage,progress,attempts,next_retry_at,last_error,result_summary,created_at,updated_at,started_at,finished_at,heartbeat_at FROM cms_ai_room_jobs WHERE admin_id=? ORDER BY created_at DESC LIMIT 60').bind(admin.id).all(),
+        env.CMS_DB.prepare('SELECT id,job_id,agent_id,event_type,stage,status,detail,created_at FROM cms_ai_room_activity WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all()
+      ]);
+      const now=new Date().toISOString();
+      return json({server_time:now,agents:AI_ROOM_AGENTS,jobs:jobs.results||[],activity:activity.results||[],refresh_interval_seconds:5,progress_semantics:'Milestone-based; not token-level model progress.'});
+    }
     if (path === 'ai-room/jobs' && method === 'GET') {
       await ensureAiRoomTables(env);
-      const rows=await env.CMS_DB.prepare('SELECT id,agent_id,message,status,attempts,next_retry_at,last_error,created_at,updated_at FROM cms_ai_room_jobs WHERE admin_id=? ORDER BY created_at DESC LIMIT 50').bind(admin.id).all();
+      const rows=await env.CMS_DB.prepare('SELECT id,agent_id,message,status,stage,progress,attempts,next_retry_at,last_error,result_summary,created_at,updated_at,started_at,finished_at,heartbeat_at FROM cms_ai_room_jobs WHERE admin_id=? ORDER BY created_at DESC LIMIT 50').bind(admin.id).all();
       return json({jobs:rows.results||[]});
     }
     if (path === 'ai-room/memory' && method === 'PUT') {
@@ -851,24 +877,30 @@ export async function onRequest({ request, env }) {
       const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
       let answer='',used='',model='',attempts=[],speakerId='team',resultTaskTier='chat';
+      const jobId=uid();
+      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,stage,progress,started_at,heartbeat_at) VALUES(?,?,?,?, 'processing',0,CURRENT_TIMESTAMP,'Memanggil provider AI gratis',20,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(jobId,admin.id,agentId,message).run();
+      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,agentId,'started','Memanggil provider AI gratis','processing','Permintaan Direktur diterima; satu pemanggilan model dimulai.').run();
       try{
         const memory=await getCentralAiMemory(env);
         const cmsContext=await getAiRoomCmsContext(env);
         const result=await callAiRoomProvider(env,conversation,agentId,memory,message,cmsContext);
         answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;resultTaskTier=result.task?.tier||'chat';
         if(result.action?.type==='create_content') {
+          await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
+          await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,agentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
           const actionResult=await createAiRoomDraft(env,admin,result.action.content);
           answer+='\n\nDraft berhasil disimpan di workspace '+actionResult.workspace+' (status Draft): '+actionResult.title+'. ID: '+actionResult.id+'. Buka menu '+actionResult.workspace+' di CMS untuk meninjau dan menyetujui sebelum publikasi.';
         }
       }catch(error){
         const detail=String(error?.message||'Semua provider AI tidak tersedia.');
-        const jobId=uid(),userId=uid();
+        const userId=uid();
         const statusId=uid();
         await env.CMS_DB.batch([
           env.CMS_DB.prepare("INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)").bind(userId,admin.id,'user',agentId,message,''),
-          env.CMS_DB.prepare("INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)").bind(statusId,admin.id,'system',agentId,'Pesan Anda sudah diterima dan disimpan di antrean cloud. Saat ini seluruh provider AI yang dikonfigurasi belum berhasil menjawab. VANNDIK akan mencoba kembali otomatis; belum ada jawaban agen yang dibuat. Detail teknis: '+detail.slice(0,500),'queue'),
-          env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,last_error) VALUES(?,?,?,?, 'queued',0,datetime('now','+5 minutes'),?)").bind(jobId,admin.id,agentId,message,detail.slice(0,1000))
+          env.CMS_DB.prepare("INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)").bind(statusId,admin.id,'system',agentId,'Pesan Anda sudah diterima dan disimpan di antrean cloud. Saat ini seluruh provider AI yang dikonfigurasi belum berhasil menjawab. VANNDIK akan mencoba kembali otomatis; belum ada jawaban agen yang dibuat. Detail teknis: '+detail.slice(0,500),'queue')
         ]);
+        await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='queued',stage='Menunggu kuota/provider gratis',progress=0,next_retry_at=datetime('now','+5 minutes'),last_error=?,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(detail.slice(0,1000),jobId).run();
+        await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,agentId,'blocked','Menunggu kuota/provider gratis','queued',detail.slice(0,1000)).run();
         await audit(env,admin,'ai.room.queued','ai-room',jobId,{reason:detail.slice(0,500)});
         return json({ok:true,queued:true,jobId,message:'Semua provider AI sedang tidak tersedia. Pesan disimpan di antrean cloud dan akan dicoba kembali otomatis.',reason:detail.slice(0,500)},202);
       }
@@ -876,10 +908,12 @@ export async function onRequest({ request, env }) {
       const userId=uid(),assistantId=uid();
       await env.CMS_DB.batch([
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
-        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used,model,resultTaskTier)
+        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used,model,resultTaskTier),
+        env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',stage='Selesai',progress=100,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(result.action?.type==='create_content'?'Draft berhasil disimpan ke CMS.':'Balasan agen tersimpan di riwayat chat.',jobId)
       ]);
-      await audit(env,admin,'ai.room.message','ai-room',assistantId,{agent:agentId,provider:used,model});
-      return json({ok:true,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used,model,task_tier:resultTaskTier,attempts});
+      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,agentId,'completed','Selesai','completed',result.action?.type==='create_content'?'Draft CMS tersimpan dan menunggu tinjauan Direktur.':'Balasan AI tersimpan di D1.').run();
+      await audit(env,admin,'ai.room.message','ai-room',assistantId,{agent:agentId,provider:used,model,jobId});
+      return json({ok:true,jobId,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used,model,task_tier:resultTaskTier,attempts});
     }
 
     if (path === 'product/analyze' && method === 'POST') {
