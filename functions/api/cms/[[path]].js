@@ -453,7 +453,7 @@ async function createAiRoomDraft(env, admin, requested) {
     .bind(id,item.type,item.title,item.slug,item.excerpt,item.body,item.image_url,item.category,item.tags,'draft',item.affiliate_url,item.target_url,item.price,item.featured,item.sort_order,null).run();
   await saveSeo(env,id,seo);
   await audit(env,admin,'ai.content.draft_created',item.type,id,{title:item.title,status:'draft',seoScore:seo.seo_score});
-  return {id,type:item.type,title:item.title,slug:item.slug,status:'draft',seo_score:seo.seo_score,workspace:item.type==='news'?'Berita':'Artikel'};
+  return {id,type:item.type,title:item.title,slug:item.slug,status:'draft',seo_score:seo.seo_score,workspace:({news:'Berita',article:'Artikel',game:'Game',app:'Aplikasi & Tools'})[item.type]||'Artikel'};
 }
 const AI_ROOM_AGENTS = {
   team: {name:'Tim VANNDIK',role:'Chief of Staff · Koordinator seluruh divisi',prompt:'Anda adalah Chief of Staff VANNDIK. Terima instruksi Direktur, pecah menjadi tugas, tentukan penanggung jawab, urutan kerja, dependensi, risiko, dan laporan hasil. Jangan mengaku sudah mengeksekusi tindakan tanpa tool.'},
@@ -741,7 +741,7 @@ export async function onRequest({ request, env }) {
             const jobAdmin=await env.CMS_DB.prepare('SELECT id,email,display_name,role FROM cms_admins WHERE id=? AND active=1').bind(job.admin_id).first();
             if(!jobAdmin) throw new Error('Admin pemilik antrean tidak aktif; draft tidak dibuat.');
             actionResult=await createAiRoomDraft(env,jobAdmin,result.action.content);
-            answer+='\n\nDraft berhasil disimpan di workspace '+actionResult.workspace+' (status Draft): '+actionResult.title+'. ID: '+actionResult.id+'. Buka menu '+actionResult.workspace+' di CMS untuk meninjau dan menyetujui sebelum publikasi.';
+            answer+='\n\n'+(actionResult.already_exists?'Draft dengan slug tersebut sudah ada':'Draft berhasil disimpan')+' di workspace '+actionResult.workspace+' (status '+actionResult.status+'): '+actionResult.title+'. ID: '+actionResult.id+'. Buka menu '+actionResult.workspace+' di CMS untuk meninjau sebelum publikasi.';
           }
           const replyId=uid();
           await env.CMS_DB.batch([
