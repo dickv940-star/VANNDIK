@@ -160,7 +160,28 @@ export async function onRequest({ request, env }) {
           const data = await googlePost('https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(config.search_console_site) + '/searchAnalytics/query', token, {
             startDate: dateDaysAgo(days + 3), endDate: dateDaysAgo(3), dimensions: ['date'], rowLimit: 90
           });
-          result.searchConsole = { rows: data.rows || [], clicks: (data.rows || []).reduce((n, r) => n + Number(r.clicks || 0), 0), impressions: (data.rows || []).reduce((n, r) => n + Number(r.impressions || 0), 0) };
+          const scRows = data.rows || [];
+          const clicks = scRows.reduce((n, r) => n + Number(r.clicks || 0), 0);
+          const impressions = scRows.reduce((n, r) => n + Number(r.impressions || 0), 0);
+          const weightedPosition = scRows.reduce((n, r) => n + Number(r.position || 0) * Number(r.impressions || 0), 0);
+          result.searchConsole = {
+            rows: scRows, clicks, impressions,
+            ctr: impressions ? clicks / impressions : 0,
+            position: impressions ? weightedPosition / impressions : 0,
+            queries: [], pages: []
+          };
+          try {
+            const q = await googlePost('https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(config.search_console_site) + '/searchAnalytics/query', token, {
+              startDate: dateDaysAgo(days + 3), endDate: dateDaysAgo(3), dimensions: ['query'], rowLimit: 10
+            });
+            result.searchConsole.queries = q.rows || [];
+          } catch (e) { result.warnings.push('Search Console queries: ' + e.message); }
+          try {
+            const p = await googlePost('https://searchconsole.googleapis.com/webmasters/v3/sites/' + encodeURIComponent(config.search_console_site) + '/searchAnalytics/query', token, {
+              startDate: dateDaysAgo(days + 3), endDate: dateDaysAgo(3), dimensions: ['page'], rowLimit: 10
+            });
+            result.searchConsole.pages = p.rows || [];
+          } catch (e) { result.warnings.push('Search Console pages: ' + e.message); }
         } catch (e) { result.warnings.push('Search Console: ' + e.message); }
       }
       if (config.ga4_property_id) {
@@ -168,10 +189,34 @@ export async function onRequest({ request, env }) {
           const data = await googlePost('https://analyticsdata.googleapis.com/v1beta/properties/' + config.ga4_property_id + ':runReport', token, {
             dateRanges: [{ startDate: days + 'daysAgo', endDate: 'yesterday' }],
             metrics: [{ name: 'totalUsers' }, { name: 'sessions' }, { name: 'screenPageViews' }],
-            dimensions: [{ name: 'date' }], limit: 90
+            dimensions: [{ name: 'date' }], metricAggregations: ['TOTAL'], limit: 90
           });
-          const totals = data.rows || [];
-          result.analytics = { rows: totals, totals: (data.totals?.[0]?.metricValues || []).map((x, i) => ({ metric: ['users','sessions','pageViews'][i], value: Number(x.value || 0) })) };
+          const gaRows = data.rows || [];
+          const metricNames = ['users','sessions','pageViews'];
+          const totalsFromRows = metricNames.map((metric, i) => ({
+            metric,
+            value: gaRows.reduce((sum, row) => sum + Number(row.metricValues?.[i]?.value || 0), 0)
+          }));
+          const totals = data.totals?.[0]?.metricValues;
+          result.analytics = {
+            rows: gaRows,
+            totals: totals?.length ? totals.map((x, i) => ({ metric: metricNames[i], value: Number(x.value || 0) })) : totalsFromRows,
+            topPages: []
+          };
+          try {
+            const pages = await googlePost('https://analyticsdata.googleapis.com/v1beta/properties/' + config.ga4_property_id + ':runReport', token, {
+              dateRanges: [{ startDate: days + 'daysAgo', endDate: 'yesterday' }],
+              metrics: [{ name: 'screenPageViews' }, { name: 'totalUsers' }],
+              dimensions: [{ name: 'pagePath' }],
+              orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
+              limit: 10
+            });
+            result.analytics.topPages = (pages.rows || []).map(row => ({
+              page: row.dimensionValues?.[0]?.value || '/',
+              views: Number(row.metricValues?.[0]?.value || 0),
+              users: Number(row.metricValues?.[1]?.value || 0)
+            }));
+          } catch (e) { result.warnings.push('GA4 top pages: ' + e.message); }
         } catch (e) { result.warnings.push('GA4: ' + e.message); }
       }
       try {
