@@ -909,6 +909,26 @@ export async function onRequest({ request, env }) {
       const now=new Date().toISOString();
       return json({server_time:now,agents:AI_ROOM_AGENTS,jobs:jobs.results||[],activity:activity.results||[],refresh_interval_seconds:5,progress_semantics:'Milestone-based; not token-level model progress.'});
     }
+    if (path === 'ai-room/analytics' && method === 'GET') {
+      await ensureAiRoomTables(env);
+      const days=Math.max(7,Math.min(90,Number(url.searchParams.get('days')||30)));
+      const since=`-${days-1} days`;
+      const [statusRows,dailyRows,agentRows,totals]=await Promise.all([
+        env.CMS_DB.prepare("SELECT status,COUNT(*) AS total FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY status").bind(admin.id,since).all(),
+        env.CMS_DB.prepare("SELECT date(created_at) AS day,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing') THEN 1 ELSE 0 END) AS pending FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY date(created_at) ORDER BY day").bind(admin.id,since).all(),
+        env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing') THEN 1 ELSE 0 END) AS pending,MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY total DESC,agent_id").bind(admin.id,since).all(),
+        env.CMS_DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed, SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed, SUM(CASE WHEN status IN ('queued','processing') THEN 1 ELSE 0 END) AS pending, MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?)").bind(admin.id,since).first()
+      ]);
+      const byStatus={queued:0,processing:0,completed:0,paused:0,failed:0};
+      for(const row of statusRows.results||[]) byStatus[row.status]=Number(row.total||0);
+      const daily=Array.from({length:days},(_,i)=>{
+        const date=new Date();date.setUTCHours(0,0,0,0);date.setUTCDate(date.getUTCDate()-(days-1-i));
+        const day=date.toISOString().slice(0,10);
+        const row=(dailyRows.results||[]).find(x=>x.day===day);
+        return {day,total:Number(row?.total||0),completed:Number(row?.completed||0),failed:Number(row?.failed||0),pending:Number(row?.pending||0)};
+      });
+      return json({period_days:days,generated_at:new Date().toISOString(),totals:{total:Number(totals?.total||0),completed:Number(totals?.completed||0),failed:Number(totals?.failed||0),pending:Number(totals?.pending||0),last_activity:totals?.last_activity||null},by_status:byStatus,daily,agents:(agentRows.results||[]).map(x=>({...x,total:Number(x.total||0),completed:Number(x.completed||0),failed:Number(x.failed||0),pending:Number(x.pending||0)})),source:'D1 · cms_ai_room_jobs'});
+    }
     if (path === 'ai-room/jobs' && method === 'GET') {
       await ensureAiRoomTables(env);
       const rows=await env.CMS_DB.prepare('SELECT id,agent_id,message,status,stage,progress,attempts,next_retry_at,last_error,result_summary,created_at,updated_at,started_at,finished_at,heartbeat_at FROM cms_ai_room_jobs WHERE admin_id=? ORDER BY created_at DESC LIMIT 50').bind(admin.id).all();
