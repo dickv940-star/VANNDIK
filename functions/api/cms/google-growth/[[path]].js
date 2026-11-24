@@ -151,7 +151,7 @@ export async function onRequest({ request, env }) {
     if (path === 'report' && method === 'GET') {
       const days = Math.max(7, Math.min(90, Number(url.searchParams.get('days')) || 30));
       const config = await env.CMS_DB.prepare("SELECT search_console_site,ga4_property_id FROM cms_google_growth_config WHERE id='primary'").first();
-      if (!config?.search_console_site && !config?.ga4_property_id) return json({ error: 'Masukkan properti Search Console atau GA4 terlebih dahulu.' }, 400);
+      if (!config) return json({ error: 'Konfigurasi Google belum tersedia.' }, 400);
       const token = await getAccessToken(env);
       const result = { periodDays: days, searchConsole: null, analytics: null, youtube: null, warnings: [] };
       if (config.search_console_site) {
