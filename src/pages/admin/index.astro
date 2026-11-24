@@ -590,7 +590,11 @@ const pageTitle = 'VANNDIK CMS';
     });
 
     function openView(name) {
-      $$('.nav-item').forEach(button => button.classList.toggle('active',button.dataset.view===name));
+      if (name !== 'overview') {
+        if (window.__vanndikExecRefresh) { clearInterval(window.__vanndikExecRefresh); window.__vanndikExecRefresh = null; }
+        if (window.__vanndikExecClock) { clearInterval(window.__vanndikExecClock); window.__vanndikExecClock = null; }
+      }
+      $('.nav-item').forEach(button => button.classList.toggle('active',button.dataset.view===name));
       $('#topTitle').textContent = labels[name] || 'VANNDIK CMS';
       $('#sidebar').classList.remove('open');
       if (name === 'overview') renderOverview();
@@ -734,6 +738,7 @@ const pageTitle = 'VANNDIK CMS';
         </div>`;
       $('#dashDate').textContent = new Intl.DateTimeFormat('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
       const refreshExecutive = async () => {
+        if (!$('#execClock')) return;
         const fmt = value => Number(value||0).toLocaleString('id-ID');
         const setMetric = (id,value,note) => { const el=$('#'+id); if(el)el.textContent=value; const sub=$('#'+id+'Note'); if(sub&&note)sub.textContent=note; };
         const clock = () => { const now=new Date(); $('#execClock').textContent=new Intl.DateTimeFormat('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'Asia/Jakarta'}).format(now)+' WIB'; $('#execDate').textContent=new Intl.DateTimeFormat('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'Asia/Jakarta'}).format(now); };
