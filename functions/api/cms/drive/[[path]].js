@@ -116,7 +116,8 @@ export async function onRequest({request,env}){
       auth.searchParams.set('scope','openid email https://www.googleapis.com/auth/drive.file');
       auth.searchParams.set('access_type','offline');
       auth.searchParams.set('prompt','consent');
-      auth.searchParams.set('include_granted_scopes','true');
+      // Do not use include_granted_scopes here: Google rejects a combined consent
+      // when the existing grant contains YouTube scopes alongside drive.file.
       auth.searchParams.set('state',state);
       return Response.redirect(auth.toString(),302);
     }
