@@ -557,10 +557,14 @@ function parseAiRoomReply(raw, requestedAgentId) {
     else throw new Error('Format jawaban AI tidak valid.');
   }
   const nestedMessage=parsed.message && typeof parsed.message==='object'
-    ? (parsed.message.content||parsed.message.text||parsed.message.output||'')
+    ? (parsed.message.content||parsed.message.text||parsed.message.output||parsed.message.answer||'')
     : parsed.message;
+  const contentObject=parsed.content && typeof parsed.content==='object' ? parsed.content : null;
   const alternateMessage=parsed.answer||parsed.reply||parsed.output_text||parsed.text||parsed.response||
-    (typeof parsed.content==='string'?parsed.content:'');
+    (typeof parsed.content==='string'?parsed.content:'')||
+    contentObject?.message||contentObject?.answer||contentObject?.reply||contentObject?.text||
+    contentObject?.output_text||contentObject?.response||
+    (typeof contentObject?.content==='string'?contentObject.content:'');
   const action = parsed.action && typeof parsed.action === 'object' && parsed.action.type === 'create_content'
     ? {type:'create_content',content:parsed.action.content}
     : null;
@@ -648,16 +652,35 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskM
       });
       const choice=result?.choices?.[0];
       const message=choice?.message;
+      // Workers AI models can return several envelopes: OpenAI-style choices,
+      // {response:"..."}, or {type:"text|json",content:"..."}.
       const candidate=
         result?.response ??
         result?.output_text ??
         message?.content ??
         choice?.text ??
         result?.result?.response ??
+        result?.content ??
+        result?.output ??
+        result?.generated_text ??
         '';
-      const raw=(Array.isArray(candidate)
-        ? candidate.map(part=>typeof part==='string'?part:(part?.text||part?.content||'')).join('')
-        : typeof candidate==='string'?candidate:String(candidate??'')).trim();
+      const toModelText=(value)=>{
+        if(typeof value==='string')return value;
+        if(Array.isArray(value))return value.map(toModelText).filter(Boolean).join('');
+        if(value&&typeof value==='object'){
+          for(const key of ['text','content','response','output_text','generated_text','message','output','parts']){
+            if(value[key]!==undefined&&value[key]!==null){
+              const nested=toModelText(value[key]);
+              if(nested)return nested;
+            }
+          }
+          // Preserve structured JSON payloads so parseAiRoomReply can inspect
+          // message/answer fields rather than converting objects to [object Object].
+          return JSON.stringify(value);
+        }
+        return '';
+      };
+      const raw=toModelText(candidate).trim();
       if(!raw) {
         const detail=[
           'finish_reason='+(choice?.finish_reason||'unknown'),
