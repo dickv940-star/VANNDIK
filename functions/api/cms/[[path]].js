@@ -437,6 +437,20 @@ async function getAiRoomCmsContext(env) {
     const social=await env.CMS_DB.prepare("SELECT platform,COUNT(*) AS rows,MAX(metric_date) AS latest_date FROM cms_social_metrics GROUP BY platform").all();
     context.social_metrics=(social.results||[]).map(x=>({platform:x.platform,imported_rows:Number(x.rows),latest_date:x.latest_date,source:'CSV/import'}));
   } catch { context.social_metrics=[]; context.social_metrics_note='Belum ada data sosial impor yang dapat dibaca.'; }
+  context.connections={
+    google_growth:{configured:!!((env.GOOGLE_GROWTH_CLIENT_ID||env.GOOGLE_DRIVE_CLIENT_ID)&&(env.GOOGLE_GROWTH_CLIENT_SECRET||env.GOOGLE_DRIVE_CLIENT_SECRET)&&(env.GOOGLE_GROWTH_TOKEN_KEY||env.GOOGLE_DRIVE_TOKEN_KEY)),connected:false,email:null,connected_at:null,search_console_site:'',ga4_property_id:''},
+    google_drive:{configured:!!(env.GOOGLE_DRIVE_CLIENT_ID&&env.GOOGLE_DRIVE_CLIENT_SECRET&&env.GOOGLE_DRIVE_TOKEN_KEY),connected:false,email:null,connected_at:null,folder_id:null},
+    social_live_apis:{status:'not_connected_or_not_implemented',platforms:['Instagram','Facebook','TikTok','Pinterest','LinkedIn'],note:'Data yang tersedia di cms_social_metrics berasal dari CSV/import, bukan koneksi live.'}
+  };
+  try {
+    const row=await env.CMS_DB.prepare("SELECT google_email,connected_at FROM cms_google_growth_connection WHERE id='primary'").first();
+    const config=await env.CMS_DB.prepare("SELECT search_console_site,ga4_property_id FROM cms_google_growth_config WHERE id='primary'").first();
+    context.connections.google_growth={...context.connections.google_growth,connected:!!row,email:row?.google_email||null,connected_at:row?.connected_at||null,search_console_site:config?.search_console_site||'',ga4_property_id:config?.ga4_property_id||''};
+  } catch {}
+  try {
+    const row=await env.CMS_DB.prepare("SELECT google_email,folder_id,connected_at FROM cms_drive_connection WHERE id='primary'").first();
+    context.connections.google_drive={...context.connections.google_drive,connected:!!row,email:row?.google_email||null,connected_at:row?.connected_at||null,folder_id:row?.folder_id||null};
+  } catch {}
   return context;
 }
 async function createAiRoomDraft(env, admin, requested) {
