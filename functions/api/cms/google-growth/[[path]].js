@@ -128,7 +128,8 @@ export async function onRequest({ request, env }) {
       auth.searchParams.set('scope', 'openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly');
       auth.searchParams.set('access_type', 'offline');
       auth.searchParams.set('prompt', 'consent');
-      auth.searchParams.set('include_granted_scopes', 'true');
+      // Keep this consent isolated from the Drive drive.file grant; Google rejects
+      // the combined YouTube + drive.file scope set in one authorization request.
       auth.searchParams.set('state', state);
       return Response.redirect(auth.toString(), 302);
     }
