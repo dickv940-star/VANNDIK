@@ -22,6 +22,13 @@ async function ensureSchema(db) {
   )`).run();
   await db.prepare('CREATE INDEX IF NOT EXISTS idx_affiliate_click_created ON affiliate_click_events(created_at)').run();
   await db.prepare('CREATE INDEX IF NOT EXISTS idx_affiliate_click_product ON affiliate_click_events(product_id, created_at)').run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS cms_social_metrics (
+    id TEXT PRIMARY KEY, platform TEXT NOT NULL, account_label TEXT NOT NULL DEFAULT '',
+    metric TEXT NOT NULL, metric_date TEXT NOT NULL, metric_value REAL NOT NULL DEFAULT 0,
+    imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(platform,account_label,metric,metric_date)
+  )`).run();
+  await db.prepare('CREATE INDEX IF NOT EXISTS idx_social_metrics_date ON cms_social_metrics(platform,metric_date)').run();
 }
 export async function onRequest({ request, env }) {
   if (!env.CMS_DB) return json({ error: 'Database VANNDIK belum terhubung.' }, 503);
@@ -42,6 +49,44 @@ export async function onRequest({ request, env }) {
         env.CMS_DB.prepare("SELECT COALESCE(NULLIF(marketplace,''),'Other') marketplace,COUNT(*) clicks FROM affiliate_click_events WHERE created_at>=? GROUP BY marketplace ORDER BY clicks DESC LIMIT 8").bind(since).all()
       ]);
       return json({ range, totalClicks: Number(total?.total || 0), products: products.results || [], countries: countries.results || [], days: days.results || [], marketplaces: marketplaces.results || [] });
+    }
+    if (path === 'social' && request.method === 'GET') {
+      const admin = await requireAdmin(request, env);
+      if (!admin) return json({ error: 'Silakan login ke CMS terlebih dahulu.' }, 401);
+      const range = Math.min(90, Math.max(1, Number(url.searchParams.get('days') || 30)));
+      const since = new Date(Date.now() - range * 86400000).toISOString().slice(0,10);
+      const [summary, latest] = await Promise.all([
+        env.CMS_DB.prepare('SELECT platform,metric,SUM(metric_value) value,COUNT(*) days,MAX(metric_date) latest_date FROM cms_social_metrics WHERE metric_date>=? GROUP BY platform,metric ORDER BY platform,metric').bind(since).all(),
+        env.CMS_DB.prepare('SELECT platform,MAX(imported_at) last_import FROM cms_social_metrics GROUP BY platform ORDER BY platform').all()
+      ]);
+      return json({ range, items: summary.results || [], lastImports: latest.results || [] });
+    }
+    if (path === 'import' && request.method === 'POST') {
+      const admin = await requireAdmin(request, env);
+      if (!admin) return json({ error: 'Silakan login ke CMS terlebih dahulu.' }, 401);
+      const data = await request.json();
+      const rows = Array.isArray(data.rows) ? data.rows : [];
+      const platforms = new Set(['youtube','instagram','facebook','tiktok','pinterest','linkedin']);
+      const metrics = new Set(['views','video_views','reach','impressions','likes','comments','shares','followers','subscribers','profile_visits','clicks','watch_minutes','sessions','users','page_views']);
+      if (!rows.length || rows.length > 5000) return json({ error: 'File harus berisi 1 sampai 5.000 baris data.' }, 400);
+      const statements = [];
+      for (const row of rows) {
+        const platform = String(row.platform || '').toLowerCase().trim();
+        const account = String(row.account || '').trim().slice(0,120);
+        const metric = String(row.metric || '').toLowerCase().trim();
+        const date = String(row.date || '').trim();
+        const value = Number(row.value);
+        if (!platforms.has(platform) || !metrics.has(metric) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || !Number.isFinite(value) || value < 0 || value > 1e12) {
+          return json({ error: 'Format baris tidak valid. Periksa platform, metric, date (YYYY-MM-DD), dan value.' }, 400);
+        }
+        statements.push(env.CMS_DB.prepare(`INSERT INTO cms_social_metrics(id,platform,account_label,metric,metric_date,metric_value,imported_at)
+          VALUES(?,?,?,?,?,?,?) ON CONFLICT(platform,account_label,metric,metric_date)
+          DO UPDATE SET metric_value=excluded.metric_value,imported_at=excluded.imported_at`)
+          .bind(uid(), platform, account, metric, date, value, new Date().toISOString()));
+      }
+      await env.CMS_DB.batch(statements);
+      await audit(env, admin, 'growth.social.import', 'social-metrics', '', { rows: rows.length, platforms: [...new Set(rows.map(x => String(x.platform || '').toLowerCase()))] });
+      return json({ ok: true, imported: rows.length });
     }
     if (path === 'events' && request.method === 'GET') {
       const admin = await requireAdmin(request, env);
