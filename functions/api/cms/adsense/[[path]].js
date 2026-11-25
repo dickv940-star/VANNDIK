@@ -55,6 +55,27 @@ async function googleGet(url, token) {
 function dateParts(date) { return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() }; }
 function addDays(date, amount) { const d = new Date(date); d.setUTCDate(d.getUTCDate() + amount); return d; }
 
+async function ensureCommissionTable(env) {
+  await env.CMS_DB.prepare(`CREATE TABLE IF NOT EXISTS affiliate_commissions (
+    id TEXT PRIMARY KEY, platform TEXT NOT NULL, order_id TEXT NOT NULL, order_date TEXT NOT NULL,
+    product_name TEXT NOT NULL DEFAULT '', commission_amount REAL NOT NULL, currency TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending', source TEXT NOT NULL DEFAULT 'csv_import',
+    imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(platform, order_id)
+  )`).run();
+}
+async function affiliateSummary(env) {
+  await ensureCommissionTable(env);
+  const [groups, clicks] = await Promise.all([
+    env.CMS_DB.prepare("SELECT platform,currency,status,COUNT(*) AS orders,SUM(commission_amount) AS commission FROM affiliate_commissions GROUP BY platform,currency,status ORDER BY platform,currency,status").all(),
+    env.CMS_DB.prepare("SELECT marketplace,COUNT(*) AS clicks FROM affiliate_click_events GROUP BY marketplace ORDER BY clicks DESC").all().catch(() => ({ results: [] }))
+  ]);
+  const totals = {};
+  for (const row of groups.results || []) {
+    const key = row.currency;
+    totals[key] = (totals[key] || 0) + Number(row.commission || 0);
+  }
+  return { groups: groups.results || [], totalsByCurrency: totals, clicksByMarketplace: clicks.results || [], totalClicks: (clicks.results || []).reduce((n,x) => n + Number(x.clicks || 0), 0) };
+}
 export async function onRequest({ request, env }) {
   const url = new URL(request.url);
   const path = url.pathname.replace(/^\/api\/cms\/adsense\/?/, '').replace(/\/$/, '');
@@ -70,6 +91,33 @@ export async function onRequest({ request, env }) {
     if (path === 'status') {
       const conn = await env.CMS_DB.prepare("SELECT google_email,connected_at FROM cms_google_growth_connection WHERE id='primary'").first();
       return json({ configured: !!(clientId(env) && clientSecret(env) && tokenKey(env)), connected: !!conn, email: conn?.google_email || null, connectedAt: conn?.connected_at || null, adsenseScopeAdded: true });
+    }
+    if (path === 'affiliate-summary') {
+      return json(await affiliateSummary(env));
+    }
+    if (path === 'affiliate-import' && request.method === 'POST') {
+      const body = await request.json();
+      const rows = Array.isArray(body.rows) ? body.rows : [];
+      if (!rows.length || rows.length > 200) return json({ error: 'Unggah 1–200 baris komisi per proses.' }, 400);
+      await ensureCommissionTable(env);
+      const allowedPlatforms = new Set(['shopee','tiktok','tokopedia','lazada','amazon','other']);
+      const allowedStatuses = new Set(['pending','approved','paid','cancelled']);
+      let imported = 0, rejected = 0;
+      for (const row of rows) {
+        const platform = String(row.platform || '').trim().toLowerCase();
+        const orderId = String(row.order_id || row.orderId || '').trim().slice(0,120);
+        const date = String(row.order_date || row.orderDate || '').trim();
+        const product = String(row.product_name || row.productName || '').trim().slice(0,240);
+        const amount = Number(row.commission);
+        const currency = String(row.currency || 'IDR').trim().toUpperCase();
+        const status = String(row.status || 'pending').trim().toLowerCase();
+        if (!allowedPlatforms.has(platform) || !orderId || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || !Number.isFinite(amount) || amount < 0 || !/^[A-Z]{3}$/.test(currency) || !allowedStatuses.has(status)) { rejected++; continue; }
+        await env.CMS_DB.prepare(`INSERT INTO affiliate_commissions(id,platform,order_id,order_date,product_name,commission_amount,currency,status,source,imported_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(platform,order_id) DO UPDATE SET order_date=excluded.order_date,product_name=excluded.product_name,commission_amount=excluded.commission_amount,currency=excluded.currency,status=excluded.status,source=excluded.source,imported_at=excluded.imported_at`)
+          .bind(crypto.randomUUID(),platform,orderId,date,product,amount,currency,status,'csv_import',new Date().toISOString()).run();
+        imported++;
+      }
+      return json({ ok: true, imported, rejected, summary: await affiliateSummary(env) });
     }
     if (path === 'report') {
       const days = Math.max(7, Math.min(90, Number(url.searchParams.get('days')) || 30));
