@@ -1008,7 +1008,7 @@ export async function onRequest({ request, env }) {
         if(publishResult) {
           answer=publishResult.published
             ? 'Publikasi berhasil dan sudah diverifikasi di database CMS. "'+publishResult.item.title+'" sekarang berstatus published. URL: '+publishResult.url
-            : publishResult.message+(publishResult.drafts?'\\n'+publishResult.drafts.map((item,index)=>(index+1)+'. '+item.title+' ['+item.type+', ID '+item.id+']').join('\\n'):'');
+            : publishResult.message+(publishResult.drafts?'\n'+publishResult.drafts.map((item,index)=>(index+1)+'. '+item.title+' ['+item.type+', ID '+item.id+']').join('\n'):'');
           model='cms-deterministic-publisher';used='VANNDIK CMS';speakerId='editor';resultTaskTier='work';executingAgentId='editor';
           if(publishResult.published) await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)")
             .bind(uid(),admin.id,jobId,'editor','milestone','Memverifikasi publikasi CMS','completed','Konten '+publishResult.item.id+' berstatus published; URL '+publishResult.url).run();
