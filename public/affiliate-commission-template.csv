@@ -1,0 +1,2 @@
+platform,order_id,order_date,product_name,commission,currency,status
+shopee,ORDER-001,2026-11-25,Contoh produk,15000,IDR,pending
