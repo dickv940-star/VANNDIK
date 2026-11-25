@@ -346,6 +346,11 @@ function bingResultCards(html,expectedIds){
   for(const match of String(html||'').matchAll(/<a\b[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi)){
     const raw=decodeEntities(match[2]).replace(/&amp;/gi,'&');
     let target;try{target=new URL(raw);}catch{continue;}
+    if(['www.bing.com','bing.com'].includes(target.hostname.toLowerCase())){
+      const wrapped=target.searchParams.get('u')||'';
+      if(wrapped.startsWith('a1')){try{target=new URL(atob(wrapped.slice(2)));}catch{continue;}}
+      else if(wrapped){try{target=new URL(decodeURIComponent(wrapped));}catch{continue;}}
+    }
     if(!['shopee.co.id','www.shopee.co.id'].includes(target.hostname.toLowerCase()))continue;
     const ids=shopeeIds(target,'');
     if(!ids||ids.shopId!==expectedIds.shopId||ids.itemId!==expectedIds.itemId)continue;
