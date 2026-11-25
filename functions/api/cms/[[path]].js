@@ -500,7 +500,9 @@ async function publishAiRoomDraft(env, admin, message) {
   const explicit=drafts.filter(item=>{
     const title=normalize(item.title);
     const words=title.split(' ').filter(word=>word.length>3);
-    return title.length>=8 && (commandText.includes(title) || (words.length>=3 && words.every(word=>commandText.includes(word))));
+    const id=String(item.id||'').toLowerCase();
+    const idMentioned=id.length>=6 && command.toLowerCase().includes(id);
+    return idMentioned || (title.length>=8 && (commandText.includes(title) || (words.length>=3 && words.every(word=>commandText.includes(word)))));
   });
   const candidates=explicit.length?explicit:drafts;
   if(candidates.length!==1) return {published:false,needs_selection:true,message:'Ada '+candidates.length+' draft yang cocok. Saya belum menerbitkan apa pun agar tidak salah memilih. Sebutkan judul atau ID draft yang ingin diterbitkan.',drafts:candidates.slice(0,20).map(item=>({id:item.id,type:item.type,title:item.title,slug:item.slug,status:item.status}))};
