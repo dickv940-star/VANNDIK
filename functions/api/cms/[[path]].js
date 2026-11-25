@@ -723,17 +723,6 @@ function parseAiRoomReply(raw, requestedAgentId) {
   }
   // Group chat always speaks through the Master Director; specialists remain directly callable.
   return {answer,speakerId:'team',action};
-  const rawSpeaker=String(parsed.speaker_id||parsed.speaker||'').trim().toLocaleLowerCase('id-ID');
-  let speakerId=Object.keys(AI_ROOM_AGENTS).find(id=>id.toLocaleLowerCase('id-ID')===rawSpeaker);
-  if(!speakerId && rawSpeaker) {
-    speakerId=Object.entries(AI_ROOM_AGENTS).find(([id,agent])=>{
-      const fullName=String(agent.name||'').toLocaleLowerCase('id-ID');
-      const shortName=fullName.split(/[·|]/)[0].trim();
-      return rawSpeaker===fullName || rawSpeaker===shortName || rawSpeaker===id.toLocaleLowerCase('id-ID');
-    })?.[0];
-  }
-  if(!speakerId) speakerId='team';
-  return {answer,speakerId,action};
 }
 
 function aiRoomConversation(messages) {
