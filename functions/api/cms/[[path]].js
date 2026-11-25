@@ -1160,7 +1160,7 @@ export async function onRequest({ request, env }) {
           let answer=result.answer, actionResult=null, delegationResult=null;
           if(result.action?.type==='delegate_tasks'&&job.agent_id==='team'&&!String(job.message||'').startsWith('[TARGET HARIAN ')){
             delegationResult=await enqueueAiRoomDelegations(env,job.admin_id,job.id,result.action.tasks);
-            if(delegationResult.created.length)answer+='\\n\\nPekerjaan sudah dibagi kepada '+delegationResult.created.length+' spesialis: '+delegationResult.created.map(item=>item.name).join(', ')+'. Tugas masuk antrean cloud.';
+            if(delegationResult.created.length)answer+='\n\nPekerjaan sudah dibagi kepada '+delegationResult.created.length+' spesialis: '+delegationResult.created.map(item=>item.name).join(', ')+'. Tugas masuk antrean cloud.';
           }
           if(result.action?.type==='create_content') {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id).run();
@@ -1171,8 +1171,10 @@ export async function onRequest({ request, env }) {
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
           const contentRequest=isAiRoomContentCreationRequest(job.message);
-          const actionSucceeded=!contentRequest||!!actionResult&&!actionResult.type_mismatch||!!delegationResult?.created?.length;
-          if(contentRequest&&!actionResult&&!delegationResult?.created?.length) answer+='\\n\\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft atau penugasan spesialis yang dapat diproses. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
+          const delegationSucceeded=result.action?.type!=='delegate_tasks'||!!delegationResult?.created?.length;
+          const actionSucceeded=delegationSucceeded&&(!contentRequest||!!actionResult&&!actionResult.type_mismatch||!!delegationResult?.created?.length);
+          if(result.action?.type==='delegate_tasks'&&!delegationSucceeded)answer+='\\n\\n[PERLU TINDAKAN] Tidak ada tugas spesialis yang berhasil dimasukkan ke antrean.';
+          if(contentRequest&&!actionResult&&!delegationResult?.created?.length) answer+='\n\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft atau penugasan spesialis yang dapat diproses. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
           const replyId=uid();
           await env.CMS_DB.batch([
             env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,answer,result.provider,result.model,result.task?.tier||'chat'),
@@ -1338,9 +1340,9 @@ export async function onRequest({ request, env }) {
             delegationResult=await enqueueAiRoomDelegations(env,admin.id,jobId,result.action.tasks);
             if(delegationResult.created.length){
               const names=delegationResult.created.map(item=>item.name).join(', ');
-              answer+='\\n\\nSaya sudah membagi pekerjaan kepada '+delegationResult.created.length+' spesialis: '+names+'. Tugas telah masuk antrean cloud; hasil akan muncul setelah masing-masing agen menyelesaikan pekerjaannya.';
+              answer+='\n\nSaya sudah membagi pekerjaan kepada '+delegationResult.created.length+' spesialis: '+names+'. Tugas telah masuk antrean cloud; hasil akan muncul setelah masing-masing agen menyelesaikan pekerjaannya.';
             } else {
-              answer+='\\n\\nBelum ada tugas spesialis yang berhasil dimasukkan ke antrean. Saya perlu memperjelas pembagian tugas.';
+              answer+='\n\nBelum ada tugas spesialis yang berhasil dimasukkan ke antrean. Saya perlu memperjelas pembagian tugas.';
               deterministicSuccess=false;
             }
           }
@@ -1353,7 +1355,7 @@ export async function onRequest({ request, env }) {
           }
           if(isAiRoomContentCreationRequest(message)&&result.action?.type!=='create_content'&&!(delegationResult?.created?.length)) {
             deterministicSuccess=false;
-            answer+='\\n\\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft yang dapat disimpan ke CMS. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
+            answer+='\n\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft yang dapat disimpan ke CMS. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
           }
         }
       }catch(error){
