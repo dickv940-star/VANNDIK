@@ -488,6 +488,32 @@ async function ensureAiRoomDailyTargets(env, adminId) {
     await env.CMS_DB.prepare("INSERT OR IGNORE INTO cms_ai_room_daily_targets(admin_id,agent_id,task,enabled) VALUES(?,?,?,1)").bind(adminId,agentId,task).run();
   }
 }
+
+async function enqueueAiRoomDelegations(env, adminId, parentJobId, tasks) {
+  if(!Array.isArray(tasks)||!tasks.length) return {created:[],skipped:[]};
+  const allowed=Object.keys(AI_ROOM_AGENTS).filter(id=>id!=='team');
+  const seen=new Set(),created=[],skipped=[];
+  for(const task of tasks.slice(0,5)){
+    const agentId=String(task?.agent_id||'');
+    const message=String(task?.message||'').trim();
+    if(!allowed.includes(agentId)||message.length<20||message.length>2000||seen.has(agentId)){
+      skipped.push({agent_id:agentId,reason:'invalid_or_duplicate_task'});
+      continue;
+    }
+    seen.add(agentId);
+    const id='delegate-'+parentJobId+'-'+agentId;
+    const queuedMessage='[DELEGASI MASTER DIRECTOR] '+message;
+    const stage='Menunggu penugasan Master Director · '+AI_ROOM_AGENTS[agentId].name;
+    const result=await env.CMS_DB.prepare("INSERT OR IGNORE INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,stage,progress) VALUES(?,?,?,?,'queued',0,CURRENT_TIMESTAMP,?,0)").bind(id,adminId,agentId,queuedMessage,stage).run();
+    if(Number(result.meta?.changes||0)>0){
+      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),adminId,id,agentId,'delegated','Tugas spesialis masuk antrean','queued','Ditugaskan Master Director dari pekerjaan '+parentJobId+'.').run();
+      created.push({id,agent_id:agentId,name:AI_ROOM_AGENTS[agentId].name});
+    } else {
+      skipped.push({agent_id:agentId,reason:'already_queued'});
+    }
+  }
+  return {created,skipped};
+}
 async function getAiRoomCmsContext(env) {
   const context={generated_at:new Date().toISOString(),timezone:'Asia/Jakarta',content_counts:{},recent_content:[],affiliate_clicks_24h:null,affiliate_clicks_note:'Belum dapat dibaca'};
   try {
@@ -701,7 +727,7 @@ function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}) {
     'WAKTU SEKARANG: '+now+' (WIB, Asia/Jakarta).',
     'MEMORI PUSAT VANNDIK (sumber kebenaran lintas provider): '+JSON.stringify(memory),
     'KONTEKS CMS AKTUAL (data baca-saja dari database; waktu pembacaan tercantum): '+JSON.stringify(cmsContext),
-    'ALAT CMS TERBATAS: jika Direktur secara eksplisit meminta membuat berita/artikel/game/aplikasi dan isi sudah cukup, keluarkan action {"type":"create_content","content":{"type":"news|article|game|app","title":"...","excerpt":"...","body":"...","category":"...","tags":["..."],"image_url":"","affiliate_url":"","target_url":""}}. Status selalu dipaksa draft oleh server. Jangan pernah menyatakan draft tersimpan kecuali server mengembalikan hasil action. Jangan membuat action untuk publikasi, penghapusan, perubahan akun, atau produk affiliate; produk harus melewati alur verifikasi khusus. Jika belum punya fakta/sumber yang cukup, jangan buat action; minta klarifikasi atau nyatakan keterbatasan.',
+    'ALAT CMS TERBATAS: jika Direktur secara eksplisit meminta membuat berita/artikel/game/aplikasi dan isi sudah cukup, keluarkan action {"type":"create_content","content":{"type":"news|article|game|app","title":"...","excerpt":"...","body":"...","category":"...","tags":["..."],"image_url":"","affiliate_url":"","target_url":""}}. Status selalu dipaksa draft oleh server. Untuk permintaan kerja lintas divisi di grup (speaker team), buat action delegasi {"type":"delegate_tasks","tasks":[{"agent_id":"researcher|writer|seo|analyst|editor|media|catalog|web|sysadmin","message":"instruksi spesifik dan hasil yang diminta"}]}; maksimal 5 spesialis berbeda, hanya tugas yang benar-benar relevan, jelas dan dapat dikerjakan. Spesialis akan menerima job terpisah di antrean cloud dan hasilnya masuk ke percakapan bersama. Jangan mengklaim tugas selesai sebelum job spesialis selesai. Agen spesialis yang dipanggil langsung tidak boleh mendelegasikan lagi. Jangan membuat delegasi untuk audit target harian otomatis. Jangan membuat action untuk publikasi, penghapusan, perubahan akun, atau produk affiliate; produk harus melewati alur verifikasi khusus. Jika belum punya fakta/sumber yang cukup, jangan buat action; minta klarifikasi atau nyatakan keterbatasan.',
 
     'DAFTAR KARYAWAN: '+JSON.stringify(roster),
     'FOKUS AGEN YANG DIPANGGIL: '+(AI_ROOM_AGENTS[requestedAgentId] ? JSON.stringify({id:requestedAgentId,name:AI_ROOM_AGENTS[requestedAgentId].name,role:AI_ROOM_AGENTS[requestedAgentId].role,mandate:AI_ROOM_AGENTS[requestedAgentId].prompt}) : 'Master Director mengoordinasikan seluruh divisi.'),
@@ -714,7 +740,7 @@ function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}) {
     'KEJUJURAN: jangan mengaku telah mencari, membaca data, mengubah CMS, menerbitkan konten, atau menjalankan tindakan jika tool belum melakukannya.',
     'KEBIJAKAN BIAYA: wajib Rp0. Jangan menyarankan atau memicu layanan berbayar otomatis. Bila kuota habis, sarankan antrean dan alternatif gratis.',
     'KEAMANAN: publikasi, penghapusan permanen, perubahan keamanan, migrasi database, pembelian, dan tindakan berisiko memerlukan persetujuan Direktur.',
-    'FORMAT KELUARAN: balas hanya JSON valid berbentuk {"speaker_id":"id_agen","message":"isi jawaban natural","action":null} atau action create_content sesuai skema alat. speaker_id harus salah satu ID dalam daftar.'
+    'FORMAT KELUARAN: balas hanya JSON valid berbentuk {"speaker_id":"id_agen","message":"isi jawaban natural","action":null}, action create_content, atau action delegate_tasks sesuai skema alat. speaker_id harus salah satu ID dalam daftar.'
   ].join('\n\n');
 }
 function extractAiRoomText(value, depth=0) {
@@ -775,10 +801,23 @@ function parseAiRoomReply(raw, requestedAgentId) {
 
   const explicitAction=parsed.action && typeof parsed.action==='object' && parsed.action.type==='create_content'
     ? parsed.action : (parsed.type==='create_content' ? parsed : null);
+  const explicitDelegation=parsed.action && typeof parsed.action==='object' && parsed.action.type==='delegate_tasks'
+    ? parsed.action : (parsed.type==='delegate_tasks' ? parsed : null);
   const draft=findAiRoomDraft(explicitAction?.content || explicitAction || parsed);
-  const action=explicitAction
+  let action=explicitAction
     ? {type:'create_content',content:findAiRoomDraft(explicitAction.content)||explicitAction.content}
     : draft ? {type:'create_content',content:draft} : null;
+  if(!action&&explicitDelegation&&requestedAgentId==='team'){
+    const rawTasks=Array.isArray(explicitDelegation.tasks)?explicitDelegation.tasks:[];
+    const allowed=new Set(Object.keys(AI_ROOM_AGENTS).filter(id=>id!=='team'));
+    const tasks=[],seen=new Set();
+    for(const item of rawTasks.slice(0,5)){
+      const agentId=String(item?.agent_id||''),message=String(item?.message||'').trim();
+      if(!allowed.has(agentId)||seen.has(agentId)||message.length<20||message.length>2000)continue;
+      seen.add(agentId);tasks.push({agent_id:agentId,message});
+    }
+    if(tasks.length)action={type:'delegate_tasks',tasks};
+  }
 
   // Structured CMS objects contain useful editorial fields (title/body), not
   // chat-text keys. Never stringify them as [object Object] or reject them.
@@ -1039,7 +1078,11 @@ export async function onRequest({ request, env }) {
           const memory=await getCentralAiMemory(env);
           const cmsContext=await getAiRoomCmsContext(env);
           const result=await callAiRoomProvider(env,conversation,job.agent_id,memory,job.message,cmsContext);
-          let answer=result.answer, actionResult=null;
+          let answer=result.answer, actionResult=null, delegationResult=null;
+          if(result.action?.type==='delegate_tasks'&&job.agent_id==='team'&&!String(job.message||'').startsWith('[TARGET HARIAN ')){
+            delegationResult=await enqueueAiRoomDelegations(env,job.admin_id,job.id,result.action.tasks);
+            if(delegationResult.created.length)answer+='\\n\\nPekerjaan sudah dibagi kepada '+delegationResult.created.length+' spesialis: '+delegationResult.created.map(item=>item.name).join(', ')+'. Tugas masuk antrean cloud.';
+          }
           if(result.action?.type==='create_content') {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
@@ -1049,8 +1092,8 @@ export async function onRequest({ request, env }) {
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
           const contentRequest=isAiRoomContentCreationRequest(job.message);
-          const actionSucceeded=!contentRequest||!!actionResult&&!actionResult.type_mismatch;
-          if(contentRequest&&!actionResult) answer+='\\n\\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft yang dapat disimpan ke CMS. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
+          const actionSucceeded=!contentRequest||!!actionResult&&!actionResult.type_mismatch||!!delegationResult?.created?.length;
+          if(contentRequest&&!actionResult&&!delegationResult?.created?.length) answer+='\\n\\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft atau penugasan spesialis yang dapat diproses. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
           const replyId=uid();
           await env.CMS_DB.batch([
             env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,answer,result.provider,result.model,result.task?.tier||'chat'),
@@ -1211,6 +1254,17 @@ export async function onRequest({ request, env }) {
               env.CMS_DB.prepare("UPDATE cms_ai_room_activity SET agent_id=? WHERE job_id=? AND event_type='started'").bind(executingAgentId,jobId)
             ]);
           }
+          let delegationResult=null;
+          if(result.action?.type==='delegate_tasks'&&agentId==='team'&&!message.startsWith('[TARGET HARIAN ')){
+            delegationResult=await enqueueAiRoomDelegations(env,admin.id,jobId,result.action.tasks);
+            if(delegationResult.created.length){
+              const names=delegationResult.created.map(item=>item.name).join(', ');
+              answer+='\\n\\nSaya sudah membagi pekerjaan kepada '+delegationResult.created.length+' spesialis: '+names+'. Tugas telah masuk antrean cloud; hasil akan muncul setelah masing-masing agen menyelesaikan pekerjaannya.';
+            } else {
+              answer+='\\n\\nBelum ada tugas spesialis yang berhasil dimasukkan ke antrean. Saya perlu memperjelas pembagian tugas.';
+              deterministicSuccess=false;
+            }
+          }
           if(result.action?.type==='create_content') {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
@@ -1218,7 +1272,7 @@ export async function onRequest({ request, env }) {
             if(actionResult.type_mismatch) deterministicSuccess=false;
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
-          if(isAiRoomContentCreationRequest(message)&&result.action?.type!=='create_content') {
+          if(isAiRoomContentCreationRequest(message)&&result.action?.type!=='create_content'&&!(delegationResult?.created?.length)) {
             deterministicSuccess=false;
             answer+='\\n\\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft yang dapat disimpan ke CMS. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
           }
