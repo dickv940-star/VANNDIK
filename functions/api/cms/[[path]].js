@@ -945,7 +945,7 @@ export async function onRequest({ request, env }) {
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
           const contentRequest=isAiRoomContentCreationRequest(job.message);
-          const actionSucceeded=!contentRequest||!!actionResult;
+          const actionSucceeded=!contentRequest||!!actionResult&&!actionResult.type_mismatch;
           if(contentRequest&&!actionResult) answer+='\\n\\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft yang dapat disimpan ke CMS. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
           const replyId=uid();
           await env.CMS_DB.batch([
@@ -1091,6 +1091,7 @@ export async function onRequest({ request, env }) {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
             const actionResult=await createAiRoomDraft(env,admin,result.action.content,message);
+            if(actionResult.type_mismatch) deterministicSuccess=false;
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
           if(isAiRoomContentCreationRequest(message)&&result.action?.type!=='create_content') {
