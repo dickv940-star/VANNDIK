@@ -464,8 +464,8 @@ async function getAiRoomCmsContext(env) {
 async function createAiRoomDraft(env, admin, requested, directorMessage='') {
   if(!requested||typeof requested!=='object') throw new Error('Payload draft tidak valid.');
   const command=String(directorMessage||'').toLocaleLowerCase('id-ID');
-  const explicitArticle=/(?:buat|tulis|susun|jadikan|masukkan|pindahkan|terbitkan|publish)[\s\S]{0,100}\b(?:artikel|article)\\b/i.test(command);
-  const explicitNews=/(?:buat|tulis|susun|jadikan|masukkan|pindahkan|terbitkan|publish)[\s\S]{0,100}\b(?:berita|news)\\b/i.test(command);
+  const explicitArticle=/(?:buat|tulis|susun|jadikan|masukkan|pindahkan|terbitkan|publish)[\s\S]{0,100}\b(?:artikel|article)\b/i.test(command);
+  const explicitNews=/(?:buat|tulis|susun|jadikan|masukkan|pindahkan|terbitkan|publish)[\s\S]{0,100}\b(?:berita|news)\b/i.test(command);
   const type=explicitArticle&&!explicitNews?'article':explicitNews&&!explicitArticle?'news':String(requested.type||'').toLowerCase();
   if(!['article','news','game','app'].includes(type)) throw new Error('Agen hanya boleh membuat draft artikel, berita, game, atau aplikasi. Produk affiliate memakai alur verifikasi produk tersendiri.');
   const item=clean({...requested,type,status:'draft',published_at:null});
@@ -533,7 +533,7 @@ async function publishAiRoomDraft(env, admin, message) {
   if(!/(terbitkan|publikasikan|publish|tayangkan|naikkan\s+(?:ke\s+)?tayang)/i.test(command)) return null;
   if(!/(draft|berita|artikel|konten|\bjudul\b)/i.test(command)) return null;
   const lower=command.toLocaleLowerCase('id-ID');
-  const requestedType=/\\bke\\s+artikel\\b|\\bjadi\\s+artikel\\b/i.test(lower)?'article':/\\bke\\s+berita\\b|\\bjadi\\s+berita\\b/i.test(lower)?'news':/berita|news/i.test(lower)?'news':/artikel|article/i.test(lower)?'article':'';
+  const requestedType=lower.includes('ke artikel')||lower.includes('jadi artikel')?'article':lower.includes('ke berita')||lower.includes('jadi berita')?'news':/berita|news/i.test(lower)?'news':/artikel|article/i.test(lower)?'article':'';
   const rows=await env.CMS_DB.prepare("SELECT id,type,title,slug,body,status FROM cms_content WHERE status='draft' AND type IN ('news','article') AND (?='' OR type=?) ORDER BY updated_at DESC LIMIT 100").bind(requestedType,requestedType).all();
   const drafts=rows.results||[];
   if(!drafts.length) return {published:false,message:'Tidak ditemukan draft berita atau artikel yang cocok. Tidak ada konten yang diubah.'};
