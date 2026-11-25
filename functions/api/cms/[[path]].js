@@ -938,7 +938,7 @@ export async function onRequest({ request, env }) {
             const jobAdmin=await env.CMS_DB.prepare('SELECT id,email,display_name,role FROM cms_admins WHERE id=? AND active=1').bind(job.admin_id).first();
             if(!jobAdmin) throw new Error('Admin pemilik antrean tidak aktif; draft tidak dibuat.');
             actionResult=await createAiRoomDraft(env,jobAdmin,result.action.content,job.message);
-            answer+='\\n\\n'+aiRoomDraftOutcome(actionResult);
+            answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
           const replyId=uid();
           await env.CMS_DB.batch([
@@ -1084,7 +1084,7 @@ export async function onRequest({ request, env }) {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
             const actionResult=await createAiRoomDraft(env,admin,result.action.content,message);
-            answer+='\\n\\n'+aiRoomDraftOutcome(actionResult);
+            answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
         }
       }catch(error){
