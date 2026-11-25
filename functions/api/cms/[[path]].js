@@ -463,14 +463,18 @@ async function getAiRoomCmsContext(env) {
 }
 function isAiRoomNegativeAction(message, action) {
   const text=String(message||'').toLocaleLowerCase('id-ID');
+  const negativePrefix=/(?:jangan|tidak\s+usah|tidak\s+perlu|tidak\s+boleh|belum\s+boleh|jangan\s+dulu|do\s+not|don't)(?:\s+\S+){0,3}\s+/i;
   const verbs=action==='publish'
-    ? String.raw\`(?:terbitkan|menerbitkan|publikasikan|publish|tayangkan|naikkan)\`
+    ? /(?:terbitkan|menerbitkan|publikasikan|publish|tayangkan|naikkan)/i
     : action==='move'
-      ? String.raw\`(?:pindahkan|pindah|konversi|ubah|masukkan)\`
-      : String.raw\`(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\`;
-  const pattern=new RegExp(String.raw\`(?:jangan|tidak\\s+usah|tidak\\s+perlu|tidak\\s+boleh|belum\\s+boleh|jangan\\s+dulu|do\\s+not|don't)(?:\\s+\\S+){0,3}\\s+\${verbs}\`,'i');
-  return pattern.test(text);
+      ? /(?:pindahkan|pindah|konversi|ubah|masukkan)/i
+      : /(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)/i;
+  const match=text.match(negativePrefix);
+  if(!match) return false;
+  const tail=text.slice(match.index+match[0].length);
+  return verbs.test(tail.slice(0,80));
 }
+
 function isAiRoomContentCreationRequest(message) {
   return !isAiRoomNegativeAction(message,'create') && /\b(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\b[\s\S]{0,140}\b(?:artikel|article|berita|news)\b/i.test(String(message||''));
 }
