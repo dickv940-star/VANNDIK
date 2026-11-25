@@ -71,6 +71,7 @@ async function affiliateSummary(env) {
   ]);
   const totals = {};
   for (const row of groups.results || []) {
+    if (row.status === 'cancelled') continue;
     const key = row.currency;
     totals[key] = (totals[key] || 0) + Number(row.commission || 0);
   }
