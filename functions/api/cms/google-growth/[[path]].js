@@ -125,7 +125,7 @@ export async function onRequest({ request, env }) {
       auth.searchParams.set('client_id', clientId(env));
       auth.searchParams.set('redirect_uri', REDIRECT_URI);
       auth.searchParams.set('response_type', 'code');
-      auth.searchParams.set('scope', 'openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly');
+      auth.searchParams.set('scope', 'openid email https://www.googleapis.com/auth/webmasters.readonly https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly https://www.googleapis.com/auth/adsense.readonly');
       auth.searchParams.set('access_type', 'offline');
       auth.searchParams.set('prompt', 'consent');
       // Keep this consent isolated from the Drive drive.file grant; Google rejects
