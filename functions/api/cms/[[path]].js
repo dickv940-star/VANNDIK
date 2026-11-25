@@ -464,8 +464,8 @@ async function getAiRoomCmsContext(env) {
 async function createAiRoomDraft(env, admin, requested, directorMessage='') {
   if(!requested||typeof requested!=='object') throw new Error('Payload draft tidak valid.');
   const command=String(directorMessage||'').toLocaleLowerCase('id-ID');
-  const explicitArticle=/(?:buat|tulis|susun|jadikan|masukkan|pindahkan|terbitkan|publish)[\\s\\S]{0,100}\\b(?:artikel|article)\\b/i.test(command);
-  const explicitNews=/(?:buat|tulis|susun|jadikan|masukkan|pindahkan|terbitkan|publish)[\\s\\S]{0,100}\\b(?:berita|news)\\b/i.test(command);
+  const explicitArticle=/(?:buat|tulis|susun|jadikan|masukkan|pindahkan|terbitkan|publish)[\s\S]{0,100}\b(?:artikel|article)\\b/i.test(command);
+  const explicitNews=/(?:buat|tulis|susun|jadikan|masukkan|pindahkan|terbitkan|publish)[\s\S]{0,100}\b(?:berita|news)\\b/i.test(command);
   const type=explicitArticle&&!explicitNews?'article':explicitNews&&!explicitArticle?'news':String(requested.type||'').toLowerCase();
   if(!['article','news','game','app'].includes(type)) throw new Error('Agen hanya boleh membuat draft artikel, berita, game, atau aplikasi. Produk affiliate memakai alur verifikasi produk tersendiri.');
   const item=clean({...requested,type,status:'draft',published_at:null});
@@ -498,12 +498,42 @@ function aiRoomDraftOutcome(result) {
   return 'Draft berhasil disimpan di workspace '+workspace+' (status Draft): '+result.title+'. ID: '+result.id+'. Buka menu '+workspace+' di CMS untuk meninjau sebelum publikasi.';
 }
 
+async function moveAiRoomContentType(env, admin, message) {
+  const command=String(message||'').trim();
+  const lower=command.toLocaleLowerCase('id-ID');
+  if(!['pindahkan','pindah','ubah jenis','ubah tipe','konversi','masukkan'].some(term=>lower.includes(term))) return null;
+  const targetType=lower.includes('ke artikel')||lower.includes('jadi artikel')||lower.includes('sebagai artikel')?'article':
+    lower.includes('ke berita')||lower.includes('jadi berita')||lower.includes('sebagai berita')?'news':'';
+  if(!targetType) return null;
+  const sourceType=targetType==='article'?'news':'article';
+  const rows=await env.CMS_DB.prepare("SELECT id,type,title,slug,status FROM cms_content WHERE type IN ('news','article') AND status IN ('draft','published') ORDER BY updated_at DESC LIMIT 100").all();
+  const all=rows.results||[];
+  const normalize=value=>String(value||'').toLocaleLowerCase('id-ID').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  const text=normalize(command);
+  const explicit=all.filter(item=>{
+    const id=String(item.id||'').toLowerCase();
+    const title=normalize(item.title);
+    return (id.length>=6&&lower.includes(id))||(title.length>=8&&text.includes(title));
+  });
+  const candidates=explicit.length?explicit:all.filter(item=>item.type===sourceType);
+  if(candidates.length!==1) return {moved:false,needs_selection:candidates.length>1,message:candidates.length?'Ada '+candidates.length+' konten yang mungkin dimaksud. Sebutkan judul atau ID agar tidak salah memindahkan.':'Tidak ditemukan konten '+(sourceType==='news'?'berita':'artikel')+' yang dapat dipindahkan.',items:candidates.slice(0,20).map(item=>({id:item.id,type:item.type,title:item.title,status:item.status}))};
+  const item=candidates[0];
+  if(item.type===targetType) return {moved:true,already_correct:true,item,workspace:targetType==='article'?'Artikel':'Berita',message:'Konten sudah berada di workspace '+(targetType==='article'?'Artikel':'Berita')+'. Statusnya tetap '+item.status+'.'};
+  const update=await env.CMS_DB.prepare('UPDATE cms_content SET type=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND type=?').bind(targetType,item.id,sourceType).run();
+  if(!Number(update.meta?.changes||0)) return {moved:false,message:'Jenis konten berubah sebelum proses selesai. Muat ulang CMS lalu coba lagi.'};
+  const verified=await env.CMS_DB.prepare('SELECT id,type,title,slug,status,published_at FROM cms_content WHERE id=?').bind(item.id).first();
+  if(!verified||verified.type!==targetType) throw new Error('Pemindahan workspace belum dapat diverifikasi.');
+  await audit(env,admin,'content.reclassified_by_ai_room',targetType,item.id,{from:sourceType,to:targetType,title:item.title,status:item.status});
+  const workspace=targetType==='article'?'Artikel':'Berita';
+  return {moved:true,item:verified,workspace,message:'Konten berhasil dipindahkan dari '+(sourceType==='news'?'Berita':'Artikel')+' ke '+workspace+'. Status publikasi tetap '+verified.status+'. ID: '+verified.id+'.'};
+}
+
 async function publishAiRoomDraft(env, admin, message) {
   const command=String(message||'').trim();
   if(!/(terbitkan|publikasikan|publish|tayangkan|naikkan\s+(?:ke\s+)?tayang)/i.test(command)) return null;
   if(!/(draft|berita|artikel|konten|\bjudul\b)/i.test(command)) return null;
   const lower=command.toLocaleLowerCase('id-ID');
-  const requestedType=/berita|news/i.test(lower)?'news':/artikel|article/i.test(lower)?'article':'';
+  const requestedType=/\\bke\\s+artikel\\b|\\bjadi\\s+artikel\\b/i.test(lower)?'article':/\\bke\\s+berita\\b|\\bjadi\\s+berita\\b/i.test(lower)?'news':/berita|news/i.test(lower)?'news':/artikel|article/i.test(lower)?'article':'';
   const rows=await env.CMS_DB.prepare("SELECT id,type,title,slug,body,status FROM cms_content WHERE status='draft' AND type IN ('news','article') AND (?='' OR type=?) ORDER BY updated_at DESC LIMIT 100").bind(requestedType,requestedType).all();
   const drafts=rows.results||[];
   if(!drafts.length) return {published:false,message:'Tidak ditemukan draft berita atau artikel yang cocok. Tidak ada konten yang diubah.'};
@@ -880,6 +910,15 @@ export async function onRequest({ request, env }) {
     if (path === 'ai-room/jobs/process' && method === 'POST') {
       if (!env.AI_JOBS_CRON_TOKEN || request.headers.get('authorization') !== 'Bearer '+env.AI_JOBS_CRON_TOKEN) return json({error:'Unauthorized scheduler.'},401);
       await ensureAiRoomTables(env);
+      const dueContent=await env.CMS_DB.prepare("SELECT id,type,title,slug FROM cms_content WHERE status='scheduled' AND published_at IS NOT NULL AND datetime(published_at)<=datetime('now') ORDER BY published_at LIMIT 50").all();
+      const scheduledPublished=[];
+      for(const item of (dueContent.results||[])) {
+        const update=await env.CMS_DB.prepare("UPDATE cms_content SET status='published',updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='scheduled'").bind(item.id).run();
+        if(Number(update.meta?.changes||0)) {
+          await audit(env,null,'content.scheduled_published',item.type,item.id,{title:item.title,slug:item.slug,source:'cloudflare_cron'});
+          scheduledPublished.push({id:item.id,type:item.type,title:item.title});
+        }
+      }
       await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='queued',stage='Memulihkan proses yang terputus',progress=0,next_retry_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE status='processing' AND heartbeat_at < datetime('now','-10 minutes')").run();
       const due=await env.CMS_DB.prepare("SELECT * FROM cms_ai_room_jobs WHERE status='queued' AND next_retry_at<=CURRENT_TIMESTAMP ORDER BY created_at LIMIT 5").all();
       const results=[];
@@ -919,7 +958,7 @@ export async function onRequest({ request, env }) {
           results.push({id:job.id,status,attempts,retry_minutes:delay});
         }
       }
-      return json({ok:true,processed:results.length,results});
+      return json({ok:true,processed:results.length,results,scheduled_published:scheduledPublished.length,scheduled_items:scheduledPublished});
     }
     const admin = await currentAdmin(request,env);
     if (path === 'me' && method === 'GET') return admin ? json({authenticated:true,admin}) : json({authenticated:false},401);
@@ -1010,7 +1049,7 @@ export async function onRequest({ request, env }) {
       const agent=AI_ROOM_AGENTS[agentId];if(!agent)return json({error:'Agen tidak dikenal.'},400);
       const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
-      let answer='',used='',model='',attempts=[],speakerId='team',resultTaskTier='chat';
+      let answer='',used='',model='',attempts=[],speakerId='team',resultTaskTier='chat',deterministicSuccess=true;
       const jobId=uid();
       let executingAgentId=agentId;
       await env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,stage,progress,started_at,heartbeat_at) VALUES(?,?,?,?, 'processing',0,CURRENT_TIMESTAMP,'Memanggil provider AI gratis',20,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(jobId,admin.id,agentId,message).run();
@@ -1018,14 +1057,17 @@ export async function onRequest({ request, env }) {
       try{
         // A direct publish instruction from the authenticated Director is the approval.
         // Execute deterministically against D1 instead of asking the language model to mutate CMS state.
-        const publishResult=await publishAiRoomDraft(env,admin,message);
-        if(publishResult) {
-          answer=publishResult.published
-            ? 'Publikasi berhasil dan sudah diverifikasi di database CMS. "'+publishResult.item.title+'" sekarang berstatus published. URL: '+publishResult.url
-            : publishResult.message+(publishResult.drafts?'\n'+publishResult.drafts.map((item,index)=>(index+1)+'. '+item.title+' ['+item.type+', ID '+item.id+']').join('\n'):'');
+        const moveResult=await moveAiRoomContentType(env,admin,message);
+        const publishResult=moveResult&&!moveResult.moved?null:moveResult&&moveResult.item?.status==='published'?null:await publishAiRoomDraft(env,admin,message);
+        if(moveResult||publishResult) {
+          const outcomes=[];
+          if(moveResult) outcomes.push(moveResult.message);
+          if(publishResult) outcomes.push(publishResult.published?'Publikasi berhasil dan sudah diverifikasi di database CMS. "'+publishResult.item.title+'" sekarang berstatus published. URL: '+publishResult.url:publishResult.message+(publishResult.drafts?'\n'+publishResult.drafts.map((item,index)=>(index+1)+'. '+item.title+' ['+item.type+', ID '+item.id+']').join('\n'):''));
+          answer=outcomes.join('\n\n');
+          deterministicSuccess=(!moveResult||moveResult.moved)&&(!publishResult||publishResult.published);
           model='cms-deterministic-publisher';used='VANNDIK CMS';speakerId='editor';resultTaskTier='work';executingAgentId='editor';
-          if(publishResult.published) await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)")
-            .bind(uid(),admin.id,jobId,'editor','milestone','Memverifikasi publikasi CMS','completed','Konten '+publishResult.item.id+' berstatus published; URL '+publishResult.url).run();
+          if(deterministicSuccess) await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)")
+            .bind(uid(),admin.id,jobId,'editor','milestone','Memverifikasi perubahan CMS','completed',answer.slice(0,500)).run();
         } else {
           const memory=await getCentralAiMemory(env);
           const cmsContext=await getAiRoomCmsContext(env);
@@ -1063,9 +1105,9 @@ export async function onRequest({ request, env }) {
       await env.CMS_DB.batch([
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used,model,resultTaskTier),
-        env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',stage='Selesai',progress=100,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(answer.slice(0,500),jobId)
+        env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,last_error=?,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(deterministicSuccess?'completed':'failed',deterministicSuccess?'Selesai':'Perlu tindakan Direktur',deterministicSuccess?100:0,deterministicSuccess?'':answer.slice(0,500),answer.slice(0,500),jobId)
       ]);
-      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'completed','Selesai','completed',answer.slice(0,500)).run();
+      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,deterministicSuccess?'completed':'blocked',deterministicSuccess?'Selesai':'Perlu tindakan Direktur',deterministicSuccess?'completed':'failed',answer.slice(0,500)).run();
       await audit(env,admin,'ai.room.message','ai-room',assistantId,{requested_agent:agentId,executing_agent:executingAgentId,provider:used,model,jobId});
       return json({ok:true,jobId,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used,model,task_tier:resultTaskTier,attempts});
     }
