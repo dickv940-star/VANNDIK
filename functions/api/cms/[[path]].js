@@ -461,13 +461,23 @@ async function getAiRoomCmsContext(env) {
   } catch {}
   return context;
 }
+function isAiRoomNegativeAction(message, action) {
+  const text=String(message||'').toLocaleLowerCase('id-ID');
+  const prefix='(?:jangan|tidak\\s+usah|tidak\\s+perlu|tidak\\s+boleh|belum\\s+boleh|jangan\\s+dulu|do\\s+not|don\\'t)(?:\\s+\\S+){0,3}\\s+';
+  const publish=new RegExp(prefix+'(?:terbitkan|menerbitkan|publikasikan|publish|tayangkan|naikkan)','i');
+  const move=new RegExp(prefix+'(?:pindahkan|pindah|konversi|ubah|masukkan)','i');
+  const create=new RegExp(prefix+'(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)','i');
+  return (action==='publish'?publish:action==='move'?move:create).test(text);
+}
+
 function isAiRoomContentCreationRequest(message) {
-  return /\b(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\b[\s\S]{0,140}\b(?:artikel|article|berita|news)\b/i.test(String(message||''));
+  return !isAiRoomNegativeAction(message,'create') && /\b(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\b[\s\S]{0,140}\b(?:artikel|article|berita|news)\b/i.test(String(message||''));
 }
 
 async function createAiRoomDraft(env, admin, requested, directorMessage='') {
   if(!requested||typeof requested!=='object') throw new Error('Payload draft tidak valid.');
   const command=String(directorMessage||'').toLocaleLowerCase('id-ID');
+  if(isAiRoomNegativeAction(directorMessage,'create')) throw new Error('Direktur meminta agar draft tidak dibuat. Tidak ada konten yang disimpan.');
   const explicitArticle=/(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|jadikan|masukkan|pindahkan|terbitkan|publish)[\s\S]{0,100}\b(?:artikel|article)\b/i.test(command);
   const explicitNews=/(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|jadikan|masukkan|pindahkan|terbitkan|publish)[\s\S]{0,100}\b(?:berita|news)\b/i.test(command);
   const type=explicitArticle&&!explicitNews?'article':explicitNews&&!explicitArticle?'news':String(requested.type||'').toLowerCase();
@@ -505,6 +515,7 @@ function aiRoomDraftOutcome(result) {
 async function moveAiRoomContentType(env, admin, message) {
   const command=String(message||'').trim();
   const lower=command.toLocaleLowerCase('id-ID');
+  if(isAiRoomNegativeAction(command,'move')) return null;
   if(!['pindahkan','pindah','ubah jenis','ubah tipe','konversi','masukkan'].some(term=>lower.includes(term))) return null;
   const targetType=lower.includes('ke artikel')||lower.includes('jadi artikel')||lower.includes('sebagai artikel')?'article':
     lower.includes('ke berita')||lower.includes('jadi berita')||lower.includes('sebagai berita')?'news':'';
@@ -534,6 +545,7 @@ async function moveAiRoomContentType(env, admin, message) {
 
 async function publishAiRoomDraft(env, admin, message) {
   const command=String(message||'').trim();
+  if(isAiRoomNegativeAction(command,'publish')) return null;
   if(!/(terbitkan|publikasikan|publish|tayangkan|naikkan\s+(?:ke\s+)?tayang)/i.test(command)) return null;
   if(!/(draft|berita|artikel|konten|\bjudul\b)/i.test(command)) return null;
   const lower=command.toLocaleLowerCase('id-ID');
