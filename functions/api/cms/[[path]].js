@@ -461,6 +461,10 @@ async function getAiRoomCmsContext(env) {
   } catch {}
   return context;
 }
+function isAiRoomContentCreationRequest(message) {
+  return /\b(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\b[\s\S]{0,140}\b(?:artikel|article|berita|news)\b/i.test(String(message||''));
+}
+
 async function createAiRoomDraft(env, admin, requested, directorMessage='') {
   if(!requested||typeof requested!=='object') throw new Error('Payload draft tidak valid.');
   const command=String(directorMessage||'').toLocaleLowerCase('id-ID');
@@ -940,13 +944,16 @@ export async function onRequest({ request, env }) {
             actionResult=await createAiRoomDraft(env,jobAdmin,result.action.content,job.message);
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
+          const contentRequest=isAiRoomContentCreationRequest(job.message);
+          const actionSucceeded=!contentRequest||!!actionResult;
+          if(contentRequest&&!actionResult) answer+='\\n\\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft yang dapat disimpan ke CMS. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
           const replyId=uid();
           await env.CMS_DB.batch([
             env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,answer,result.provider,result.model,result.task?.tier||'chat'),
-            env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',stage='Selesai',progress=100,attempts=attempts+1,last_error='',finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(actionResult?'Draft CMS tersimpan: '+actionResult.title:'Balasan agen tersimpan di riwayat chat.',job.id)
+            env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,attempts=attempts+1,last_error=?,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(actionSucceeded?'completed':'failed',actionSucceeded?'Selesai':'Draft belum tersimpan',actionSucceeded?100:0,actionSucceeded?'':'Permintaan membuat konten tidak menghasilkan aksi create_content.',actionResult?'Draft CMS tersimpan: '+actionResult.title:answer.slice(0,500),job.id)
           ]);
-          await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'completed','Selesai','completed',actionResult?'Draft tersimpan dan siap ditinjau Direktur.':'Balasan AI tersimpan di D1.').run();
-          results.push({id:job.id,status:'completed',provider:result.provider,model:result.model});
+          await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,actionSucceeded?'completed':'blocked',actionSucceeded?'Selesai':'Draft belum tersimpan',actionSucceeded?'completed':'failed',actionResult?'Draft tersimpan dan siap ditinjau Direktur.':answer.slice(0,500)).run();
+          results.push({id:job.id,status:actionSucceeded?'completed':'failed',provider:result.provider,model:result.model});
         }catch(error){
           const attempts=Number(job.attempts||0)+1;
           const status=attempts>=8?'paused':'queued';
@@ -1085,6 +1092,10 @@ export async function onRequest({ request, env }) {
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
             const actionResult=await createAiRoomDraft(env,admin,result.action.content,message);
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
+          }
+          if(isAiRoomContentCreationRequest(message)&&result.action?.type!=='create_content') {
+            deterministicSuccess=false;
+            answer+='\\n\\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft yang dapat disimpan ke CMS. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
           }
         }
       }catch(error){
