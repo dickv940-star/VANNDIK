@@ -461,9 +461,12 @@ async function getAiRoomCmsContext(env) {
   } catch {}
   return context;
 }
-async function createAiRoomDraft(env, admin, requested) {
+async function createAiRoomDraft(env, admin, requested, directorMessage='') {
   if(!requested||typeof requested!=='object') throw new Error('Payload draft tidak valid.');
-  const type=String(requested.type||'').toLowerCase();
+  const command=String(directorMessage||'').toLocaleLowerCase('id-ID');
+  const explicitArticle=/(?:buat|tulis|susun|jadikan|masukkan|pindahkan|terbitkan|publish)[\\s\\S]{0,100}\\b(?:artikel|article)\\b/i.test(command);
+  const explicitNews=/(?:buat|tulis|susun|jadikan|masukkan|pindahkan|terbitkan|publish)[\\s\\S]{0,100}\\b(?:berita|news)\\b/i.test(command);
+  const type=explicitArticle&&!explicitNews?'article':explicitNews&&!explicitArticle?'news':String(requested.type||'').toLowerCase();
   if(!['article','news','game','app'].includes(type)) throw new Error('Agen hanya boleh membuat draft artikel, berita, game, atau aplikasi. Produk affiliate memakai alur verifikasi produk tersendiri.');
   const item=clean({...requested,type,status:'draft',published_at:null});
   if(!item.title||item.title.length<8||!item.body||item.body.length<300) throw new Error('Draft harus memiliki judul dan isi minimal 300 karakter.');
@@ -477,13 +480,22 @@ async function createAiRoomDraft(env, admin, requested) {
     item.slug=slug;
   }
   const existing=await env.CMS_DB.prepare('SELECT id,type,title,status FROM cms_content WHERE slug=? LIMIT 1').bind(item.slug).first();
-  if(existing) return {id:existing.id,type:existing.type,title:existing.title,status:existing.status,already_exists:true};
+  if(existing) return {id:existing.id,type:existing.type,title:existing.title,status:existing.status,already_exists:true,requested_type:item.type,type_mismatch:existing.type!==item.type,workspace:({news:'Berita',article:'Artikel',game:'Game',app:'Aplikasi & Tools'})[existing.type]||'Artikel'};
   const id=uid(),seo=makeSeo({...item,...requested});
   await env.CMS_DB.prepare('INSERT INTO cms_content(id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
     .bind(id,item.type,item.title,item.slug,item.excerpt,item.body,item.image_url,item.category,item.tags,'draft',item.affiliate_url,item.target_url,item.price,item.featured,item.sort_order,null).run();
   await saveSeo(env,id,seo);
   await audit(env,admin,'ai.content.draft_created',item.type,id,{title:item.title,status:'draft',seoScore:seo.seo_score});
   return {id,type:item.type,title:item.title,slug:item.slug,status:'draft',seo_score:seo.seo_score,workspace:({news:'Berita',article:'Artikel',game:'Game',app:'Aplikasi & Tools'})[item.type]||'Artikel'};
+}
+
+function aiRoomDraftOutcome(result) {
+  const workspace=result.workspace||({news:'Berita',article:'Artikel',game:'Game',app:'Aplikasi & Tools'})[result.type]||'CMS';
+  if(result.already_exists) {
+    const mismatch=result.type_mismatch?' Jenis tersimpan: '+result.type+'; jenis yang diminta: '+result.requested_type+'.':'';
+    return 'Konten sudah ada di workspace '+workspace+' dengan status '+result.status+'. Tidak dibuat salinan baru.'+mismatch+' ID: '+result.id+'.';
+  }
+  return 'Draft berhasil disimpan di workspace '+workspace+' (status Draft): '+result.title+'. ID: '+result.id+'. Buka menu '+workspace+' di CMS untuk meninjau sebelum publikasi.';
 }
 
 async function publishAiRoomDraft(env, admin, message) {
@@ -886,8 +898,8 @@ export async function onRequest({ request, env }) {
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
             const jobAdmin=await env.CMS_DB.prepare('SELECT id,email,display_name,role FROM cms_admins WHERE id=? AND active=1').bind(job.admin_id).first();
             if(!jobAdmin) throw new Error('Admin pemilik antrean tidak aktif; draft tidak dibuat.');
-            actionResult=await createAiRoomDraft(env,jobAdmin,result.action.content);
-            answer+='\n\n'+(actionResult.already_exists?'Draft dengan slug tersebut sudah ada':'Draft berhasil disimpan')+' di workspace '+actionResult.workspace+' (status '+actionResult.status+'): '+actionResult.title+'. ID: '+actionResult.id+'. Buka menu '+actionResult.workspace+' di CMS untuk meninjau sebelum publikasi.';
+            actionResult=await createAiRoomDraft(env,jobAdmin,result.action.content,job.message);
+            answer+='\\n\\n'+aiRoomDraftOutcome(actionResult);
           }
           const replyId=uid();
           await env.CMS_DB.batch([
@@ -1029,8 +1041,8 @@ export async function onRequest({ request, env }) {
           if(result.action?.type==='create_content') {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
-            const actionResult=await createAiRoomDraft(env,admin,result.action.content);
-            answer+='\\n\\nDraft berhasil disimpan di workspace '+actionResult.workspace+' (status Draft): '+actionResult.title+'. ID: '+actionResult.id+'. Buka menu '+actionResult.workspace+' di CMS untuk meninjau dan menyetujui sebelum publikasi.';
+            const actionResult=await createAiRoomDraft(env,admin,result.action.content,message);
+            answer+='\\n\\n'+aiRoomDraftOutcome(actionResult);
           }
         }
       }catch(error){
