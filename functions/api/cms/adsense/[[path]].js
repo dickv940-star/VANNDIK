@@ -112,7 +112,7 @@ export async function onRequest({ request, env }) {
         const amount = Number(row.commission);
         const currency = String(row.currency || 'IDR').trim().toUpperCase();
         const status = String(row.status || 'pending').trim().toLowerCase();
-        if (!allowedPlatforms.has(platform) || !orderId || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || !Number.isFinite(amount) || amount < 0 || !/^[A-Z]{3}$/.test(currency) || !allowedStatuses.has(status)) { rejected++; continue; }
+        if (!allowedPlatforms.has(platform) || !orderId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(amount) || amount < 0 || !/^[A-Z]{3}$/.test(currency) || !allowedStatuses.has(status)) { rejected++; continue; }
         await env.CMS_DB.prepare(`INSERT INTO affiliate_commissions(id,platform,order_id,order_date,product_name,commission_amount,currency,status,source,imported_at)
           VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(platform,order_id) DO UPDATE SET order_date=excluded.order_date,product_name=excluded.product_name,commission_amount=excluded.commission_amount,currency=excluded.currency,status=excluded.status,source=excluded.source,imported_at=excluded.imported_at`)
           .bind(crypto.randomUUID(),platform,orderId,date,product,amount,currency,status,'csv_import',new Date().toISOString()).run();
