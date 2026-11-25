@@ -515,14 +515,14 @@ async function enqueueAiRoomDelegations(env, adminId, parentJobId, tasks) {
   return {created,skipped};
 }
 function decodeResearchHtml(value) {
-  return String(value||'').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#(\\d+);/g,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,Number(n)||0))).replace(/&#x([0-9a-f]+);/gi,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,parseInt(n,16)||0)));
+  return String(value||'').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,Number(n)||0))).replace(/&#x([0-9a-f]+);/gi,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,parseInt(n,16)||0)));
 }
 function cleanResearchHtml(value,max=6000) {
-  return decodeResearchHtml(String(value||'').replace(/<(script|style|noscript|svg|nav|footer|header)\\b[\\s\\S]*?<\\/\\1>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').trim()).slice(0,max);
+  return decodeResearchHtml(String(value||'').replace(/<(script|style|noscript|svg|nav|footer|header)\b[\s\S]*?<\/\1>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim()).slice(0,max);
 }
 function allowedResearchHost(host) {
-  const value=String(host||'').toLowerCase().replace(/^www\\./,'');
-  if(!value||value==='localhost'||value.endsWith('.local')||/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(value)||value.includes(':'))return false;
+  const value=String(host||'').toLowerCase().replace(/^www\./,'');
+  if(!value||value==='localhost'||value.endsWith('.local')||/^\d{1,3}(?:\.\d{1,3}){3}$/.test(value)||value.includes(':'))return false;
   const trusted=['wikipedia.org','britannica.com','reuters.com','apnews.com','bbc.com','bbc.co.uk','theguardian.com','techcrunch.com','cloudflare.com','developers.google.com','support.google.com','blog.google','about.fb.com','developers.facebook.com','newsroom.tiktok.com','tiktok.com','shopee.co.id','tokopedia.com','indonesia.go.id','kominfo.go.id'];
   return trusted.some(domain=>value===domain||value.endsWith('.'+domain))||value.endsWith('.go.id')||value.endsWith('.ac.id')||value.endsWith('.edu');
 }
@@ -541,7 +541,7 @@ async function readResearchPage(rawUrl) {
       continue;
     }
     if(!response.ok)return {read:false,reason:'http_'+response.status};
-    if(!/text\\/html|application\\/xhtml\\+xml/i.test(response.headers.get('content-type')||''))return {read:false,reason:'not_html'};
+    if(!/text\/html|application\/xhtml\+xml/i.test(response.headers.get('content-type')||''))return {read:false,reason:'not_html'};
     const reader=response.body?.getReader();if(!reader)return {read:false,reason:'empty_body'};
     const chunks=[];let total=0;
     try{
@@ -549,7 +549,7 @@ async function readResearchPage(rawUrl) {
     }catch(error){try{await reader.cancel();}catch{}return {read:false,reason:'read_failed'};}
     const bytes=new Uint8Array(total);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
     const html=new TextDecoder('utf-8').decode(bytes);
-    const title=(html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)||[])[1]||'';
+    const title=(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)||[])[1]||'';
     const excerpt=cleanResearchHtml(html,6500);
     return {read:!!excerpt,title:cleanResearchHtml(title,180),url:current.href,excerpt,reason:excerpt?'':'empty_extract'};
   }
@@ -562,10 +562,10 @@ async function searchPublicWeb(query) {
     const response=await fetch('https://html.duckduckgo.com/html/?q='+encodeURIComponent(q),{signal:AbortSignal.timeout(8000),headers:{'accept':'text/html','accept-language':'id-ID,id;q=0.9,en;q=0.8','user-agent':'Mozilla/5.0 (compatible; VANNDIKResearch/1.0; +https://vanndik.pages.dev/)'}});
     if(!response.ok)return {query:q,provider:'DuckDuckGo HTML',sources:[],error:'search_http_'+response.status};
     const html=(await response.text()).slice(0,650000),matches=[];
-    const anchors=html.match(/<a[^>]*class=["'][^"']*result__a[^"']*["'][^>]*>[\\s\\S]*?<\\/a>/gi)||[];
+    const anchors=html.match(/<a[^>]*class=["'][^"']*result__a[^"']*["'][^>]*>[\s\S]*?<\/a>/gi)||[];
     for(const anchor of anchors.slice(0,8)){
       const href=(anchor.match(/href=["']([^"']+)["']/i)||[])[1]||'';
-      const title=cleanResearchHtml(anchor.replace(/^<[\\s\\S]*?>/,'').replace(/<\\/a>$/i,''),240);
+      const title=cleanResearchHtml(anchor.replace(/^<[\s\S]*?>/,'').replace(/<\/a>$/i,''),240);
       let target=href;
       try{
         const wrapped=new URL(href,'https://duckduckgo.com');
@@ -573,7 +573,7 @@ async function searchPublicWeb(query) {
         const parsed=new URL(target);
         if(parsed.protocol!=='https:'||!allowedResearchHost(parsed.hostname))continue;
         if(!title||matches.some(item=>item.url===parsed.href))continue;
-        const excerpt=cleanResearchHtml((html.slice(Math.max(0,html.indexOf(anchor)-1000),html.indexOf(anchor)+2500).match(/class=["'][^"']*result__snippet[^"']*["'][^>]*>([\\s\\S]*?)<\\/[^>]+>/i)||[])[1]||'',500);
+        const excerpt=cleanResearchHtml((html.slice(Math.max(0,html.indexOf(anchor)-1000),html.indexOf(anchor)+2500).match(/class=["'][^"']*result__snippet[^"']*["'][^>]*>([\s\S]*?)<\/[^>]+>/i)||[])[1]||'',500);
         matches.push({id:'S'+(matches.length+1),title,url:parsed.href,snippet:excerpt,read:false});
       }catch{}
     }
@@ -948,7 +948,7 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskM
   const latestUserMessage=String(taskMessage||[...(messages||[])].reverse().find(item=>item?.role==='user')?.content||'');
   const task=classifyAiRoomTask(latestUserMessage,requestedAgentId);
   let enrichedContext=cmsContext||{};
-  const wantsResearch=task.tier==='work'&&(/\\b(riset|research|cari sumber|pencarian|berita terbaru|tren|kompetitor|competitor|market research|fact.?check|verifikasi fakta)\\b/i.test(latestUserMessage)||requestedAgentId==='researcher');
+  const wantsResearch=task.tier==='work'&&(/\b(riset|research|cari sumber|pencarian|berita terbaru|tren|kompetitor|competitor|market research|fact.?check|verifikasi fakta)\b/i.test(latestUserMessage)||requestedAgentId==='researcher');
   if(wantsResearch){
     const research=await searchPublicWeb(latestUserMessage);
     enrichedContext={...enrichedContext,web_research:research};
