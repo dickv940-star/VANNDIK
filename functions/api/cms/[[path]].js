@@ -514,6 +514,78 @@ async function enqueueAiRoomDelegations(env, adminId, parentJobId, tasks) {
   }
   return {created,skipped};
 }
+function decodeResearchHtml(value) {
+  return String(value||'').replace(/&amp;/gi,'&').replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'").replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&#(\\d+);/g,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,Number(n)||0))).replace(/&#x([0-9a-f]+);/gi,(_,n)=>String.fromCodePoint(Math.min(0x10ffff,parseInt(n,16)||0)));
+}
+function cleanResearchHtml(value,max=6000) {
+  return decodeResearchHtml(String(value||'').replace(/<(script|style|noscript|svg|nav|footer|header)\\b[\\s\\S]*?<\\/\\1>/gi,' ').replace(/<[^>]+>/g,' ').replace(/\\s+/g,' ').trim()).slice(0,max);
+}
+function allowedResearchHost(host) {
+  const value=String(host||'').toLowerCase().replace(/^www\\./,'');
+  if(!value||value==='localhost'||value.endsWith('.local')||/^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(value)||value.includes(':'))return false;
+  const trusted=['wikipedia.org','britannica.com','reuters.com','apnews.com','bbc.com','bbc.co.uk','theguardian.com','techcrunch.com','cloudflare.com','developers.google.com','support.google.com','blog.google','about.fb.com','developers.facebook.com','newsroom.tiktok.com','tiktok.com','shopee.co.id','tokopedia.com','indonesia.go.id','kominfo.go.id'];
+  return trusted.some(domain=>value===domain||value.endsWith('.'+domain))||value.endsWith('.go.id')||value.endsWith('.ac.id')||value.endsWith('.edu');
+}
+async function readResearchPage(rawUrl) {
+  let current;
+  try{current=new URL(rawUrl);}catch{return {read:false,reason:'invalid_url'};}
+  if(current.protocol!=='https:'||current.username||current.password||!allowedResearchHost(current.hostname))return {read:false,reason:'domain_not_allowlisted'};
+  for(let hop=0;hop<3;hop++){
+    if(!allowedResearchHost(current.hostname)||current.protocol!=='https:')return {read:false,reason:'redirect_domain_not_allowlisted'};
+    let response;
+    try{response=await fetch(current.href,{redirect:'manual',signal:AbortSignal.timeout(7000),headers:{'accept':'text/html,application/xhtml+xml','accept-language':'id-ID,id;q=0.9,en;q=0.8','user-agent':'Mozilla/5.0 (compatible; VANNDIKResearch/1.0; +https://vanndik.pages.dev/)'}});}
+    catch(error){return {read:false,reason:String(error?.message||'fetch_failed').slice(0,160)};}
+    if([301,302,303,307,308].includes(response.status)){
+      const location=response.headers.get('location');if(!location)return {read:false,reason:'redirect_without_location'};
+      try{current=new URL(location,current);}catch{return {read:false,reason:'invalid_redirect'};}
+      continue;
+    }
+    if(!response.ok)return {read:false,reason:'http_'+response.status};
+    if(!/text\\/html|application\\/xhtml\\+xml/i.test(response.headers.get('content-type')||''))return {read:false,reason:'not_html'};
+    const reader=response.body?.getReader();if(!reader)return {read:false,reason:'empty_body'};
+    const chunks=[];let total=0;
+    try{
+      while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>450000){await reader.cancel();break;}chunks.push(value);}
+    }catch(error){try{await reader.cancel();}catch{}return {read:false,reason:'read_failed'};}
+    const bytes=new Uint8Array(total);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+    const html=new TextDecoder('utf-8').decode(bytes);
+    const title=(html.match(/<title[^>]*>([\\s\\S]*?)<\\/title>/i)||[])[1]||'';
+    const excerpt=cleanResearchHtml(html,6500);
+    return {read:!!excerpt,title:cleanResearchHtml(title,180),url:current.href,excerpt,reason:excerpt?'':'empty_extract'};
+  }
+  return {read:false,reason:'too_many_redirects'};
+}
+async function searchPublicWeb(query) {
+  const q=String(query||'').trim().slice(0,300);
+  if(q.length<3)return {query:q,provider:'DuckDuckGo HTML',sources:[],error:'query_too_short'};
+  try{
+    const response=await fetch('https://html.duckduckgo.com/html/?q='+encodeURIComponent(q),{signal:AbortSignal.timeout(8000),headers:{'accept':'text/html','accept-language':'id-ID,id;q=0.9,en;q=0.8','user-agent':'Mozilla/5.0 (compatible; VANNDIKResearch/1.0; +https://vanndik.pages.dev/)'}});
+    if(!response.ok)return {query:q,provider:'DuckDuckGo HTML',sources:[],error:'search_http_'+response.status};
+    const html=(await response.text()).slice(0,650000),matches=[];
+    const anchors=html.match(/<a[^>]*class=["'][^"']*result__a[^"']*["'][^>]*>[\\s\\S]*?<\\/a>/gi)||[];
+    for(const anchor of anchors.slice(0,8)){
+      const href=(anchor.match(/href=["']([^"']+)["']/i)||[])[1]||'';
+      const title=cleanResearchHtml(anchor.replace(/^<[\\s\\S]*?>/,'').replace(/<\\/a>$/i,''),240);
+      let target=href;
+      try{
+        const wrapped=new URL(href,'https://duckduckgo.com');
+        const redirect=wrapped.searchParams.get('uddg');if(redirect)target=decodeURIComponent(redirect);
+        const parsed=new URL(target);
+        if(parsed.protocol!=='https:'||!allowedResearchHost(parsed.hostname))continue;
+        if(!title||matches.some(item=>item.url===parsed.href))continue;
+        const excerpt=cleanResearchHtml((html.slice(Math.max(0,html.indexOf(anchor)-1000),html.indexOf(anchor)+2500).match(/class=["'][^"']*result__snippet[^"']*["'][^>]*>([\\s\\S]*?)<\\/[^>]+>/i)||[])[1]||'',500);
+        matches.push({id:'S'+(matches.length+1),title,url:parsed.href,snippet:excerpt,read:false});
+      }catch{}
+    }
+    const sources=[];
+    for(const item of matches.slice(0,3)){
+      const page=await readResearchPage(item.url);
+      sources.push({...item,read:!!page.read,page_title:page.title||'',page_excerpt:page.excerpt||'',read_status:page.read?'page_read':page.reason||'not_read'});
+    }
+    return {query:q,provider:'DuckDuckGo HTML + allowlisted public pages',sources,search_result_count:matches.length,error:sources.length?'': 'no_allowlisted_sources_or_search_blocked'};
+  }catch(error){return {query:q,provider:'DuckDuckGo HTML',sources:[],error:String(error?.message||'search_failed').slice(0,200)};}
+}
+
 async function getAiRoomCmsContext(env) {
   const context={generated_at:new Date().toISOString(),timezone:'Asia/Jakarta',content_counts:{},recent_content:[],affiliate_clicks_24h:null,affiliate_clicks_note:'Belum dapat dibaca'};
   try {
@@ -727,6 +799,7 @@ function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}) {
     'WAKTU SEKARANG: '+now+' (WIB, Asia/Jakarta).',
     'MEMORI PUSAT VANNDIK (sumber kebenaran lintas provider): '+JSON.stringify(memory),
     'KONTEKS CMS AKTUAL (data baca-saja dari database; waktu pembacaan tercantum): '+JSON.stringify(cmsContext),
+    'RISET WEB: bila konteks web_research tersedia, gunakan hanya sumber yang tercantum. Utamakan halaman yang benar-benar berhasil dibaca (read=true); sumber snippet-only tidak boleh disebut telah dibaca atau diverifikasi. Cantumkan tautan sumber dengan label [S1], [S2], dan seterusnya untuk klaim faktual yang relevan. Bandingkan tanggal, penerbit, dan konsistensi; jika sumber tidak tersedia atau gagal dibaca, nyatakan keterbatasan dan jangan mengarang kutipan.',
     'ALAT CMS TERBATAS: jika Direktur secara eksplisit meminta membuat berita/artikel/game/aplikasi dan isi sudah cukup, keluarkan action {"type":"create_content","content":{"type":"news|article|game|app","title":"...","excerpt":"...","body":"...","category":"...","tags":["..."],"image_url":"","affiliate_url":"","target_url":""}}. Status selalu dipaksa draft oleh server. Untuk permintaan kerja lintas divisi di grup (speaker team), buat action delegasi {"type":"delegate_tasks","tasks":[{"agent_id":"researcher|writer|seo|analyst|editor|media|catalog|web|sysadmin","message":"instruksi spesifik dan hasil yang diminta"}]}; maksimal 5 spesialis berbeda, hanya tugas yang benar-benar relevan, jelas dan dapat dikerjakan. Spesialis akan menerima job terpisah di antrean cloud dan hasilnya masuk ke percakapan bersama. Jangan mengklaim tugas selesai sebelum job spesialis selesai. Agen spesialis yang dipanggil langsung tidak boleh mendelegasikan lagi. Jangan membuat delegasi untuk audit target harian otomatis. Jangan membuat action untuk publikasi, penghapusan, perubahan akun, atau produk affiliate; produk harus melewati alur verifikasi khusus. Jika belum punya fakta/sumber yang cukup, jangan buat action; minta klarifikasi atau nyatakan keterbatasan.',
 
     'DAFTAR KARYAWAN: '+JSON.stringify(roster),
@@ -874,7 +947,13 @@ async function callOpenAiCompatible(env, {provider,baseUrl,key,model,system,inpu
 async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskMessage='', cmsContext={}) {
   const latestUserMessage=String(taskMessage||[...(messages||[])].reverse().find(item=>item?.role==='user')?.content||'');
   const task=classifyAiRoomTask(latestUserMessage,requestedAgentId);
-  const system=buildAiRoomSystem(requestedAgentId,memory,task,cmsContext);
+  let enrichedContext=cmsContext||{};
+  const wantsResearch=task.tier==='work'&&(/\\b(riset|research|cari sumber|pencarian|berita terbaru|tren|kompetitor|competitor|market research|fact.?check|verifikasi fakta)\\b/i.test(latestUserMessage)||requestedAgentId==='researcher');
+  if(wantsResearch){
+    const research=await searchPublicWeb(latestUserMessage);
+    enrichedContext={...enrichedContext,web_research:research};
+  }
+  const system=buildAiRoomSystem(requestedAgentId,memory,task,enrichedContext);
   const input=aiRoomConversation(messages);
   const attempts=[];
   const providers=[
