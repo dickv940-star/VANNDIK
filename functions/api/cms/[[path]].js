@@ -485,6 +485,40 @@ async function createAiRoomDraft(env, admin, requested) {
   await audit(env,admin,'ai.content.draft_created',item.type,id,{title:item.title,status:'draft',seoScore:seo.seo_score});
   return {id,type:item.type,title:item.title,slug:item.slug,status:'draft',seo_score:seo.seo_score,workspace:({news:'Berita',article:'Artikel',game:'Game',app:'Aplikasi & Tools'})[item.type]||'Artikel'};
 }
+
+async function publishAiRoomDraft(env, admin, message) {
+  const command=String(message||'').trim();
+  if(!/(terbitkan|publikasikan|publish|tayangkan|naikkan\\s+(?:ke\\s+)?tayang)/i.test(command)) return null;
+  if(!/(draft|berita|artikel|konten|\\bjudul\\b)/i.test(command)) return null;
+  const lower=command.toLocaleLowerCase('id-ID');
+  const requestedType=/berita|news/i.test(lower)?'news':/artikel|article/i.test(lower)?'article':'';
+  const rows=await env.CMS_DB.prepare("SELECT id,type,title,slug,body,status FROM cms_content WHERE status='draft' AND type IN ('news','article') AND (?='' OR type=?) ORDER BY updated_at DESC LIMIT 100").bind(requestedType,requestedType).all();
+  const drafts=rows.results||[];
+  if(!drafts.length) return {published:false,message:'Tidak ditemukan draft berita atau artikel yang cocok. Tidak ada konten yang diubah.'};
+  const normalize=value=>String(value||'').toLocaleLowerCase('id-ID').normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  const commandText=normalize(command);
+  const explicit=drafts.filter(item=>{
+    const title=normalize(item.title);
+    const words=title.split(' ').filter(word=>word.length>3);
+    return title.length>=8 && (commandText.includes(title) || (words.length>=3 && words.every(word=>commandText.includes(word))));
+  });
+  const candidates=explicit.length?explicit:drafts;
+  if(candidates.length!==1) return {published:false,needs_selection:true,message:'Ada '+candidates.length+' draft yang cocok. Saya belum menerbitkan apa pun agar tidak salah memilih. Sebutkan judul atau ID draft yang ingin diterbitkan.',drafts:candidates.slice(0,20).map(item=>({id:item.id,type:item.type,title:item.title,slug:item.slug,status:item.status}))};
+  const item=candidates[0];
+  const bodyText=String(item.body||'').replace(/<[^>]*>/g,' ').replace(/\\s+/g,' ').trim();
+  if(!item.title||bodyText.length<100) return {published:false,blocked:true,message:'Draft "'+item.title+'" belum layak diterbitkan: isi konten kurang dari 100 karakter. Draft tetap aman dengan status draft.',draft:{id:item.id,title:item.title}};
+  const publishedAt=new Date().toISOString();
+  const update=await env.CMS_DB.prepare("UPDATE cms_content SET status='published',published_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='draft'").bind(publishedAt,item.id).run();
+  if(!Number(update.meta?.changes||0)) {
+    const current=await env.CMS_DB.prepare('SELECT status FROM cms_content WHERE id=?').bind(item.id).first();
+    return {published:false,message:'Status draft berubah sebelum publikasi. Status saat ini: '+String(current?.status||'tidak diketahui')+'. Silakan muat ulang daftar draft.'};
+  }
+  const verified=await env.CMS_DB.prepare('SELECT id,type,title,slug,status,published_at FROM cms_content WHERE id=?').bind(item.id).first();
+  if(!verified||verified.status!=='published') throw new Error('Pembaruan status tidak terverifikasi; publikasi tidak dilaporkan berhasil.');
+  await audit(env,admin,'content.published_by_ai_room',item.type,item.id,{title:item.title,slug:item.slug,source:'explicit_director_command'});
+  return {published:true,item:verified,url:'https://vanndik.pages.dev/konten/'+encodeURIComponent(item.slug)+'/'};
+}
+
 const AI_ROOM_AGENTS = {
   team: {name:'Tim VANNDIK',role:'Chief of Staff · Koordinator seluruh divisi',prompt:'Anda adalah Chief of Staff VANNDIK. Terima instruksi Direktur, pecah menjadi tugas, tentukan penanggung jawab, urutan kerja, dependensi, risiko, dan laporan hasil. Jangan mengaku sudah mengeksekusi tindakan tanpa tool.'},
   sysadmin: {name:'Arka · System Administrator',role:'Infrastruktur, keamanan & pemulihan',prompt:'Anda adalah System Administrator VANNDIK. Bertanggung jawab atas Cloudflare Pages/Workers, API, D1, konfigurasi, log, backup, keamanan, health check, diagnosis dan rencana pemulihan. Jangan mengklaim telah mengubah sistem tanpa tool. Perubahan produksi, migrasi, penghapusan data, rahasia dan restore wajib persetujuan Direktur.'},
@@ -968,25 +1002,35 @@ export async function onRequest({ request, env }) {
       await env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,stage,progress,started_at,heartbeat_at) VALUES(?,?,?,?, 'processing',0,CURRENT_TIMESTAMP,'Memanggil provider AI gratis',20,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(jobId,admin.id,agentId,message).run();
       await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,agentId,'started','Memanggil provider AI gratis','processing','Permintaan Direktur diterima; satu pemanggilan model dimulai.').run();
       try{
-        const memory=await getCentralAiMemory(env);
-        const cmsContext=await getAiRoomCmsContext(env);
-        const result=await callAiRoomProvider(env,conversation,agentId,memory,message,cmsContext);
-        answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;resultTaskTier=result.task?.tier||'chat';
-        // Attribute the job to the agent who actually produced the reply, not the group mailbox.
-        executingAgentId=AI_ROOM_AGENTS[speakerId]?speakerId:(AI_ROOM_AGENTS[agentId]?agentId:'team');
-        if(executingAgentId!==agentId){
-          await env.CMS_DB.batch([
-            env.CMS_DB.prepare('UPDATE cms_ai_room_jobs SET agent_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(executingAgentId,jobId),
-            env.CMS_DB.prepare("UPDATE cms_ai_room_activity SET agent_id=? WHERE job_id=? AND event_type='started'").bind(executingAgentId,jobId)
-          ]);
+        // A direct publish instruction from the authenticated Director is the approval.
+        // Execute deterministically against D1 instead of asking the language model to mutate CMS state.
+        const publishResult=await publishAiRoomDraft(env,admin,message);
+        if(publishResult) {
+          answer=publishResult.published
+            ? 'Publikasi berhasil dan sudah diverifikasi di database CMS. "'+publishResult.item.title+'" sekarang berstatus published. URL: '+publishResult.url
+            : publishResult.message+(publishResult.drafts?'\\n'+publishResult.drafts.map((item,index)=>(index+1)+'. '+item.title+' ['+item.type+', ID '+item.id+']').join('\\n'):'');
+          model='cms-deterministic-publisher';used='VANNDIK CMS';speakerId='editor';resultTaskTier='work';executingAgentId='editor';
+          if(publishResult.published) await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)")
+            .bind(uid(),admin.id,jobId,'editor','milestone','Memverifikasi publikasi CMS','completed','Konten '+publishResult.item.id+' berstatus published; URL '+publishResult.url).run();
+        } else {
+          const memory=await getCentralAiMemory(env);
+          const cmsContext=await getAiRoomCmsContext(env);
+          const result=await callAiRoomProvider(env,conversation,agentId,memory,message,cmsContext);
+          answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;resultTaskTier=result.task?.tier||'chat';
+          executingAgentId=AI_ROOM_AGENTS[speakerId]?speakerId:(AI_ROOM_AGENTS[agentId]?agentId:'team');
+          if(executingAgentId!==agentId){
+            await env.CMS_DB.batch([
+              env.CMS_DB.prepare('UPDATE cms_ai_room_jobs SET agent_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(executingAgentId,jobId),
+              env.CMS_DB.prepare("UPDATE cms_ai_room_activity SET agent_id=? WHERE job_id=? AND event_type='started'").bind(executingAgentId,jobId)
+            ]);
+          }
+          if(result.action?.type==='create_content') {
+            await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
+            await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
+            const actionResult=await createAiRoomDraft(env,admin,result.action.content);
+            answer+='\\n\\nDraft berhasil disimpan di workspace '+actionResult.workspace+' (status Draft): '+actionResult.title+'. ID: '+actionResult.id+'. Buka menu '+actionResult.workspace+' di CMS untuk meninjau dan menyetujui sebelum publikasi.';
+          }
         }
-        if(result.action?.type==='create_content') {
-          await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
-          await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
-          const actionResult=await createAiRoomDraft(env,admin,result.action.content);
-          answer+='\n\nDraft berhasil disimpan di workspace '+actionResult.workspace+' (status Draft): '+actionResult.title+'. ID: '+actionResult.id+'. Buka menu '+actionResult.workspace+' di CMS untuk meninjau dan menyetujui sebelum publikasi.';
-        }
-        if(!answer)throw new Error('Provider tidak mengembalikan jawaban yang dapat digunakan.');
       }catch(error){
         const detail=String(error?.message||'Semua provider AI tidak tersedia.');
         const userId=uid();
