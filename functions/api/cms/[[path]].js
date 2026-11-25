@@ -631,7 +631,7 @@ function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}) {
 
     'DAFTAR KARYAWAN: '+JSON.stringify(roster),
     'ROUTING TUGAS: '+JSON.stringify(task)+'. Pilih kedalaman penalaran sesuai tier. Untuk tier work, susun langkah, cek asumsi, berikan hasil terstruktur dan tandai blocker. Untuk tier chat, jawab cepat dan natural tanpa analisis berlebihan.',
-    locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara.' : 'Direktur berbicara kepada grup. Pilih TEPAT SATU agen paling relevan.',
+    locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara.' : 'DIREKTUR BERBICARA KEPADA GRUP: Master Director (Tim VANNDIK, speaker_id team) WAJIB menjadi pembicara dan selalu memberi jawaban utama. Tetapkan spesialis yang relevan sebagai penanggung jawab di dalam jawaban, tetapi jangan berpura-pura spesialis sudah menjalankan pekerjaan. Spesialis hanya berbicara langsung bila Direktur memanggilnya.',
     'BACA RIWAYAT: gunakan konteks percakapan bersama dan lanjutkan secara alami. Jangan mengulang jawaban.',
     'ETIKA GRUP: satu pembicara setiap giliran. Jangan membuat dialog palsu atas nama agen lain.',
     'BERPIKIR: pahami gambaran besar, dampak lintas divisi, cari akar masalah, dan bedakan fakta, dugaan, serta rekomendasi.',
@@ -721,17 +721,8 @@ function parseAiRoomReply(raw, requestedAgentId) {
     if(!AI_ROOM_AGENTS[requestedAgentId]) throw new Error('ID agen tujuan tidak valid.');
     return {answer,speakerId:requestedAgentId,action};
   }
-  const rawSpeaker=String(parsed.speaker_id||parsed.speaker||'').trim().toLocaleLowerCase('id-ID');
-  let speakerId=Object.keys(AI_ROOM_AGENTS).find(id=>id.toLocaleLowerCase('id-ID')===rawSpeaker);
-  if(!speakerId && rawSpeaker) {
-    speakerId=Object.entries(AI_ROOM_AGENTS).find(([id,agent])=>{
-      const fullName=String(agent.name||'').toLocaleLowerCase('id-ID');
-      const shortName=fullName.split(/[·|]/)[0].trim();
-      return rawSpeaker===fullName || rawSpeaker===shortName || rawSpeaker===id.toLocaleLowerCase('id-ID');
-    })?.[0];
-  }
-  if(!speakerId) speakerId='team';
-  return {answer,speakerId,action};
+  // Group chat always speaks through the Master Director; specialists remain directly callable.
+  return {answer,speakerId:'team',action};
 }
 
 function aiRoomConversation(messages) {
