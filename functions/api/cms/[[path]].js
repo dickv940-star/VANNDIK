@@ -488,14 +488,14 @@ async function createAiRoomDraft(env, admin, requested) {
 
 async function publishAiRoomDraft(env, admin, message) {
   const command=String(message||'').trim();
-  if(!/(terbitkan|publikasikan|publish|tayangkan|naikkan\\s+(?:ke\\s+)?tayang)/i.test(command)) return null;
-  if(!/(draft|berita|artikel|konten|\\bjudul\\b)/i.test(command)) return null;
+  if(!/(terbitkan|publikasikan|publish|tayangkan|naikkan\s+(?:ke\s+)?tayang)/i.test(command)) return null;
+  if(!/(draft|berita|artikel|konten|\bjudul\b)/i.test(command)) return null;
   const lower=command.toLocaleLowerCase('id-ID');
   const requestedType=/berita|news/i.test(lower)?'news':/artikel|article/i.test(lower)?'article':'';
   const rows=await env.CMS_DB.prepare("SELECT id,type,title,slug,body,status FROM cms_content WHERE status='draft' AND type IN ('news','article') AND (?='' OR type=?) ORDER BY updated_at DESC LIMIT 100").bind(requestedType,requestedType).all();
   const drafts=rows.results||[];
   if(!drafts.length) return {published:false,message:'Tidak ditemukan draft berita atau artikel yang cocok. Tidak ada konten yang diubah.'};
-  const normalize=value=>String(value||'').toLocaleLowerCase('id-ID').normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  const normalize=value=>String(value||'').toLocaleLowerCase('id-ID').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
   const commandText=normalize(command);
   const explicit=drafts.filter(item=>{
     const title=normalize(item.title);
@@ -505,7 +505,7 @@ async function publishAiRoomDraft(env, admin, message) {
   const candidates=explicit.length?explicit:drafts;
   if(candidates.length!==1) return {published:false,needs_selection:true,message:'Ada '+candidates.length+' draft yang cocok. Saya belum menerbitkan apa pun agar tidak salah memilih. Sebutkan judul atau ID draft yang ingin diterbitkan.',drafts:candidates.slice(0,20).map(item=>({id:item.id,type:item.type,title:item.title,slug:item.slug,status:item.status}))};
   const item=candidates[0];
-  const bodyText=String(item.body||'').replace(/<[^>]*>/g,' ').replace(/\\s+/g,' ').trim();
+  const bodyText=String(item.body||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
   if(!item.title||bodyText.length<100) return {published:false,blocked:true,message:'Draft "'+item.title+'" belum layak diterbitkan: isi konten kurang dari 100 karakter. Draft tetap aman dengan status draft.',draft:{id:item.id,title:item.title}};
   const publishedAt=new Date().toISOString();
   const update=await env.CMS_DB.prepare("UPDATE cms_content SET status='published',published_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='draft'").bind(publishedAt,item.id).run();
