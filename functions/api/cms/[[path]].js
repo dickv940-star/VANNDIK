@@ -645,6 +645,20 @@ const AI_ROOM_AGENTS = {
   catalog: {name:'Rafi · Product & Catalog Manager',role:'Produk affiliate, game & aplikasi',prompt:'Anda adalah Product & Catalog Manager VANNDIK. Bertanggung jawab pada katalog produk affiliate, game, aplikasi/tools, kategori, kelengkapan data, duplikasi dan status verifikasi. Produk tidak terverifikasi tidak boleh dipublikasikan.'},
   web: {name:'Nadia · Web Experience Manager',role:'Tema, halaman, navigasi & bahasa',prompt:'Anda adalah Web Experience Manager VANNDIK. Bertanggung jawab pada tema global/per halaman, halaman, navigasi, bahasa, responsivitas dan pengalaman pengunjung. Perubahan desain produksi perlu persetujuan bila berdampak luas.'}
 };
+
+const AI_ROOM_DAILY_TARGETS = {
+  team: 'TARGET HARIAN — Master Director: rangkum kondisi CMS yang tersedia, identifikasi tiga prioritas lintas divisi, dependensi, risiko, dan tugas yang perlu persetujuan Direktur. Jangan mengarang metrik atau mengklaim tindakan telah dilakukan.',
+  sysadmin: 'TARGET HARIAN — Arka: audit indikator sistem yang tersedia di konteks CMS, status integrasi, kesalahan pembacaan data, dan risiko operasional. Bedakan status yang benar-benar terbaca dari hal yang belum dapat diperiksa; jangan mengklaim health check server jika tidak ada telemetri.',
+  researcher: 'TARGET HARIAN — Ethan: tinjau data katalog/produk dan kelengkapan informasi yang tersedia. Identifikasi kebutuhan verifikasi link, sumber, gambar, harga, dan deskripsi. Jangan mengaku melakukan pencarian web atau validasi marketplace jika sumber tersebut tidak tersedia di konteks.',
+  writer: 'TARGET HARIAN — Sophia: susun prioritas editorial berdasarkan konten terbaru dan status draft yang tersedia. Tunjukkan topik yang perlu sumber/fakta tambahan. Jangan membuat berita faktual tanpa sumber dan jangan membuat draft otomatis dalam tugas audit ini.',
+  seo: 'TARGET HARIAN — Daniel: audit peluang SEO dari data konten yang tersedia, identifikasi kekurangan metadata/indexing yang dapat dibuktikan, dan susun tindakan prioritas. Jangan mengklaim data Search Console atau ranking jika tidak tersedia.',
+  analyst: 'TARGET HARIAN — Isabella: analisis angka klik affiliate, statistik konten, dan data sosial yang benar-benar tersedia. Hitung hanya metrik dengan sumber dan periode jelas; tandai data komisi/konversi yang belum terhubung.',
+  editor: 'TARGET HARIAN — Lucas: lakukan quality gate atas daftar konten terbaru yang tersedia. Periksa status, kelengkapan metadata yang terlihat, dan risiko publikasi. Jika isi lengkap tidak tersedia, nyatakan bahwa pemeriksaan naskah penuh belum dapat dilakukan. Jangan menerbitkan.',
+  media: 'TARGET HARIAN — Maya: audit status koneksi Google Drive dan ketersediaan informasi media. Catat hambatan penyimpanan/gambar yang terlihat; jangan mengklaim telah memeriksa file satu per satu jika daftar file tidak diberikan.',
+  catalog: 'TARGET HARIAN — Rafi: audit jumlah produk/game/aplikasi dan status katalog terbaru yang tersedia. Identifikasi produk yang perlu verifikasi atau data yang belum lengkap. Jangan mengubah, menghapus, atau menerbitkan produk.',
+  web: 'TARGET HARIAN — Nadia: audit kesiapan pengalaman web berdasarkan data CMS dan koneksi yang tersedia. Rangkum risiko navigasi, bahasa, tema, dan integrasi yang belum memiliki data pemeriksaan. Jangan mengklaim telah menguji tampilan halaman jika tidak ada hasil browser test.'
+};
+
 function classifyAiRoomTask(message, requestedAgentId='team') {
   const text=String(message||'').trim();
   const lower=text.toLocaleLowerCase('id-ID');
@@ -684,6 +698,7 @@ function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}) {
     'ALAT CMS TERBATAS: jika Direktur secara eksplisit meminta membuat berita/artikel/game/aplikasi dan isi sudah cukup, keluarkan action {"type":"create_content","content":{"type":"news|article|game|app","title":"...","excerpt":"...","body":"...","category":"...","tags":["..."],"image_url":"","affiliate_url":"","target_url":""}}. Status selalu dipaksa draft oleh server. Jangan pernah menyatakan draft tersimpan kecuali server mengembalikan hasil action. Jangan membuat action untuk publikasi, penghapusan, perubahan akun, atau produk affiliate; produk harus melewati alur verifikasi khusus. Jika belum punya fakta/sumber yang cukup, jangan buat action; minta klarifikasi atau nyatakan keterbatasan.',
 
     'DAFTAR KARYAWAN: '+JSON.stringify(roster),
+    'FOKUS AGEN YANG DIPANGGIL: '+(AI_ROOM_AGENTS[requestedAgentId] ? JSON.stringify({id:requestedAgentId,name:AI_ROOM_AGENTS[requestedAgentId].name,role:AI_ROOM_AGENTS[requestedAgentId].role,mandate:AI_ROOM_AGENTS[requestedAgentId].prompt}) : 'Master Director mengoordinasikan seluruh divisi.'),
     'ROUTING TUGAS: '+JSON.stringify(task)+'. Pilih kedalaman penalaran sesuai tier. Untuk tier work, susun langkah, cek asumsi, berikan hasil terstruktur dan tandai blocker. Untuk tier chat, jawab cepat dan natural tanpa analisis berlebihan.',
     locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara.' : 'DIREKTUR BERBICARA KEPADA GRUP: Master Director (Tim VANNDIK, speaker_id team) WAJIB menjadi pembicara dan selalu memberi jawaban utama. Tetapkan spesialis yang relevan sebagai penanggung jawab di dalam jawaban, tetapi jangan berpura-pura spesialis sudah menjalankan pekerjaan. Spesialis hanya berbicara langsung bila Direktur memanggilnya.',
     'BACA RIWAYAT: gunakan konteks percakapan bersama dan lanjutkan secara alami. Jangan mengulang jawaban.',
@@ -968,6 +983,27 @@ export async function onRequest({ request, env }) {
       const token = cookie(request); if(token) await env.CMS_DB.prepare('DELETE FROM cms_sessions WHERE token_hash=?').bind(await sha(decodeURIComponent(token))).run();
       return json({ok:true},200,{'set-cookie':clearCookie});
     }
+    if (path === 'ai-room/daily-targets/process' && method === 'POST') {
+      if (!env.AI_JOBS_CRON_TOKEN || request.headers.get('authorization') !== 'Bearer '+env.AI_JOBS_CRON_TOKEN) return json({error:'Unauthorized scheduler.'},401);
+      await ensureAiRoomTables(env);
+      const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+      const day=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+      const dayKey=day.year+'-'+day.month+'-'+day.day;
+      const admins=await env.CMS_DB.prepare('SELECT id FROM cms_admins WHERE active=1').all();
+      const created=[];
+      for(const admin of (admins.results||[])){
+        for(const [agentId,message] of Object.entries(AI_ROOM_DAILY_TARGETS)){
+          const id='daily-'+dayKey+'-'+admin.id+'-'+agentId;
+          const task='[TARGET HARIAN '+dayKey+' WIB] '+message;
+          const result=await env.CMS_DB.prepare("INSERT OR IGNORE INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,stage,progress) VALUES(?,?,?,?,'queued',0,CURRENT_TIMESTAMP,?,0)").bind(id,admin.id,agentId,task,'Menunggu target harian · '+AI_ROOM_AGENTS[agentId].name).run();
+          if(Number(result.meta?.changes||0)>0){
+            await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,id,agentId,'daily_target_created','Target harian masuk antrean','queued','Target harian otomatis '+dayKey+' WIB dibuat untuk '+AI_ROOM_AGENTS[agentId].name+'.').run();
+            created.push({id,admin_id:admin.id,agent_id:agentId});
+          }
+        }
+      }
+      return json({ok:true,date:dayKey,agents:Object.keys(AI_ROOM_DAILY_TARGETS).length,admins:(admins.results||[]).length,created:created.length,jobs:created});
+    }
     if (path === 'ai-room/jobs/process' && method === 'POST') {
       if (!env.AI_JOBS_CRON_TOKEN || request.headers.get('authorization') !== 'Bearer '+env.AI_JOBS_CRON_TOKEN) return json({error:'Unauthorized scheduler.'},401);
       await ensureAiRoomTables(env);
@@ -989,6 +1025,7 @@ export async function onRequest({ request, env }) {
         try{
           const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 14').bind(job.admin_id).all();
           const conversation=(history.results||[]).reverse();
+          if(!conversation.some(item=>item.role==='user'&&item.content===job.message)) conversation.push({role:'user',agent_id:job.agent_id,content:job.message});
           const memory=await getCentralAiMemory(env);
           const cmsContext=await getAiRoomCmsContext(env);
           const result=await callAiRoomProvider(env,conversation,job.agent_id,memory,job.message,cmsContext);
