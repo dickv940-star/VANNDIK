@@ -560,7 +560,7 @@ async function publishAiRoomDraft(env, admin, message) {
   const verified=await env.CMS_DB.prepare('SELECT id,type,title,slug,status,published_at FROM cms_content WHERE id=?').bind(item.id).first();
   if(!verified||verified.status!=='published') throw new Error('Pembaruan status tidak terverifikasi; publikasi tidak dilaporkan berhasil.');
   await audit(env,admin,'content.published_by_ai_room',item.type,item.id,{title:item.title,slug:item.slug,source:'explicit_director_command'});
-  return {published:true,item:verified,url:'https://vanndik.pages.dev/konten/'+encodeURIComponent(item.slug)+'/'};
+  return {published:true,item:verified,url:'https://vanndik.pages.dev/konten/?slug='+encodeURIComponent(item.slug)};
 }
 
 const AI_ROOM_AGENTS = {
