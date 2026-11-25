@@ -91,7 +91,7 @@ export async function onRequest({ request, env }) {
     if (!admin) return json({ error: 'Silakan login sebagai admin VANNDIK.' }, 401);
     if (path === 'status') {
       const conn = await env.CMS_DB.prepare("SELECT google_email,connected_at FROM cms_google_growth_connection WHERE id='primary'").first();
-      return json({ configured: !!(clientId(env) && clientSecret(env) && tokenKey(env)), connected: !!conn, email: conn?.google_email || null, connectedAt: conn?.connected_at || null, adsenseScopeAdded: true });
+      return json({ configured: !!(clientId(env) && clientSecret(env) && tokenKey(env)), connected: !!conn, email: conn?.google_email || null, connectedAt: conn?.connected_at || null, adsenseScopeAdded: null, scopeVerification: 'not_checked_until_report' });
     }
     if (path === 'affiliate-summary') {
       return json(await affiliateSummary(env));
