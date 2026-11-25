@@ -1027,7 +1027,7 @@ export async function onRequest({ request, env }) {
         }
       }
       await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='queued',stage='Memulihkan proses yang terputus',progress=0,next_retry_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE status='processing' AND heartbeat_at < datetime('now','-10 minutes')").run();
-      const due=await env.CMS_DB.prepare("SELECT * FROM cms_ai_room_jobs WHERE status='queued' AND next_retry_at<=CURRENT_TIMESTAMP ORDER BY created_at LIMIT 5").all();
+      const due=await env.CMS_DB.prepare("SELECT * FROM cms_ai_room_jobs WHERE status='queued' AND next_retry_at<=CURRENT_TIMESTAMP ORDER BY CASE WHEN message LIKE '[TARGET HARIAN %' THEN 0 ELSE 1 END,next_retry_at,created_at LIMIT 5").all();
       const results=[];
       for(const job of (due.results||[])){
         await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='processing',stage='Memanggil provider AI gratis',progress=20,started_at=COALESCE(started_at,CURRENT_TIMESTAMP),heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id).run();
