@@ -468,6 +468,7 @@ async function ensureAiRoomTables(env) {
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_jobs_due ON cms_ai_room_jobs(status,next_retry_at)").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_activity (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, job_id TEXT NOT NULL, agent_id TEXT NOT NULL, event_type TEXT NOT NULL, stage TEXT NOT NULL, status TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_activity_admin_created ON cms_ai_room_activity(admin_id,created_at)").run();
+  await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_daily_targets (admin_id TEXT NOT NULL, agent_id TEXT NOT NULL, task TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(admin_id,agent_id))").run();
   const defaults = [
     ['identity','VANNDIK adalah website dan pusat kendali CMS digital yang dikelola melalui cloud. Pengguna menginginkan AI Office dengan Chief of Staff dan agen spesialis.'],
     ['goals','Mengelola artikel, berita, produk affiliate, game, aplikasi/tools, SEO, riset, media, serta integrasi kanal digital seperti YouTube, Instagram dan Facebook. Kembangkan bertahap dan verifikasi setiap integrasi sebelum menyatakan aktif.'],
@@ -481,6 +482,11 @@ async function ensureAiRoomTables(env) {
 async function getCentralAiMemory(env) {
   const rows = await env.CMS_DB.prepare('SELECT memory_key,memory_value,updated_at FROM cms_ai_memory ORDER BY memory_key').all();
   return (rows.results || []).map(row => ({key:row.memory_key,value:row.memory_value,updated_at:row.updated_at}));
+}
+async function ensureAiRoomDailyTargets(env, adminId) {
+  for (const [agentId, task] of Object.entries(AI_ROOM_DAILY_TARGETS)) {
+    await env.CMS_DB.prepare("INSERT OR IGNORE INTO cms_ai_room_daily_targets(admin_id,agent_id,task,enabled) VALUES(?,?,?,1)").bind(adminId,agentId,task).run();
+  }
 }
 async function getAiRoomCmsContext(env) {
   const context={generated_at:new Date().toISOString(),timezone:'Asia/Jakarta',content_counts:{},recent_content:[],affiliate_clicks_24h:null,affiliate_clicks_note:'Belum dapat dibaca'};
@@ -992,9 +998,13 @@ export async function onRequest({ request, env }) {
       const admins=await env.CMS_DB.prepare('SELECT id FROM cms_admins WHERE active=1').all();
       const created=[];
       for(const admin of (admins.results||[])){
-        for(const [agentId,message] of Object.entries(AI_ROOM_DAILY_TARGETS)){
+        await ensureAiRoomDailyTargets(env,admin.id);
+        const targets=await env.CMS_DB.prepare('SELECT agent_id,task FROM cms_ai_room_daily_targets WHERE admin_id=? AND enabled=1 ORDER BY agent_id').bind(admin.id).all();
+        for(const target of (targets.results||[])){
+          const agentId=target.agent_id;
+          if(!AI_ROOM_AGENTS[agentId])continue;
           const id='daily-'+dayKey+'-'+admin.id+'-'+agentId;
-          const task='[TARGET HARIAN '+dayKey+' WIB] '+message;
+          const task='[TARGET HARIAN '+dayKey+' WIB] '+target.task;
           const result=await env.CMS_DB.prepare("INSERT OR IGNORE INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,stage,progress) VALUES(?,?,?,?,'queued',0,CURRENT_TIMESTAMP,?,0)").bind(id,admin.id,agentId,task,'Menunggu target harian · '+AI_ROOM_AGENTS[agentId].name).run();
           if(Number(result.meta?.changes||0)>0){
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,id,agentId,'daily_target_created','Target harian masuk antrean','queued','Target harian otomatis '+dayKey+' WIB dibuat untuk '+AI_ROOM_AGENTS[agentId].name+'.').run();
@@ -1079,6 +1089,26 @@ export async function onRequest({ request, env }) {
       };
       const routing={strategy:'task-and-agent-aware-free-only',chat_priority:['cloudflare_ai','gemini','groq','gemma_hosted','openrouter_free'],work_priority:['gemini','gemma_hosted','groq','openrouter_free','cloudflare_ai'],models:Object.fromEntries(['gemini','cloudflare_ai','gemma_hosted','groq','openrouter_free'].map(id=>[id,{chat:modelForProvider(env,id,{tier:'chat'}),work:modelForProvider(env,id,{tier:'work'})}])),agent_models:Object.fromEntries(Object.keys(AI_ROOM_AGENTS).map(agentId=>{const choose=tier=>{const order=tier==='work'?['gemini','gemma_hosted','groq','openrouter_free','cloudflare_ai']:['cloudflare_ai','gemini','groq','gemma_hosted','openrouter_free'];const provider=order.find(id=>providers[id]&&modelForProvider(env,id,{tier},agentId));return provider?{provider,model:modelForProvider(env,provider,{tier},agentId)}:{provider:'none',model:'Tidak tersedia'};};return [agentId,{chat:choose('chat'),work:choose('work')}];}))};
       return json({messages:(rows.results||[]).reverse(),providers,agents:AI_ROOM_AGENTS,memory,provider_order:routing.chat_priority,routing});
+    }
+    if (path === 'ai-room/daily-targets' && method === 'GET') {
+      await ensureAiRoomTables(env);
+      await ensureAiRoomDailyTargets(env,admin.id);
+      const targets=await env.CMS_DB.prepare('SELECT agent_id,task,enabled,updated_at FROM cms_ai_room_daily_targets WHERE admin_id=? ORDER BY agent_id').bind(admin.id).all();
+      const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+      const dateParts=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+      const dayKey=dateParts.year+'-'+dateParts.month+'-'+dateParts.day;
+      const jobs=await env.CMS_DB.prepare("SELECT id,agent_id,status,stage,progress,result_summary,last_error,updated_at FROM cms_ai_room_jobs WHERE admin_id=? AND message LIKE ? ORDER BY created_at DESC").bind(admin.id,'[TARGET HARIAN '+dayKey+' WIB]%').all();
+      return json({date:dayKey,targets:targets.results||[],jobs:jobs.results||[]});
+    }
+    if (path === 'ai-room/daily-targets' && method === 'PUT') {
+      await ensureAiRoomTables(env);
+      const data=await body(request),agentId=String(data.agentId||''),task=String(data.task||'').trim(),enabled=data.enabled===true;
+      if(!AI_ROOM_AGENTS[agentId])return json({error:'Agen target harian tidak dikenal.'},400);
+      if(task.length<10||task.length>1500)return json({error:'Instruksi target harian harus 10–1.500 karakter.'},400);
+      await ensureAiRoomDailyTargets(env,admin.id);
+      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_daily_targets(admin_id,agent_id,task,enabled,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(admin_id,agent_id) DO UPDATE SET task=excluded.task,enabled=excluded.enabled,updated_at=CURRENT_TIMESTAMP").bind(admin.id,agentId,task,enabled?1:0).run();
+      await audit(env,admin,'ai.daily_target.updated','ai-room-daily-target',agentId,{enabled,task_length:task.length});
+      return json({ok:true,agent_id:agentId,enabled,task});
     }
     if (path === 'ai-room/memory' && method === 'GET') {
       await ensureAiRoomTables(env);
