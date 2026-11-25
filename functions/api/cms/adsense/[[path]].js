@@ -9,6 +9,12 @@ const b64 = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes)));
 const unb64 = value => Uint8Array.from(atob(value), c => c.charCodeAt(0));
 const sha = async value => b64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)));
 
+async function ensureConnectionTable(env) {
+  await env.CMS_DB.prepare(`CREATE TABLE IF NOT EXISTS cms_google_growth_connection (
+    id TEXT PRIMARY KEY, google_email TEXT NOT NULL, refresh_token_enc TEXT NOT NULL,
+    connected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`).run();
+}
 async function adminFor(request, env) {
   const raw = (request.headers.get('cookie') || '').split(';').map(x => x.trim()).find(x => x.startsWith(COOKIE + '='))?.slice(COOKIE.length + 1);
   if (!raw) return null;
@@ -54,6 +60,7 @@ export async function onRequest({ request, env }) {
   const path = url.pathname.replace(/^\/api\/cms\/adsense\/?/, '').replace(/\/$/, '');
   try {
     if (!env.CMS_DB) return json({ error: 'Database CMS belum terhubung.' }, 503);
+    await ensureConnectionTable(env);
     if (request.method !== 'GET') {
       const origin = request.headers.get('origin');
       if (origin && origin !== url.origin) return json({ error: 'Origin tidak diizinkan.' }, 403);
