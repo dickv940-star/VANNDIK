@@ -21,7 +21,7 @@ const sections = [{name:'Teknologi',desc:'Perkembangan teknologi dan produk digi
   filtered.forEach((item,index)=>{
    const card=make('article','');const visual=make('a','news-thumb '+(index%3===1?'violet':index%3===2?'slate':'blue'));visual.href=href(item);visual.style.textDecoration='none';
    const tag=make('span',null,txt(item.category||'BERITA').toUpperCase());const num=make('b',null,String(index+1).padStart(2,'0'));visual.append(tag,num);
-   const body=make('div','');const category=make('small',null,txt(item.category||'BERITA').toUpperCase());const title=make('h3',null,item.title);const excerpt=make('p',null,txt(item.excerpt||item.body).slice(0,160));const footer=make('footer',null,item.published_at?new Date(item.published_at).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}):'VANNDIK NEWS');body.append(category,title,excerpt,footer);
+   const body=make('div','');body.style.padding='18px';const category=make('small',null,txt(item.category||'BERITA').toUpperCase());const title=make('h3',null,item.title);const excerpt=make('p',null,txt(item.excerpt||item.body).slice(0,160));const footer=make('footer',null,item.published_at?new Date(item.published_at).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}):'VANNDIK NEWS');body.append(category,title,excerpt,footer);
    const link=make('a');link.href=href(item);link.style.cssText='color:inherit;text-decoration:none';link.append(body);card.append(visual,link);list.append(card);
   });
   empty.hidden=filtered.length>0;
