@@ -343,27 +343,27 @@ async function fetchBingHtml(query,images=false){
 }
 function bingResultCards(html,expectedIds){
   const results=[];
-  for(const match of String(html||'').matchAll(/<a\\b[^>]*href\\s*=\\s*(["'])(.*?)\\1[^>]*>([\\s\\S]*?)<\\/a>/gi)){
-    let raw=decodeEntities(match[2]).replace(/&amp;/gi,'&');
+  for(const match of String(html||'').matchAll(/<a\b[^>]*href\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi)){
+    const raw=decodeEntities(match[2]).replace(/&amp;/gi,'&');
     let target;try{target=new URL(raw);}catch{continue;}
     if(!['shopee.co.id','www.shopee.co.id'].includes(target.hostname.toLowerCase()))continue;
     const ids=shopeeIds(target,'');
     if(!ids||ids.shopId!==expectedIds.shopId||ids.itemId!==expectedIds.itemId)continue;
-    const title=stripText(match[3]).replace(/\\s*[|–—-]\\s*Shopee.*$/i,'').slice(0,180);
+    const title=stripText(match[3]).replace(/\s*[|–—-]\s*Shopee.*$/i,'').slice(0,180);
     if(title.length<4)continue;
     const area=html.slice(Math.max(0,match.index-1200),Math.min(html.length,match.index+match[0].length+2600));
-    const snippets=[...area.matchAll(/<p\\b[^>]*>([\\s\\S]*?)<\\/p>/gi)].map(x=>stripText(x[1])).filter(x=>x.length>35);
+    const snippets=[...area.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)].map(x=>stripText(x[1])).filter(x=>x.length>35);
     const snippet=snippets.sort((a,b)=>b.length-a.length)[0]||'';
     if(!results.some(x=>x.url===target.href))results.push({url:target.href,title,snippet});
   }
   return results.slice(0,5);
 }
 function bingImageCandidates(html){
-  const source=String(html||'').replace(/\\\\u002f/gi,'/').replace(/\\\\\\//g,'/');
+  const source=String(html||'').replace(/\\u002f/gi,'/').replace(/\\\//g,'/');
   const values=[];
-  for(const match of source.matchAll(/"murl"\\s*:\\s*"((?:https?:)[^"]+)"/gi)){
-    let raw=match[1].replace(/\\\\u0026/gi,'&').replace(/\\\\u003d/gi,'=').replace(/\\\\\\//g,'/');
-    try{raw=JSON.parse('"'+raw.replace(/"/g,'\\\\"')+'"');}catch{}
+  for(const match of source.matchAll(/"murl"\s*:\s*"((?:https?:)[^"]+)"/gi)){
+    let raw=match[1].replace(/\\u0026/gi,'&').replace(/\\u003d/gi,'=').replace(/\\\//g,'/');
+    try{raw=JSON.parse('"'+raw.replace(/"/g,'\\"')+'"');}catch{}
     try{const u=new URL(raw);if(['down-id.img.susercontent.com','img.susercontent.com','cf.shopee.co.id'].includes(u.hostname)&&!values.includes(u.href))values.push(u.href);}catch{}
   }
   return values.slice(0,8);
