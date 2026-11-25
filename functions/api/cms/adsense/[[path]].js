@@ -135,7 +135,7 @@ export async function onRequest({ request, env }) {
       const s = dateParts(start), e = dateParts(end);
       for (const [k,v] of Object.entries(s)) params.set('startDate.' + k, String(v));
       for (const [k,v] of Object.entries(e)) params.set('endDate.' + k, String(v));
-      ['ESTIMATED_EARNINGS','PAGE_VIEWS','IMPRESSIONS','CLICKS','PAGE_CTR','PAGE_RPM'].forEach(v => params.append('metrics', v));
+      ['ESTIMATED_EARNINGS','PAGE_VIEWS','IMPRESSIONS','CLICKS','PAGE_VIEWS_CTR','PAGE_VIEWS_RPM'].forEach(v => params.append('metrics', v));
       params.append('dimensions', 'DATE');
       const report = await googleGet('https://adsense.googleapis.com/v2/' + account.name + '/reports:generate?' + params.toString(), token);
       const headers = (report.headers || []).map(h => ({ name: h.name, type: h.type, currencyCode: h.currencyCode || null }));
