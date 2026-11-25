@@ -109,7 +109,7 @@ export async function onRequest({ request, env }) {
       if (!refresh) return redirect(url.origin, { google_error: 'refresh_token_missing' });
       await env.CMS_DB.prepare("INSERT INTO cms_google_growth_connection(id,google_email,refresh_token_enc,connected_at) VALUES('primary',?,?,?) ON CONFLICT(id) DO UPDATE SET google_email=excluded.google_email,refresh_token_enc=excluded.refresh_token_enc,connected_at=excluded.connected_at")
         .bind(OWNER_EMAIL, await encrypt(refresh, env), new Date().toISOString()).run();
-      return redirect(url.origin, { google_connected: '1' });
+      return Response.redirect(new URL('/admin/monetization/?google_connected=1', url.origin).toString(), 302);
     }
 
     const admin = await adminFor(request, env);
