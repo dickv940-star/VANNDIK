@@ -463,10 +463,10 @@ async function getAiRoomCmsContext(env) {
 }
 function isAiRoomNegativeAction(message, action) {
   const text=String(message||'').toLocaleLowerCase('id-ID');
-  const prefix=String.raw\`(?:jangan|tidak\\s+usah|tidak\\s+perlu|tidak\\s+boleh|belum\\s+boleh|jangan\\s+dulu|do\\s+not|don't)(?:\\s+\\S+){0,3}\\s+\`;
-  const publish=new RegExp(prefix+String.raw\`(?:terbitkan|menerbitkan|publikasikan|publish|tayangkan|naikkan)\`,'i');
-  const move=new RegExp(prefix+String.raw\`(?:pindahkan|pindah|konversi|ubah|masukkan)\`,'i');
-  const create=new RegExp(prefix+String.raw\`(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\`,'i');
+  const prefix='(?:jangan|tidak\\s+usah|tidak\\s+perlu|tidak\\s+boleh|belum\\s+boleh|jangan\\s+dulu|do\\s+not|don\\'t)(?:\\s+\\S+){0,3}\\s+';
+  const publish=new RegExp(prefix+'(?:terbitkan|menerbitkan|publikasikan|publish|tayangkan|naikkan)','i');
+  const move=new RegExp(prefix+'(?:pindahkan|pindah|konversi|ubah|masukkan)','i');
+  const create=new RegExp(prefix+'(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)','i');
   return (action==='publish'?publish:action==='move'?move:create).test(text);
 }
 
