@@ -1049,9 +1049,9 @@ export async function onRequest({ request, env }) {
       await env.CMS_DB.batch([
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
         env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used,model,resultTaskTier),
-        env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',stage='Selesai',progress=100,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(result.action?.type==='create_content'?'Draft berhasil disimpan ke CMS.':'Balasan agen tersimpan di riwayat chat.',jobId)
+        env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='completed',stage='Selesai',progress=100,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(answer.slice(0,500),jobId)
       ]);
-      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'completed','Selesai','completed',result.action?.type==='create_content'?'Draft CMS tersimpan dan menunggu tinjauan Direktur.':'Balasan AI tersimpan di D1.').run();
+      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'completed','Selesai','completed',answer.slice(0,500)).run();
       await audit(env,admin,'ai.room.message','ai-room',assistantId,{requested_agent:agentId,executing_agent:executingAgentId,provider:used,model,jobId});
       return json({ok:true,jobId,user:{id:userId,role:'user',agent_id:agentId,content:message},reply:{id:assistantId,role:'assistant',agent_id:speakerId||agentId,content:answer,provider:used,created_at:new Date().toISOString()},provider:used,model,task_tier:resultTaskTier,attempts});
     }
