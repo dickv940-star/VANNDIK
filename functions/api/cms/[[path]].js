@@ -327,6 +327,48 @@ async function fetchGoogleHtml(query,images=false){
   if(!/<html|<!doctype/i.test(html))throw new Error('Google mengirim respons yang bukan halaman hasil pencarian HTML.');
   return html;
 }
+
+async function fetchBingHtml(query,images=false){
+  const url=new URL(images?'https://www.bing.com/images/search':'https://www.bing.com/search');
+  url.searchParams.set('q',query);url.searchParams.set('setlang','id-ID');url.searchParams.set('cc','id');
+  let response;
+  try{response=await fetch(url.href,{headers:{'accept':'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8','accept-language':'id-ID,id;q=0.9,en;q=0.7','user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'},signal:AbortSignal.timeout(12000),redirect:'follow'});}
+  catch(error){throw new Error('Bing Search tidak dapat diakses server ('+String(error?.name||'network')+').');}
+  if(!response.ok)throw new Error('Bing Search membatasi permintaan server (HTTP '+response.status+').');
+  const html=await response.text();
+  if(html.length>1800000)throw new Error('Respons Bing Search melebihi batas pemeriksaan aman.');
+  if(/captcha|unusual traffic|verify you are human|challenge-platform/i.test(html))throw new Error('Bing meminta verifikasi sebelum hasil pencarian dapat dibaca.');
+  if(!/<html|<!doctype/i.test(html))throw new Error('Bing mengirim respons yang bukan halaman HTML.');
+  return html;
+}
+function bingResultCards(html,expectedIds){
+  const results=[];
+  for(const match of String(html||'').matchAll(/<a\\b[^>]*href\\s*=\\s*(["'])(.*?)\\1[^>]*>([\\s\\S]*?)<\\/a>/gi)){
+    let raw=decodeEntities(match[2]).replace(/&amp;/gi,'&');
+    let target;try{target=new URL(raw);}catch{continue;}
+    if(!['shopee.co.id','www.shopee.co.id'].includes(target.hostname.toLowerCase()))continue;
+    const ids=shopeeIds(target,'');
+    if(!ids||ids.shopId!==expectedIds.shopId||ids.itemId!==expectedIds.itemId)continue;
+    const title=stripText(match[3]).replace(/\\s*[|–—-]\\s*Shopee.*$/i,'').slice(0,180);
+    if(title.length<4)continue;
+    const area=html.slice(Math.max(0,match.index-1200),Math.min(html.length,match.index+match[0].length+2600));
+    const snippets=[...area.matchAll(/<p\\b[^>]*>([\\s\\S]*?)<\\/p>/gi)].map(x=>stripText(x[1])).filter(x=>x.length>35);
+    const snippet=snippets.sort((a,b)=>b.length-a.length)[0]||'';
+    if(!results.some(x=>x.url===target.href))results.push({url:target.href,title,snippet});
+  }
+  return results.slice(0,5);
+}
+function bingImageCandidates(html){
+  const source=String(html||'').replace(/\\\\u002f/gi,'/').replace(/\\\\\\//g,'/');
+  const values=[];
+  for(const match of source.matchAll(/"murl"\\s*:\\s*"((?:https?:)[^"]+)"/gi)){
+    let raw=match[1].replace(/\\\\u0026/gi,'&').replace(/\\\\u003d/gi,'=').replace(/\\\\\\//g,'/');
+    try{raw=JSON.parse('"'+raw.replace(/"/g,'\\\\"')+'"');}catch{}
+    try{const u=new URL(raw);if(['down-id.img.susercontent.com','img.susercontent.com','cf.shopee.co.id'].includes(u.hostname)&&!values.includes(u.href))values.push(u.href);}catch{}
+  }
+  return values.slice(0,8);
+}
+
 async function researchShopeeOnGoogle(pageUrl,html){
   const ids=shopeeIds(pageUrl,html);if(!ids)throw new Error('ID toko dan produk Shopee belum dapat dipastikan dari link tujuan.');
   const diagnostics=[],query='site:shopee.co.id/product/'+ids.shopId+'/'+ids.itemId+' "'+ids.itemId+'"';
@@ -339,10 +381,17 @@ async function researchShopeeOnGoogle(pageUrl,html){
       diagnostics.push('Google mengembalikan halaman, tetapi tidak ada hasil dengan ID toko dan produk yang sama persis.');
     }catch(error){diagnostics.push(String(error.message||error).slice(0,180));}
   }
-  if(!result)throw new Error('Google belum mengembalikan halaman Shopee dengan ID toko dan produk yang cocok persis. '+diagnostics.join(' '));
+  if(!result){
+    for(const searchQuery of [query,'site:shopee.co.id "'+ids.shopId+'" "'+ids.itemId+'"']){
+      try{const searchHtml=await fetchBingHtml(searchQuery);result=bingResultCards(searchHtml,ids)[0]||null;if(result)break;diagnostics.push('Bing tidak menemukan hasil dengan ID toko dan produk yang sama persis.');}
+      catch(error){diagnostics.push(String(error.message||error).slice(0,180));}
+    }
+  }
+  if(!result)throw new Error('Google dan Bing belum mengembalikan halaman Shopee dengan ID toko dan produk yang cocok persis. '+diagnostics.join(' '));
   let productHtml='';try{const page=await fetchMarketplaceHtml(new URL(result.url));productHtml=page.html||'';}catch(error){diagnostics.push('halaman-produk: '+String(error.message||error).slice(0,150));}
   let image=shopeeImageCandidates(productHtml)[0]||shopeeImageCandidates(html)[0]||'';
   if(!image){try{const imageHtml=await fetchGoogleHtml('site:down-id.img.susercontent.com/file "'+result.title+'" Shopee',true);image=googleOriginalImageCandidates(imageHtml)[0]||'';}catch(error){diagnostics.push('gambar-google: '+String(error.message||error).slice(0,150));}}
+  if(!image){try{const imageHtml=await fetchBingHtml('"'+result.title+'" site:down-id.img.susercontent.com/file',true);image=bingImageCandidates(imageHtml)[0]||'';}catch(error){diagnostics.push('gambar-bing: '+String(error.message||error).slice(0,150));}}
   const productMeta=productHtml?readProductMetadata(productHtml,new URL(result.url)):{};
   const description=productMeta.description||result.snippet||'';
   if(!image)throw new Error('Google menemukan halaman produk yang cocok ('+result.title+'), tetapi foto asli produk dari sumber Shopee belum berhasil diverifikasi. '+diagnostics.join(' '));
