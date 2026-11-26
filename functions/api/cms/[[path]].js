@@ -1292,7 +1292,7 @@ export async function onRequest({ request, env }) {
             delegationResult=await enqueueAiRoomDelegations(env,job.admin_id,job.id,result.action.tasks,job.message);
           }
           if(delegationResult?.created?.length)answer+='\n\nPekerjaan sudah dibagi kepada '+delegationResult.created.length+' spesialis: '+delegationResult.created.map(item=>item.name).join(', ')+'. Tugas masuk antrean cloud.';
-          if(result.action?.type==='create_content') {
+          if(result.action?.type==='create_content'&&!(job.agent_id==='team'&&isAiRoomContentCreationRequest(job.message))) {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
             const jobAdmin=await env.CMS_DB.prepare('SELECT id,email,display_name,role FROM cms_admins WHERE id=? AND active=1').bind(job.admin_id).first();
@@ -1494,7 +1494,7 @@ export async function onRequest({ request, env }) {
           if(waitingForDelegation&&delegationResult?.created?.length){
             answer+='\n\nPekerjaan telah benar-benar dimasukkan ke antrean cloud: '+delegationResult.created.map(item=>item.name).join(', ')+'. Status job induk: MENUNGGU HASIL SPESIALIS; belum selesai sampai draft dan QA diverifikasi.';
           }
-          if(result.action?.type==='create_content') {
+          if(result.action?.type==='create_content'&&!waitingForDelegation) {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
             const actionResult=await createAiRoomDraft(env,admin,result.action.content,message);
