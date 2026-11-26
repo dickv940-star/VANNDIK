@@ -297,10 +297,31 @@ function googleResultCards(html,expectedIds){
   return results.slice(0,5);
 }
 function shopeeImageCandidates(html){
-  const source=decodeGoogleMarkup(html),values=[];
-  for(const match of source.matchAll(/https?:\/\/(?:down-id\.img\.susercontent\.com|img\.susercontent\.com|cf\.shopee\.co\.id)\/[^"'\\\s<>]+/gi)){
-    const value=match[0].replace(/&amp;.*/i,'').replace(/[),;]+$/,'');
-    try{const u=new URL(value);if(['down-id.img.susercontent.com','img.susercontent.com','cf.shopee.co.id'].includes(u.hostname)&&!values.includes(u.href))values.push(u.href);}catch{}
+  const source=decodeGoogleMarkup(String(html||'')).replace(/\\u002f/gi,'/').replace(/\\u003a/gi,':').replace(/\\\//g,'/');
+  const values=[],seen=new Set();
+  const add=value=>{
+    if(!value)return;
+    let raw=String(value).trim().replace(/&amp;/gi,'&').replace(/[),;]+$/,'');
+    let url='';
+    try{
+      if(/^https?:\/\//i.test(raw))url=new URL(raw).href;
+      else if(/^\/file\/[a-z0-9_-]+/i.test(raw))url='https://down-id.img.susercontent.com'+raw;
+      else if(/^[a-f0-9]{20,80}$/i.test(raw))url='https://down-id.img.susercontent.com/file/'+raw;
+      else return;
+      const u=new URL(url);
+      if(['down-id.img.susercontent.com','img.susercontent.com','cf.shopee.co.id'].includes(u.hostname)&&!seen.has(u.href)){seen.add(u.href);values.push(u.href);}
+    }catch{}
+  };
+  // Absolute CDN URLs and escaped URLs embedded in serialized page state.
+  for(const match of source.matchAll(/https?:\/\/(?:down-id\.img\.susercontent\.com|img\.susercontent\.com|cf\.shopee\.co\.id)\/[^"'\\\s<>]+/gi))add(match[0]);
+  // Shopee may expose image IDs rather than fully qualified CDN URLs.
+  for(const pattern of [/(?:image_id|image_hash|cover_image|image)\s*["']?\s*[:=]\s*["']([a-f0-9]{20,80})["']/gi,/"images"\s*:\s*\[\s*"([a-f0-9]{20,80})"/gi]){
+    for(const match of source.matchAll(pattern))add(match[1]);
+  }
+  // Include lazy-loaded image attributes.
+  for(const tag of source.matchAll(/<(?:img|source)\b[^>]*>/gi)){
+    const attrs=htmlAttributes(tag[0]);
+    for(const key of ['src','data-src','data-original','data-lazy-src','srcset'])if(attrs[key])add(attrs[key].split(',')[0].trim().split(/\s+/)[0]);
   }
   return values.slice(0,8);
 }
