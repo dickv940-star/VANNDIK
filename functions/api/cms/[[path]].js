@@ -502,9 +502,10 @@ async function enqueueAiRoomDelegations(env, adminId, parentJobId, tasks) {
     valid.push({agentId,message,dependsOn:Array.isArray(task?.depends_on)?task.depends_on.map(normalizeAgent):[]});
   }
   const ids=new Map(valid.map(task=>[task.agentId,'delegate-'+parentJobId+'-'+task.agentId]));
+  const taskOrder=new Map(valid.map((task,index)=>[task.agentId,index]));
   for(const task of valid){
     const {agentId,message}=task;
-    const unresolved=task.dependsOn.filter(dep=>!ids.has(dep)||dep===agentId);
+    const unresolved=task.dependsOn.filter(dep=>!ids.has(dep)||dep===agentId||taskOrder.get(dep)>=taskOrder.get(agentId));
     if(unresolved.length){skipped.push({agent_id:agentId,reason:'unresolved_dependency:'+unresolved.join(',')});continue;}
     const dependencies=[...new Set(task.dependsOn.map(dep=>ids.get(dep)))],id=ids.get(agentId);
     const queuedMessage='[DELEGASI MASTER DIRECTOR] '+message;
