@@ -1686,8 +1686,9 @@ export async function onRequest({ request, env }) {
       const item=await env.CMS_DB.prepare("SELECT * FROM cms_content WHERE id=? AND type='product'").bind(productId).first();
       if(!item)return json({error:'Produk tidak ditemukan.'},404);
       let tags=[];try{tags=JSON.parse(item.tags||'[]')}catch{}
-      if(!tags.includes('metadata-extracted')||!tags.includes('marketplace-page-read'))return json({error:'Produk belum terverifikasi.'},409);
-      await env.CMS_DB.prepare('UPDATE cms_content SET image_url=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(parsed.href,productId).run();
+      if(item.status!=='draft')return json({error:'Foto hanya dapat diganti pada produk draft.'},409);
+      if(!tags.includes('user-uploaded-image'))tags.push('user-uploaded-image');
+      await env.CMS_DB.prepare('UPDATE cms_content SET image_url=?,tags=?,updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(parsed.href,JSON.stringify(tags),productId).run();
       const seo=makeSeo({...item,image_url:parsed.href,og_image:parsed.href});
       await saveSeo(env,productId,seo);
       await audit(env,admin,'affiliate.product.image_attached','product',productId,{source:'google-drive'});
