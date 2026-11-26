@@ -525,6 +525,7 @@ async function ensureAiRoomTables(env) {
   const messageColumns=await env.CMS_DB.prepare('PRAGMA table_info(cms_ai_room_messages)').all();
   const messageColumnNames=new Set((messageColumns.results||[]).map(column=>column.name));
   if(!messageColumnNames.has('model'))await env.CMS_DB.prepare("ALTER TABLE cms_ai_room_messages ADD COLUMN model TEXT NOT NULL DEFAULT ''").run();
+  if(!messageColumnNames.has('chat_mode'))await env.CMS_DB.prepare("ALTER TABLE cms_ai_room_messages ADD COLUMN chat_mode TEXT NOT NULL DEFAULT 'work'").run();
   if(!messageColumnNames.has('task_tier'))await env.CMS_DB.prepare("ALTER TABLE cms_ai_room_messages ADD COLUMN task_tier TEXT NOT NULL DEFAULT ''").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_memory (memory_key TEXT PRIMARY KEY, memory_value TEXT NOT NULL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
   await env.CMS_DB.prepare("CREATE TABLE IF NOT EXISTS cms_ai_room_jobs (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, agent_id TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0, next_retry_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_error TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
@@ -1490,7 +1491,8 @@ export async function onRequest({ request, env }) {
 
     if (path === 'ai-room/messages' && method === 'GET') {
       await ensureAiRoomTables(env);
-      const rows=await env.CMS_DB.prepare('SELECT id,role,agent_id,content,provider,model,task_tier,created_at FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all();
+      const requestedMode=new URL(request.url).searchParams.get('mode')==='casual'?'casual':'work';
+      const rows=await env.CMS_DB.prepare('SELECT id,role,agent_id,content,provider,model,task_tier,created_at,chat_mode FROM cms_ai_room_messages WHERE admin_id=? AND chat_mode=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id,requestedMode).all();
       const memory=await getCentralAiMemory(env);
       const providers={
         gemini:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',
@@ -1587,10 +1589,12 @@ export async function onRequest({ request, env }) {
     }
     if (path === 'ai-room/messages' && method === 'POST') {
       await ensureAiRoomTables(env);
-      const data=await body(request), message=String(data.message||'').trim(), agentId=String(data.agentId||'team');
+      const data=await body(request), message=String(data.message||'').trim(), requestedAgentId=String(data.agentId||'team');
+      const chatMode=String(data.mode||'work')==='casual'?'casual':'work';
+      const agentId=chatMode==='casual'?'team':requestedAgentId;
       if(!message||message.length>3000)return json({error:'Pesan wajib diisi dan maksimal 3.000 karakter.'},400);
       const agent=AI_ROOM_AGENTS[agentId];if(!agent)return json({error:'Agen tidak dikenal.'},400);
-      const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id).all();
+      const history=await env.CMS_DB.prepare('SELECT role,agent_id,content FROM cms_ai_room_messages WHERE admin_id=? AND chat_mode=? ORDER BY created_at DESC,rowid DESC LIMIT 11').bind(admin.id,chatMode).all();
       const conversation=[...(history.results||[]).reverse(),{role:'user',agent_id:agentId,content:message}];
       let answer='',used='',model='',attempts=[],speakerId='team',resultTaskTier='chat',deterministicSuccess=true,waitingForDelegation=false;
       const jobId=uid();
@@ -1598,7 +1602,7 @@ export async function onRequest({ request, env }) {
       await env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,stage,progress,started_at,heartbeat_at) VALUES(?,?,?,?, 'processing',0,CURRENT_TIMESTAMP,'Memanggil provider AI gratis',20,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(jobId,admin.id,agentId,message).run();
       await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,agentId,'started','Memanggil provider AI gratis','processing','Permintaan Direktur diterima; satu pemanggilan model dimulai.').run();
       try{
-        const affiliateImportUrl=extractAiRoomAffiliateImportUrl(message);
+        const affiliateImportUrl=chatMode==='work'?extractAiRoomAffiliateImportUrl(message):'';
         if(affiliateImportUrl){
           try{
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Memverifikasi dan menyimpan produk affiliate',progress=45,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
@@ -1616,8 +1620,8 @@ export async function onRequest({ request, env }) {
         } else {
         // A direct publish instruction from the authenticated Director is the approval.
         // Execute deterministically against D1 instead of asking the language model to mutate CMS state.
-        const moveResult=await moveAiRoomContentType(env,admin,message);
-        const publishResult=moveResult&&!moveResult.moved?null:moveResult&&moveResult.item?.status==='published'?null:await publishAiRoomDraft(env,admin,message);
+        const moveResult=chatMode==='work'?await moveAiRoomContentType(env,admin,message):null;
+        const publishResult=chatMode==='work'?(moveResult&&!moveResult.moved?null:moveResult&&moveResult.item?.status==='published'?null:await publishAiRoomDraft(env,admin,message)):null;
         if(moveResult||publishResult) {
           const outcomes=[];
           if(moveResult) outcomes.push(moveResult.message);
@@ -1628,9 +1632,9 @@ export async function onRequest({ request, env }) {
           if(deterministicSuccess) await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)")
             .bind(uid(),admin.id,jobId,'editor','milestone','Memverifikasi perubahan CMS','completed',answer.slice(0,500)).run();
         } else {
-          const memory=await getCentralAiMemory(env);
-          const cmsContext=await getAiRoomCmsContext(env, message);
-          const result=await callAiRoomProvider(env,conversation,agentId,memory,message,cmsContext);
+          const memory=chatMode==='casual'?[]:await getCentralAiMemory(env);
+          const cmsContext=chatMode==='casual'?{}:await getAiRoomCmsContext(env, message);
+          const result=await callAiRoomProvider(env,conversation,agentId,memory,message,cmsContext,chatMode);
           answer=result.answer;model=result.model;used=result.provider;attempts=result.attempts||[];speakerId=result.speakerId;resultTaskTier=result.task?.tier||'chat';
           executingAgentId=AI_ROOM_AGENTS[speakerId]?speakerId:(AI_ROOM_AGENTS[agentId]?agentId:'team');
           if(executingAgentId!==agentId){
@@ -1640,14 +1644,14 @@ export async function onRequest({ request, env }) {
             ]);
           }
           let delegationResult=null;
-          if(agentId==='team'&&isAiRoomContentCreationRequest(message)){
+          if(chatMode!=='casual'&&agentId==='team'&&isAiRoomContentCreationRequest(message)){
             delegationResult=await enqueueAiRoomDelegations(env,admin.id,jobId,result.action?.tasks||[],message);
             waitingForDelegation=delegationResult.created.length>0;
             if(!waitingForDelegation){
               deterministicSuccess=false;
               answer+='\n\n[PERLU TINDAKAN] Tidak ada job spesialis yang berhasil dikonfirmasi di antrean. Master Director tidak akan menandai tugas selesai.';
             }
-          } else if(result.action?.type==='delegate_tasks'&&agentId==='team'&&!message.startsWith('[TARGET HARIAN ')){
+          } else if(chatMode!=='casual'&&result.action?.type==='delegate_tasks'&&agentId==='team'&&!message.startsWith('[TARGET HARIAN ')){
             delegationResult=await enqueueAiRoomDelegations(env,admin.id,jobId,result.action.tasks,message);
             if(delegationResult.created.length){
               const names=delegationResult.created.map(item=>item.name).join(', ');
@@ -1660,14 +1664,14 @@ export async function onRequest({ request, env }) {
           if(waitingForDelegation&&delegationResult?.created?.length){
             answer+='\n\nPekerjaan telah benar-benar dimasukkan ke antrean cloud: '+delegationResult.created.map(item=>item.name).join(', ')+'. Status job induk: MENUNGGU HASIL SPESIALIS; belum selesai sampai draft dan QA diverifikasi.';
           }
-          if(result.action?.type==='create_content'&&!(agentId==='team'&&isAiRoomContentCreationRequest(message))) {
+          if(chatMode!=='casual'&&result.action?.type==='create_content'&&!(agentId==='team'&&isAiRoomContentCreationRequest(message))) {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
             const actionResult=await createAiRoomDraft(env,admin,result.action.content,message);
             if(actionResult.type_mismatch) deterministicSuccess=false;
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
-          if(isAiRoomContentCreationRequest(message)&&result.action?.type!=='create_content'&&!(delegationResult?.created?.length)) {
+          if(chatMode!=='casual'&&isAiRoomContentCreationRequest(message)&&result.action?.type!=='create_content'&&!(delegationResult?.created?.length)) {
             deterministicSuccess=false;
             answer+='\n\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft yang dapat disimpan ke CMS. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
           }
@@ -1692,8 +1696,8 @@ export async function onRequest({ request, env }) {
       const parentStatus=waitingForDelegation?'waiting':deterministicSuccess?'completed':'failed';
       const parentStage=waitingForDelegation?'Menunggu hasil spesialis':deterministicSuccess?'Selesai':'Perlu tindakan Direktur';
       await env.CMS_DB.batch([
-        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider) VALUES(?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,''),
-        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used,model,resultTaskTier),
+        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,chat_mode) VALUES(?,?,?,?,?,?,?)').bind(userId,admin.id,'user',agentId,message,'',chatMode),
+        env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier,chat_mode) VALUES(?,?,?,?,?,?,?,?,?)').bind(assistantId,admin.id,'assistant',speakerId||agentId,answer,used,model,resultTaskTier,chatMode),
         env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,finished_at=?,heartbeat_at=CURRENT_TIMESTAMP,last_error=?,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(parentStatus,parentStage,waitingForDelegation?35:deterministicSuccess?100:0,waitingForDelegation?null:new Date().toISOString(),deterministicSuccess||waitingForDelegation?'':answer.slice(0,500),answer.slice(0,2500),jobId)
       ]);
       await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,waitingForDelegation?'delegated':deterministicSuccess?'completed':'blocked',parentStage,parentStatus,answer.slice(0,500)).run();
