@@ -688,8 +688,26 @@ function isAiRoomNegativeAction(message, action) {
   return (action==='publish'?publish:action==='move'?move:create).test(text);
 }
 
+function explicitAiRoomContentType(message) {
+  const text=String(message||'').toLocaleLowerCase('id-ID');
+  // Explicit workspace destinations take precedence over words in the subject/topic.
+  const destinations=[
+    {type:'article',pattern:/\\b(?:ke|di|dalam|untuk|pada)\\s+(?:workspace|menu|halaman|kategori|bagian|ruang)\\s+(?:artikel|article)\\b/i},
+    {type:'news',pattern:/\\b(?:ke|di|dalam|untuk|pada)\\s+(?:workspace|menu|halaman|kategori|bagian|ruang)\\s+(?:berita|news)\\b/i},
+    {type:'article',pattern:/\\b(?:simpan|masukkan|buat|tulis|susun)\\s+(?:sebagai|di|ke)\\s+(?:sebuah\\s+)?(?:artikel|article)\\b/i},
+    {type:'news',pattern:/\\b(?:simpan|masukkan|buat|tulis|susun)\\s+(?:sebagai|di|ke)\\s+(?:sebuah\\s+)?(?:berita|news)\\b/i}
+  ];
+  for(const item of destinations)if(item.pattern.test(text))return item.type;
+  // Classify by the editorial noun immediately following the creation verb.
+  const creation=/(?:^|\\b)(buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\\s+(?:(?:sebuah|satu|konten|draft|naskah|materi)\\s+){0,2}(artikel|article|berita|news)\\b/i.exec(text);
+  if(creation)return /^(?:artikel|article)$/i.test(creation[2])?'article':'news';
+  // The head noun defines the format: an article about news is still an article.
+  const noun=/(?:^|\\b)(artikel|article|berita|news)\\s+(?:tentang|mengenai|soal|terkait|perihal)\\b/i.exec(text);
+  if(noun)return /^(?:artikel|article)$/i.test(noun[1])?'article':'news';
+  return null;
+}
 function isAiRoomContentCreationRequest(message) {
-  return !isAiRoomNegativeAction(message,'create') && /\b(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\b[\s\S]{0,140}\b(?:artikel|article|berita|news)\b/i.test(String(message||''));
+  return !isAiRoomNegativeAction(message,'create') && /\\b(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\\b[\\s\\S]{0,140}\\b(?:artikel|article|berita|news)\\b/i.test(String(message||''));
 }
 
 async function reconcileAiRoomWaitingParents(env) {
@@ -716,9 +734,9 @@ async function reconcileAiRoomWaitingParents(env) {
       const editorSummary=parseAiRoomJobSummary(editor?.result_data);
       const qaPass=editorSummary.qa_status==='PASS'||/^\s*(?:PASS|LULUS)\b/i.test(String(editorSummary.summary||editor?.result_summary||''));
       const requiresImage=/(?:foto|gambar|image|visual)/i.test(parent.message);
-      success=!!researcher&&researcher.status==='completed'&&readSources.length>0&&sourceIncluded&&!!writer&&writer.status==='completed'&&!!editor&&editor.status==='completed'&&!!draft&&draft.status==='draft'&&draft.type===expectedType&&String(draft.seo_description||'').trim().length>=70&&qaPass&&(!requiresImage||!!draft.image_url);
+      success=!!researcher&&researcher.status==='completed'&&readSources.length>0&&sourceIncluded&&!!writer&&writer.status==='completed'&&!!editor&&editor.status==='completed'&&!!draft&&draft.status==='draft'&&['article','news'].includes(expectedType)&&draft.type===expectedType&&String(draft.seo_description||'').trim().length>=70&&qaPass&&(!requiresImage||!!draft.image_url);
       reason=success?'Draft '+draft.id+' terverifikasi di CMS sebagai '+expectedType+' berstatus draft'+(draft.image_url?' dengan foto terpasang':'')+', memiliki sumber riset yang dibaca, dan QA PASS.':
-        'Belum memenuhi syarat produksi: '+(!researcher?'researcher tidak ditugaskan; ':researcher.status!=='completed'?'researcher belum selesai; ':!readSources.length?'tidak ada sumber riset yang berhasil dibaca; ':!sourceIncluded?'URL sumber riset tidak tercantum dalam naskah draft; ':!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':String(draft.seo_description||'').trim().length<70?'meta description SEO belum lengkap; ':requiresImage&&!draft.image_url?'foto yang diminta belum terpasang; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
+        'Belum memenuhi syarat produksi: '+(!researcher?'researcher tidak ditugaskan; ':researcher.status!=='completed'?'researcher belum selesai; ':!readSources.length?'tidak ada sumber riset yang berhasil dibaca; ':!sourceIncluded?'URL sumber riset tidak tercantum dalam naskah draft; ':!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':!['article','news'].includes(expectedType)?'writer tidak menyatakan jenis editorial article/news; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':String(draft.seo_description||'').trim().length<70?'meta description SEO belum lengkap; ':requiresImage&&!draft.image_url?'foto yang diminta belum terpasang; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
     }
     await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,last_error=?,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='waiting'").bind(success?'completed':'failed',success?'Delegasi selesai dan terverifikasi':'Delegasi selesai tetapi hasil tidak lolos verifikasi',success?100:0,success?'':reason,reason.slice(0,2500),parent.id).run();
     await env.CMS_DB.prepare('INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)').bind(uid(),parent.admin_id,parent.id,'team',success?'completed':'blocked',success?'Hasil delegasi terverifikasi':'Hasil delegasi gagal verifikasi',success?'completed':'failed',reason.slice(0,900)).run();
@@ -802,7 +820,7 @@ async function publishAiRoomDraft(env, admin, message) {
   if(!/(terbitkan|publikasikan|publish|tayangkan|naikkan\s+(?:ke\s+)?tayang)/i.test(command)) return null;
   if(!/(draft|berita|artikel|konten|\bjudul\b)/i.test(command)) return null;
   const lower=command.toLocaleLowerCase('id-ID');
-  const requestedType=lower.includes('ke artikel')||lower.includes('jadi artikel')?'article':lower.includes('ke berita')||lower.includes('jadi berita')?'news':/berita|news/i.test(lower)?'news':/artikel|article/i.test(lower)?'article':'';
+  const requestedType=explicitAiRoomContentType(command)||'';
   const rows=await env.CMS_DB.prepare("SELECT id,type,title,slug,body,status FROM cms_content WHERE status='draft' AND type IN ('news','article') AND (?='' OR type=?) ORDER BY updated_at DESC LIMIT 100").bind(requestedType,requestedType).all();
   const drafts=rows.results||[];
   if(!drafts.length) return {published:false,message:'Tidak ditemukan draft berita atau artikel yang cocok. Tidak ada konten yang diubah.'};
@@ -900,7 +918,8 @@ function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}) {
 
     'DAFTAR KARYAWAN: '+JSON.stringify(roster),
     'FOKUS AGEN YANG DIPANGGIL: '+(AI_ROOM_AGENTS[requestedAgentId] ? JSON.stringify({id:requestedAgentId,name:AI_ROOM_AGENTS[requestedAgentId].name,role:AI_ROOM_AGENTS[requestedAgentId].role,mandate:AI_ROOM_AGENTS[requestedAgentId].prompt}) : 'Master Director mengoordinasikan seluruh divisi.'),
-    requestedAgentId==='writer' ? 'KONTRAK PENULIS: jika tugas meminta membuat artikel/berita, WAJIB hasilkan action create_content dengan content JSON berisi type (article atau news), title, body lengkap minimal 500 kata jika riset memadai (jangan mengarang bila sumber terbatas), excerpt, category, tags, image_url hanya jika URL aset nyata tersedia. Jangan hanya memberi laporan proses, outline, atau status. Sertakan [S1] dst pada klaim dan daftar URL sumber di bagian akhir body. Jika sumber/fakta kurang, tetap jelaskan keterbatasan secara transparan dan jangan membuat fakta.' : '',
+    'KONTRAK PEMISAHAN EDITORIAL: Artikel dan Berita adalah dua workspace berbeda. BERITA (type=news) hanya untuk laporan peristiwa/perkembangan aktual yang terikat waktu, dengan tanggal kejadian atau pembaruan, pihak terkait, fakta kejadian, sumber tepercaya, kronologi dan unsur 5W1H. ARTIKEL (type=article) untuk tulisan evergreen atau mendalam: panduan, tutorial, penjelasan, edukasi, opini berargumen, analisis, ulasan, dan wawasan yang tetap relevan lintas waktu. Contoh: “buat artikel tentang berita AI” tetap artikel bila berupa analisis/panduan; “buat berita tentang peluncuran AI hari ini” adalah berita. Jika Direktur menyebut tujuan workspace secara eksplisit, tujuan itu mengalahkan klasifikasi topik. Jika tidak, writer wajib memilih type berdasarkan bentuk dan tujuan tulisan. Jangan mengubah jenis hanya karena satu kata muncul di judul/topik.',
+    requestedAgentId==='writer' ? 'KONTRAK PENULIS: jika tugas meminta membuat artikel/berita, WAJIB hasilkan action create_content dengan content JSON berisi type yang tepat (article atau news sesuai KONTRAK PEMISAHAN EDITORIAL), title, body lengkap minimal 500 kata jika riset memadai (jangan mengarang bila sumber terbatas), excerpt, category, tags, image_url hanya jika URL aset nyata tersedia. Jangan hanya memberi laporan proses, outline, atau status. Sertakan [S1] dst pada klaim faktual dan daftar URL sumber di bagian akhir body. Berita harus mencantumkan tanggal kejadian/pembaruan dan sumber; artikel harus memiliki nilai penjelasan/analisis yang tidak bergantung pada kabar terbaru kecuali diminta sebagai analisis. Jika sumber/fakta kurang, nyatakan keterbatasan dan jangan mengarang.' : '',
     requestedAgentId==='editor' ? 'KONTRAK QA: periksa hasil writer yang diberikan pada HASIL DEPENDENSI dan data CMS aktual. Berikan keputusan literal PASS atau FAIL di awal jawaban. PASS wajib didukung pemeriksaan draft ID, isi, sumber, kategori, dan aset; jika tidak dapat mengakses atau memverifikasi salah satu hal penting, putuskan FAIL dan jelaskan blocker. Jangan menyatakan selesai hanya karena job writer selesai.' : '',
     'ROUTING TUGAS: '+JSON.stringify(task)+'. Pilih kedalaman penalaran sesuai tier. Untuk tier work, susun langkah, cek asumsi, berikan hasil terstruktur dan tandai blocker. Untuk tier chat, jawab cepat dan natural tanpa analisis berlebihan.',
     locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara.' : 'DIREKTUR BERBICARA KEPADA GRUP: Master Director (Tim VANNDIK, speaker_id team) WAJIB menjadi pembicara dan selalu memberi jawaban utama. Tetapkan spesialis yang relevan sebagai penanggung jawab di dalam jawaban, tetapi jangan berpura-pura spesialis sudah menjalankan pekerjaan. Spesialis hanya berbicara langsung bila Direktur memanggilnya.',
