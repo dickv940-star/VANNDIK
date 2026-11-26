@@ -692,22 +692,22 @@ function explicitAiRoomContentType(message) {
   const text=String(message||'').toLocaleLowerCase('id-ID');
   // Explicit workspace destinations take precedence over words in the subject/topic.
   const destinations=[
-    {type:'article',pattern:/\\b(?:ke|di|dalam|untuk|pada)\\s+(?:workspace|menu|halaman|kategori|bagian|ruang)\\s+(?:artikel|article)\\b/i},
-    {type:'news',pattern:/\\b(?:ke|di|dalam|untuk|pada)\\s+(?:workspace|menu|halaman|kategori|bagian|ruang)\\s+(?:berita|news)\\b/i},
-    {type:'article',pattern:/\\b(?:simpan|masukkan|buat|tulis|susun)\\s+(?:sebagai|di|ke)\\s+(?:sebuah\\s+)?(?:artikel|article)\\b/i},
-    {type:'news',pattern:/\\b(?:simpan|masukkan|buat|tulis|susun)\\s+(?:sebagai|di|ke)\\s+(?:sebuah\\s+)?(?:berita|news)\\b/i}
+    {type:'article',pattern:/\b(?:ke|di|dalam|untuk|pada)\s+(?:workspace|menu|halaman|kategori|bagian|ruang)\s+(?:artikel|article)\b/i},
+    {type:'news',pattern:/\b(?:ke|di|dalam|untuk|pada)\s+(?:workspace|menu|halaman|kategori|bagian|ruang)\s+(?:berita|news)\b/i},
+    {type:'article',pattern:/\b(?:simpan|masukkan|buat|tulis|susun)\s+(?:sebagai|di|ke)\s+(?:sebuah\s+)?(?:artikel|article)\b/i},
+    {type:'news',pattern:/\b(?:simpan|masukkan|buat|tulis|susun)\s+(?:sebagai|di|ke)\s+(?:sebuah\s+)?(?:berita|news)\b/i}
   ];
   for(const item of destinations)if(item.pattern.test(text))return item.type;
   // Classify by the editorial noun immediately following the creation verb.
-  const creation=/(?:^|\\b)(buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\\s+(?:(?:sebuah|satu|konten|draft|naskah|materi)\\s+){0,2}(artikel|article|berita|news)\\b/i.exec(text);
+  const creation=/(?:^|\b)(buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\s+(?:(?:sebuah|satu|konten|draft|naskah|materi)\s+){0,2}(artikel|article|berita|news)\b/i.exec(text);
   if(creation)return /^(?:artikel|article)$/i.test(creation[2])?'article':'news';
   // The head noun defines the format: an article about news is still an article.
-  const noun=/(?:^|\\b)(artikel|article|berita|news)\\s+(?:tentang|mengenai|soal|terkait|perihal)\\b/i.exec(text);
+  const noun=/(?:^|\b)(artikel|article|berita|news)\s+(?:tentang|mengenai|soal|terkait|perihal)\b/i.exec(text);
   if(noun)return /^(?:artikel|article)$/i.test(noun[1])?'article':'news';
   return null;
 }
 function isAiRoomContentCreationRequest(message) {
-  return !isAiRoomNegativeAction(message,'create') && /\\b(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\\b[\\s\\S]{0,140}\\b(?:artikel|article|berita|news)\\b/i.test(String(message||''));
+  return !isAiRoomNegativeAction(message,'create') && /\b(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\b[\s\S]{0,140}\b(?:artikel|article|berita|news)\b/i.test(String(message||''));
 }
 
 async function reconcileAiRoomWaitingParents(env) {
@@ -730,13 +730,15 @@ async function reconcileAiRoomWaitingParents(env) {
       const researcherSummary=parseAiRoomJobSummary(researcher?.result_data);
       const readSources=(researcherSummary.research?.sources||[]).filter(source=>source.read&&/^https:\/\//i.test(String(source.url||'')));
       const sourceIncluded=!!draft&&readSources.some(source=>String(draft.body||'').includes(source.url));
-      const expectedType=/\b(?:berita|news)\b/i.test(parent.message)?'news':'article';
+      const explicitType=explicitAiRoomContentType(parent.message);
+      const writerType=String(writerSummary?.draft?.type||'').toLowerCase();
+      const expectedType=explicitType||writerType;
       const editorSummary=parseAiRoomJobSummary(editor?.result_data);
       const qaPass=editorSummary.qa_status==='PASS'||/^\s*(?:PASS|LULUS)\b/i.test(String(editorSummary.summary||editor?.result_summary||''));
       const requiresImage=/(?:foto|gambar|image|visual)/i.test(parent.message);
       success=!!researcher&&researcher.status==='completed'&&readSources.length>0&&sourceIncluded&&!!writer&&writer.status==='completed'&&!!editor&&editor.status==='completed'&&!!draft&&draft.status==='draft'&&['article','news'].includes(expectedType)&&draft.type===expectedType&&String(draft.seo_description||'').trim().length>=70&&qaPass&&(!requiresImage||!!draft.image_url);
       reason=success?'Draft '+draft.id+' terverifikasi di CMS sebagai '+expectedType+' berstatus draft'+(draft.image_url?' dengan foto terpasang':'')+', memiliki sumber riset yang dibaca, dan QA PASS.':
-        'Belum memenuhi syarat produksi: '+(!researcher?'researcher tidak ditugaskan; ':researcher.status!=='completed'?'researcher belum selesai; ':!readSources.length?'tidak ada sumber riset yang berhasil dibaca; ':!sourceIncluded?'URL sumber riset tidak tercantum dalam naskah draft; ':!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':!['article','news'].includes(expectedType)?'writer tidak menyatakan jenis editorial article/news; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':String(draft.seo_description||'').trim().length<70?'meta description SEO belum lengkap; ':requiresImage&&!draft.image_url?'foto yang diminta belum terpasang; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
+        'Belum memenuhi syarat produksi: '+(!researcher?'researcher tidak ditugaskan; ':researcher.status!=='completed'?'researcher belum selesai; ':!readSources.length?'tidak ada sumber riset yang berhasil dibaca; ':!sourceIncluded?'URL sumber riset tidak tercantum dalam naskah draft; ':!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':!['article','news'].includes(expectedType)?'writer tidak menyatakan jenis editorial article/news; ':!['article','news'].includes(expectedType)?'writer tidak menyatakan jenis editorial article/news; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':String(draft.seo_description||'').trim().length<70?'meta description SEO belum lengkap; ':requiresImage&&!draft.image_url?'foto yang diminta belum terpasang; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
     }
     await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,last_error=?,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='waiting'").bind(success?'completed':'failed',success?'Delegasi selesai dan terverifikasi':'Delegasi selesai tetapi hasil tidak lolos verifikasi',success?100:0,success?'':reason,reason.slice(0,2500),parent.id).run();
     await env.CMS_DB.prepare('INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)').bind(uid(),parent.admin_id,parent.id,'team',success?'completed':'blocked',success?'Hasil delegasi terverifikasi':'Hasil delegasi gagal verifikasi',success?'completed':'failed',reason.slice(0,900)).run();
