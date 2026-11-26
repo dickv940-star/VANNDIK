@@ -699,7 +699,7 @@ function explicitAiRoomContentType(message) {
   ];
   for(const item of destinations)if(item.pattern.test(text))return item.type;
   // Classify by the editorial noun immediately following the creation verb.
-  const creation=/(?:^|\b)(buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\s+(?:(?:sebuah|satu|konten|draft|naskah|materi)\s+){0,2}(artikel|article|berita|news)\b/i.exec(text);
+  const creation=/(?:^|\b)(buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create|terbitkan|publikasikan|publish|tayangkan)\s+(?:(?:sebuah|satu|konten|draft|naskah|materi)\s+){0,2}(artikel|article|berita|news)\b/i.exec(text);
   if(creation)return /^(?:artikel|article)$/i.test(creation[2])?'article':'news';
   // The head noun defines the format: an article about news is still an article.
   const noun=/(?:^|\b)(artikel|article|berita|news)\s+(?:tentang|mengenai|soal|terkait|perihal)\b/i.exec(text);
@@ -738,7 +738,7 @@ async function reconcileAiRoomWaitingParents(env) {
       const requiresImage=/(?:foto|gambar|image|visual)/i.test(parent.message);
       success=!!researcher&&researcher.status==='completed'&&readSources.length>0&&sourceIncluded&&!!writer&&writer.status==='completed'&&!!editor&&editor.status==='completed'&&!!draft&&draft.status==='draft'&&['article','news'].includes(expectedType)&&draft.type===expectedType&&String(draft.seo_description||'').trim().length>=70&&qaPass&&(!requiresImage||!!draft.image_url);
       reason=success?'Draft '+draft.id+' terverifikasi di CMS sebagai '+expectedType+' berstatus draft'+(draft.image_url?' dengan foto terpasang':'')+', memiliki sumber riset yang dibaca, dan QA PASS.':
-        'Belum memenuhi syarat produksi: '+(!researcher?'researcher tidak ditugaskan; ':researcher.status!=='completed'?'researcher belum selesai; ':!readSources.length?'tidak ada sumber riset yang berhasil dibaca; ':!sourceIncluded?'URL sumber riset tidak tercantum dalam naskah draft; ':!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':!['article','news'].includes(expectedType)?'writer tidak menyatakan jenis editorial article/news; ':!['article','news'].includes(expectedType)?'writer tidak menyatakan jenis editorial article/news; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':String(draft.seo_description||'').trim().length<70?'meta description SEO belum lengkap; ':requiresImage&&!draft.image_url?'foto yang diminta belum terpasang; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
+        'Belum memenuhi syarat produksi: '+(!researcher?'researcher tidak ditugaskan; ':researcher.status!=='completed'?'researcher belum selesai; ':!readSources.length?'tidak ada sumber riset yang berhasil dibaca; ':!sourceIncluded?'URL sumber riset tidak tercantum dalam naskah draft; ':!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':!['article','news'].includes(expectedType)?'writer tidak menyatakan jenis editorial article/news; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':String(draft.seo_description||'').trim().length<70?'meta description SEO belum lengkap; ':requiresImage&&!draft.image_url?'foto yang diminta belum terpasang; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
     }
     await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,last_error=?,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='waiting'").bind(success?'completed':'failed',success?'Delegasi selesai dan terverifikasi':'Delegasi selesai tetapi hasil tidak lolos verifikasi',success?100:0,success?'':reason,reason.slice(0,2500),parent.id).run();
     await env.CMS_DB.prepare('INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)').bind(uid(),parent.admin_id,parent.id,'team',success?'completed':'blocked',success?'Hasil delegasi terverifikasi':'Hasil delegasi gagal verifikasi',success?'completed':'failed',reason.slice(0,900)).run();
@@ -751,10 +751,11 @@ async function createAiRoomDraft(env, admin, requested, directorMessage='') {
   if(!requested||typeof requested!=='object') throw new Error('Payload draft tidak valid.');
   const command=String(directorMessage||'').toLocaleLowerCase('id-ID');
   if(isAiRoomNegativeAction(directorMessage,'create')) throw new Error('Direktur meminta agar draft tidak dibuat. Tidak ada konten yang disimpan.');
-  const explicitArticle=/(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|jadikan|masukkan|pindahkan|terbitkan|publish)[\s\S]{0,100}\b(?:artikel|article)\b/i.test(command);
-  const explicitNews=/(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|jadikan|masukkan|pindahkan|terbitkan|publish)[\s\S]{0,100}\b(?:berita|news)\b/i.test(command);
-  const type=explicitArticle&&!explicitNews?'article':explicitNews&&!explicitArticle?'news':String(requested.type||'').toLowerCase();
-  if(!['article','news','game','app'].includes(type)) throw new Error('Agen hanya boleh membuat draft artikel, berita, game, atau aplikasi. Produk affiliate memakai alur verifikasi produk tersendiri.');
+  const explicitType=explicitAiRoomContentType(directorMessage);
+  const modelType=String(requested.type||requested.content_type||'').toLowerCase();
+  // An explicit Director destination is authoritative; otherwise trust only a valid writer classification.
+  const type=explicitType||modelType;
+  if(!['article','news','game','app'].includes(type)) throw new Error('Jenis konten belum dapat dipastikan. Writer wajib memilih article atau news berdasarkan sifat kontennya; tidak ada draft yang disimpan.');
   const item=clean({...requested,type,status:'draft',published_at:null});
   if(!item.title||item.title.length<8||!item.body||item.body.length<300) throw new Error('Draft harus memiliki judul dan isi minimal 300 karakter.');
   // Editorial drafts (news/articles) do not require affiliate or image URLs.
