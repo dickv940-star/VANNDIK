@@ -614,11 +614,13 @@ async function findLicensedEditorialImage(query) {
     const licenseUrl=String(meta.LicenseUrl?.value||'').trim();
     const imageUrl=String(info.thumburl||info.url||'').trim();
     const sourceUrl=String(info.descriptionurl||'').trim();
+    const mime=String(info.mime||'');
     const licenseOk=/\b(CC0|CC BY(?:-SA)?(?:\s|$)|Public domain|PD-|CC BY 2\.0|CC BY-SA 3\.0|CC BY-SA 4\.0)\b/i.test(license);
     let imageHost='',sourceHost='';
     try{imageHost=new URL(imageUrl).hostname;sourceHost=new URL(sourceUrl).hostname;}catch{}
-    if(!licenseOk||!imageUrl.startsWith('https://')||imageHost!=='upload.wikimedia.org'||sourceHost!=='commons.wikimedia.org')return null;
-    return {title:String(page.title||'').replace(/^File:/,''),image_url:imageUrl,source_url:sourceUrl,license,license_url:licenseUrl,artist:String(meta.Artist?.value||'').replace(/<[^>]*>/g,' ').slice(0,300),attribution:String(meta.Attribution?.value||'').replace(/<[^>]*>/g,' ').slice(0,500)};
+    const title=String(page.title||'').replace(/^File:/,'');
+    if(!licenseOk||!/^image\/(?:jpeg|png|webp)$/i.test(mime)||/(?:logo|emblem|badge|crest|icon|flag)/i.test(title)||!imageUrl.startsWith('https://')||imageHost!=='upload.wikimedia.org'||sourceHost!=='commons.wikimedia.org')return null;
+    return {title,mime,image_url:imageUrl,source_url:sourceUrl,license,license_url:licenseUrl,artist:String(meta.Artist?.value||'').replace(/<[^>]*>/g,' ').slice(0,300),attribution:String(meta.Attribution?.value||'').replace(/<[^>]*>/g,' ').slice(0,500)};
   }).filter(Boolean);
   if(!accepted.length)return null;
   return accepted.find(item=>/persib|bandung/i.test(item.title))||null;
@@ -701,7 +703,7 @@ async function reconcileAiRoomWaitingParents(env) {
       const writerSummary=parseAiRoomJobSummary(writer?.result_data);
       const idMatch=String(writerSummary?.draft?.id||writer?.result_summary||'').match(/\bID:\s*([a-f0-9-]{20,})\b/i);
       const draftId=writerSummary?.draft?.id||idMatch?.[1]||'';
-      const draft=draftId?await env.CMS_DB.prepare('SELECT id,type,title,status,image_url,body FROM cms_content WHERE id=?').bind(draftId).first():null;
+      const draft=draftId?await env.CMS_DB.prepare('SELECT c.id,c.type,c.title,c.status,c.image_url,c.body,s.seo_description FROM cms_content c LEFT JOIN cms_content_seo s ON s.content_id=c.id WHERE c.id=?').bind(draftId).first():null;
       const researcher=jobs.find(item=>item.agent_id==='researcher');
       const researcherSummary=parseAiRoomJobSummary(researcher?.result_data);
       const readSources=(researcherSummary.research?.sources||[]).filter(source=>source.read&&/^https:\/\//i.test(String(source.url||'')));
@@ -710,9 +712,9 @@ async function reconcileAiRoomWaitingParents(env) {
       const editorSummary=parseAiRoomJobSummary(editor?.result_data);
       const qaPass=editorSummary.qa_status==='PASS'||/^\s*(?:PASS|LULUS)\b/i.test(String(editorSummary.summary||editor?.result_summary||''));
       const requiresImage=/(?:foto|gambar|image|visual)/i.test(parent.message);
-      success=!!researcher&&researcher.status==='completed'&&readSources.length>0&&sourceIncluded&&!!writer&&writer.status==='completed'&&!!editor&&editor.status==='completed'&&!!draft&&draft.status==='draft'&&draft.type===expectedType&&qaPass&&(!requiresImage||!!draft.image_url);
+      success=!!researcher&&researcher.status==='completed'&&readSources.length>0&&sourceIncluded&&!!writer&&writer.status==='completed'&&!!editor&&editor.status==='completed'&&!!draft&&draft.status==='draft'&&draft.type===expectedType&&String(draft.seo_description||'').trim().length>=70&&qaPass&&(!requiresImage||!!draft.image_url);
       reason=success?'Draft '+draft.id+' terverifikasi di CMS sebagai '+expectedType+' berstatus draft'+(draft.image_url?' dengan foto terpasang':'')+', memiliki sumber riset yang dibaca, dan QA PASS.':
-        'Belum memenuhi syarat produksi: '+(!researcher?'researcher tidak ditugaskan; ':researcher.status!=='completed'?'researcher belum selesai; ':!readSources.length?'tidak ada sumber riset yang berhasil dibaca; ':!sourceIncluded?'URL sumber riset tidak tercantum dalam naskah draft; ':!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':requiresImage&&!draft.image_url?'foto yang diminta belum terpasang; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
+        'Belum memenuhi syarat produksi: '+(!researcher?'researcher tidak ditugaskan; ':researcher.status!=='completed'?'researcher belum selesai; ':!readSources.length?'tidak ada sumber riset yang berhasil dibaca; ':!sourceIncluded?'URL sumber riset tidak tercantum dalam naskah draft; ':!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':String(draft.seo_description||'').trim().length<70?'meta description SEO belum lengkap; ':requiresImage&&!draft.image_url?'foto yang diminta belum terpasang; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
     }
     await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,last_error=?,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='waiting'").bind(success?'completed':'failed',success?'Delegasi selesai dan terverifikasi':'Delegasi selesai tetapi hasil tidak lolos verifikasi',success?100:0,success?'':reason,reason.slice(0,2500),parent.id).run();
     await env.CMS_DB.prepare('INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)').bind(uid(),parent.admin_id,parent.id,'team',success?'completed':'blocked',success?'Hasil delegasi terverifikasi':'Hasil delegasi gagal verifikasi',success?'completed':'failed',reason.slice(0,900)).run();
