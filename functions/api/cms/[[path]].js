@@ -592,11 +592,10 @@ async function searchPublicWeb(query) {
         matches.push({id:'S'+(matches.length+1),title,url:parsed.href,snippet:excerpt,read:false});
       }catch{}
     }
-    const sources=[];
-    for(const item of matches.slice(0,3)){
+    const sources=await Promise.all(matches.slice(0,3).map(async item=>{
       const page=await readResearchPage(item.url);
-      sources.push({...item,read:!!page.read,page_title:page.title||'',page_excerpt:page.excerpt||'',read_status:page.read?'page_read':page.reason||'not_read'});
-    }
+      return {...item,read:!!page.read,page_title:page.title||'',page_excerpt:page.excerpt||'',read_status:page.read?'page_read':page.reason||'not_read'};
+    }));
     return {query:q,provider:'DuckDuckGo HTML + allowlisted public pages',sources,search_result_count:matches.length,error:sources.length?'': 'no_allowlisted_sources_or_search_blocked'};
   }catch(error){return {query:q,provider:'DuckDuckGo HTML',sources:[],error:String(error?.message||'search_failed').slice(0,200)};}
 }
@@ -620,7 +619,7 @@ async function findLicensedEditorialImage(query) {
     let imageHost='',sourceHost='';
     try{imageHost=new URL(imageUrl).hostname;sourceHost=new URL(sourceUrl).hostname;}catch{}
     const title=String(page.title||'').replace(/^File:/,'');
-    if(!licenseOk||!/^image\/(?:jpeg|png|webp)$/i.test(mime)||/(?:logo|emblem|badge|crest|icon|flag)/i.test(title)||!imageUrl.startsWith('https://')||imageHost!=='upload.wikimedia.org'||sourceHost!=='commons.wikimedia.org')return null;
+    if(!licenseOk||!licenseUrl.startsWith('https://')||!/^image\/(?:jpeg|png|webp)$/i.test(mime)||/(?:logo|emblem|badge|crest|icon|flag)/i.test(title)||!imageUrl.startsWith('https://')||imageHost!=='upload.wikimedia.org'||sourceHost!=='commons.wikimedia.org')return null;
     return {title,mime,image_url:imageUrl,source_url:sourceUrl,license,license_url:licenseUrl,artist:String(meta.Artist?.value||'').replace(/<[^>]*>/g,' ').slice(0,300),attribution:String(meta.Attribution?.value||'').replace(/<[^>]*>/g,' ').slice(0,500)};
   }).filter(Boolean);
   if(!accepted.length)return null;
@@ -1248,7 +1247,7 @@ export async function onRequest({ request, env }) {
       const due=await env.CMS_DB.prepare("SELECT * FROM cms_ai_room_jobs WHERE status='queued' AND next_retry_at<=CURRENT_TIMESTAMP ORDER BY CASE WHEN id LIKE 'delegate-%' THEN 0 WHEN message LIKE '[TARGET HARIAN %' THEN 2 ELSE 1 END,next_retry_at,created_at LIMIT 30").all();
       const results=[];let processedJobs=0;
       for(const job of (due.results||[])){
-        if(processedJobs>=5)break;
+        if(processedJobs>=2)break;
         let dependencyIds=[];try{dependencyIds=JSON.parse(job.depends_on||'[]');if(!Array.isArray(dependencyIds))dependencyIds=[];}catch{dependencyIds=[];}
         const dependencyRows=[];
         for(const dependencyId of dependencyIds){const dependency=await env.CMS_DB.prepare('SELECT id,agent_id,status,result_summary,result_data,last_error FROM cms_ai_room_jobs WHERE id=? AND admin_id=?').bind(dependencyId,job.admin_id).first();if(dependency)dependencyRows.push(dependency);}
