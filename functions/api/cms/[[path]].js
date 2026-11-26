@@ -436,7 +436,7 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
   const page=await fetchMarketplaceHtml(inspectionUrl);
   let meta=page.html?readProductMetadata(page.html,page.finalUrl):{title:'',description:'',image:'',price:'',category:'',brand:'',hasProductSchema:false};
   let source='html-metadata',shopeeDiagnostics=[];
-  const pageDiagnostics=['page-host='+page.finalUrl.hostname,'page-status='+(page.status||200),'page-html-bytes='+String(page.html||'').length,page-blocked='+(page.blocked?'yes':'no')];
+  const pageDiagnostics=['page-host='+page.finalUrl.hostname,'page-status='+(page.status||200),'page-html-bytes='+String(page.html||'').length,'page-blocked='+(page.blocked?'yes':'no')];
   const isShopee=page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id');
   if(isShopee){
     const shopeeResult=await fetchShopeeProduct(page.finalUrl,page.html||'');
