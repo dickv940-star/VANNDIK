@@ -490,7 +490,7 @@ async function ensureAiRoomDailyTargets(env, adminId) {
 }
 
 async function enqueueAiRoomDelegations(env, adminId, parentJobId, tasks, parentMessage='') {
-  if(!Array.isArray(tasks)||!tasks.length) return {created:[],skipped:[]};
+  if((!Array.isArray(tasks)||!tasks.length)&&!isAiRoomContentCreationRequest(parentMessage)) return {created:[],skipped:[]};
   const aliases={qa:'editor',quality:'editor',quality_assurance:'editor',editorial:'writer',research:'researcher',researcher_agent:'researcher',media_manager:'media',seo_specialist:'seo'};
   const normalizeAgent=id=>aliases[String(id||'').trim().toLowerCase()]||String(id||'').trim().toLowerCase();
   const allowed=new Set(Object.keys(AI_ROOM_AGENTS).filter(id=>id!=='team'));
@@ -631,7 +631,8 @@ function parseAiRoomJobSummary(value) {
 }
 function aiRoomDependencySummary(item) {
   const parsed=parseAiRoomJobSummary(item.result_data);
-  const parts=['['+(AI_ROOM_AGENTS[item.agent_id]?.name||item.agent_id)+'] '+String(parsed.summary||item.result_summary||'').slice(0,3000)];
+  const summary=parsed.version===1?parsed.summary:(item.result_summary||parsed.summary||'');
+  const parts=['['+(AI_ROOM_AGENTS[item.agent_id]?.name||item.agent_id)+'] '+String(summary).slice(0,3000)];
   if(parsed.draft)parts.push('DRAFT CMS: '+JSON.stringify(parsed.draft));
   if(parsed.media_asset)parts.push('ASET MEDIA TERVERIFIKASI: '+JSON.stringify(parsed.media_asset));
   if(parsed.research?.sources)parts.push('SUMBER RISET TERBACA: '+JSON.stringify(parsed.research.sources.filter(source=>source.read).map(source=>({title:source.title,url:source.url,read:source.read}))));
@@ -1289,8 +1290,8 @@ export async function onRequest({ request, env }) {
             delegationResult=await enqueueAiRoomDelegations(env,job.admin_id,job.id,result.action?.tasks||[],job.message);
           } else if(result.action?.type==='delegate_tasks'&&job.agent_id==='team'&&!String(job.message||'').startsWith('[TARGET HARIAN ')){
             delegationResult=await enqueueAiRoomDelegations(env,job.admin_id,job.id,result.action.tasks,job.message);
-            if(delegationResult.created.length)answer+='\n\nPekerjaan sudah dibagi kepada '+delegationResult.created.length+' spesialis: '+delegationResult.created.map(item=>item.name).join(', ')+'. Tugas masuk antrean cloud.';
           }
+          if(delegationResult?.created?.length)answer+='\n\nPekerjaan sudah dibagi kepada '+delegationResult.created.length+' spesialis: '+delegationResult.created.map(item=>item.name).join(', ')+'. Tugas masuk antrean cloud.';
           if(result.action?.type==='create_content') {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
@@ -1307,7 +1308,7 @@ export async function onRequest({ request, env }) {
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
           const contentRequest=isAiRoomContentCreationRequest(job.message);
-          const delegationQueued=result.action?.type==='delegate_tasks'&&!!delegationResult?.created?.length;
+          const delegationQueued=!!delegationResult?.created?.length;
           const actionSucceeded=!delegationQueued&&(result.action?.type!=='delegate_tasks'||!!delegationResult?.created?.length)&&(!contentRequest||!!actionResult&&!actionResult.type_mismatch);
           if(result.action?.type==='delegate_tasks'&&!delegationQueued)answer+='\n\n[PERLU TINDAKAN] Tidak ada tugas spesialis yang berhasil dimasukkan ke antrean.';
           if(contentRequest&&!actionResult&&!delegationQueued) answer+='\n\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft atau penugasan spesialis yang dapat diproses. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
