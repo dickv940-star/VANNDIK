@@ -1182,7 +1182,7 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskM
   const attempts=[];
   const providers=[
     {id:'gemini',ready:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',run:()=>callGemini(env,system,input,modelForProvider(env,'gemini',task,requestedAgentId))},
-    {id:'cloudflare_ai',ready:!!env.AI&&typeof env.AI.run==='function',run:async()=>{
+    {id:'cloudflare_ai',ready:!!env.AI&&typeof env.AI.run==='function'&&String(env.CF_AI_FREE_ONLY||'').toLowerCase()==='true',run:async()=>{
       const model=modelForProvider(env,'cloudflare_ai',task,requestedAgentId);
       // Keep the final-answer channel enabled for both chat and work.
       // Gemma 4 can spend the entire completion budget on reasoning_content
@@ -1479,7 +1479,7 @@ export async function onRequest({ request, env }) {
       const memory=await getCentralAiMemory(env);
       const providers={
         gemini:!!env.GEMINI_API_KEY&&String(env.GEMINI_FREE_ONLY||'').toLowerCase()==='true',
-        cloudflare_ai:!!env.AI,
+        cloudflare_ai:!!env.AI&&String(env.CF_AI_FREE_ONLY||'').toLowerCase()==='true',
         gemma_hosted:!!env.GEMMA_API_URL&&!!env.GEMMA_API_KEY&&String(env.GEMMA_FREE_ONLY||'').toLowerCase()==='true',
         groq:!!env.GROQ_API_KEY&&String(env.GROQ_FREE_ONLY||'').toLowerCase()==='true',
         openrouter_free:!!env.OPENROUTER_API_KEY&&String(env.OPENROUTER_FREE_ONLY||'').toLowerCase()==='true'&&!!(modelForProvider(env,'openrouter_free',{tier:'work'},'team')||modelForProvider(env,'openrouter_free',{tier:'chat'},'team'))
