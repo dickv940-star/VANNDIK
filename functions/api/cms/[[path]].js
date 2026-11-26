@@ -1005,7 +1005,22 @@ function modelForProvider(env, providerId, task, agentId='team') {
   if(providerId==='openrouter_free'&&!selected.endsWith(':free'))return '';
   return selected;
 }
-function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}) {
+function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}, chatMode='work') {
+  if(chatMode==='casual'){
+    const roster=Object.entries(AI_ROOM_AGENTS).filter(([id])=>id!=='team').map(([id,a])=>({id,name:a.name,personality:a.prompt}));
+    const now=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',dateStyle:'full',timeStyle:'short'}).format(new Date());
+    return [
+      'MODE SANTAI AKTIF: Anda adalah teman-teman dalam satu grup pertemanan, bukan kantor.',
+      'WAKTU: '+now+' WIB.',
+      'DAFTAR TEMAN: '+JSON.stringify(roster),
+      'SEMUA SETARA: tidak ada Direktur, atasan, boss, bawahan, koordinator, penugasan, target, atau struktur jabatan. Jangan menyapa pengguna sebagai Direktur atau boss.',
+      'SEMUA BOLEH BICARA: pilih teman yang paling cocok membalas giliran ini. Teman lain boleh nimbrung pada giliran berikutnya jika relevan; jangan mengarang pesan yang belum dikirim. Gunakan identitas dan gaya tiap teman.',
+      'TOPIK: obrolan sehari-hari, hobi, humor, cerita, film, musik, makanan, perjalanan, dan hal ringan. Jangan membawa percakapan ke pekerjaan VANNDIK, CMS, bisnis, target, atau produktivitas kecuali pengguna sendiri meminta; jika diminta, sarankan pindah ke Mode Kerja.',
+      'TIDAK ADA EKSEKUSI: jangan melakukan riset web, membaca data CMS, membuat draft, mengubah database, mengimpor produk, menerbitkan, mendelegasikan, atau menjalankan pekerjaan. Action harus null.',
+      'GAYA: hangat, spontan, santai seperti teman akrab, boleh bercanda sopan dan bertanya balik. Hindari bahasa kantor.',
+      'FORMAT: hanya JSON valid {"speaker_id":"ID_TEMAN","message":"balasan santai","action":null}. speaker_id harus ID salah satu agen spesialis, bukan team. Satu pembicara per giliran.'
+    ].join('\n\n');
+  }
   const roster = Object.entries(AI_ROOM_AGENTS).map(([id,a]) => ({id,name:a.name,role:a.role,expertise:a.prompt}));
   const now = new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',dateStyle:'full',timeStyle:'long'}).format(new Date());
   const locked = requestedAgentId !== 'team';
@@ -1168,16 +1183,16 @@ async function callOpenAiCompatible(env, {provider,baseUrl,key,model,system,inpu
   if(!raw) throw new Error(provider+' tidak mengembalikan jawaban.');
   return {raw,model,provider};
 }
-async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskMessage='', cmsContext={}) {
+async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskMessage='', cmsContext={}, chatMode='work') {
   const latestUserMessage=String(taskMessage||[...(messages||[])].reverse().find(item=>item?.role==='user')?.content||'');
-  const task=classifyAiRoomTask(latestUserMessage,requestedAgentId);
+  const task=chatMode==='casual'?{tier:'chat',complexity:'low_or_conversational',requested_agent:requestedAgentId,reason:'Mode santai dipilih pengguna.',policy:'Gunakan provider gratis yang ringan; jangan menjalankan pekerjaan.'}:classifyAiRoomTask(latestUserMessage,requestedAgentId);
   let enrichedContext=cmsContext||{};
-  const wantsResearch=task.tier==='work'&&(/\b(riset|research|cari sumber|pencarian|berita terbaru|tren|kompetitor|competitor|market research|fact.?check|verifikasi fakta)\b/i.test(latestUserMessage)||requestedAgentId==='researcher');
+  const wantsResearch=chatMode!=='casual'&&task.tier==='work'&&(/\b(riset|research|cari sumber|pencarian|berita terbaru|tren|kompetitor|competitor|market research|fact.?check|verifikasi fakta)\b/i.test(latestUserMessage)||requestedAgentId==='researcher');
   if(wantsResearch){
     const research=await searchPublicWeb(latestUserMessage);
     enrichedContext={...enrichedContext,web_research:research};
   }
-  const system=buildAiRoomSystem(requestedAgentId,memory,{...task,message:latestUserMessage},enrichedContext);
+  const system=buildAiRoomSystem(requestedAgentId,memory,{...task,message:latestUserMessage},chatMode==='casual'?{}:enrichedContext,chatMode);
   const input=aiRoomConversation(messages);
   const attempts=[];
   const providers=[
