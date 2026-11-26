@@ -713,12 +713,12 @@ function isAiRoomContentCreationRequest(message) {
 // Connect explicit affiliate-import instructions in AI Room to the verified product importer.
 function extractAiRoomAffiliateImportUrl(message) {
   const text=String(message||'');
-  const intent=/\\b(?:impor(?:t)?|tambahkan|masukkan|masukin|simpan|daftarkan|input(?:kan)?|terapkan|jadikan)\\b/i.test(text);
-  const productContext=/\\b(?:produk|affiliate|katalog|etalase|marketplace)\\b/i.test(text);
+  const intent=/\b(?:impor(?:t)?|tambahkan|masukkan|masukin|simpan|daftarkan|input(?:kan)?|terapkan|jadikan)\b/i.test(text);
+  const productContext=/\b(?:produk|affiliate|katalog|etalase|marketplace)\b/i.test(text);
   if(!intent||!productContext)return '';
-  const matches=text.match(/https?:\\/\\/[^\\s<>"']+/gi)||[];
+  const matches=text.match(/https?:\/\/[^\s<>"']+/gi)||[];
   for(const raw of matches){
-    const candidate=raw.replace(/[),.;!?\\]}]+$/,'');
+    const candidate=raw.replace(/[),.;!?]+$/,'');
     try{const parsed=new URL(candidate);if(['http:','https:'].includes(parsed.protocol))return parsed.href;}catch{}
   }
   return '';
@@ -1502,13 +1502,13 @@ export async function onRequest({ request, env }) {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Memverifikasi dan menyimpan produk affiliate',progress=45,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,'catalog','milestone','Memverifikasi halaman affiliate','processing','AI Room meneruskan link ke importer katalog produk terverifikasi.').run();
             const item=await analyzeAffiliateProduct(env,admin,affiliateImportUrl);
-            answer='[RAFI · PRODUCT & CATALOG] Produk berhasil dibaca dan disimpan ke workspace Produk VANNDIK.\\n\\nNama: '+item.title+'\\nKategori: '+(item.category||'Belum ditentukan')+'\\nHarga: '+(item.price||'Tidak tersedia dari sumber')+'\\nStatus: DRAFT — MENUNGGU PERSETUJUAN DIREKTUR\\nID produk: '+item.id+'\\n\\nProduk sudah masuk Admin CMS → Produk Affiliate. Produk belum ditampilkan ke publik. Periksa detail dan tekan “Tampilkan” setelah menyetujui.';
+            answer='[RAFI · PRODUCT & CATALOG] Produk berhasil dibaca dan disimpan ke workspace Produk VANNDIK.\n\nNama: '+item.title+'\nKategori: '+(item.category||'Belum ditentukan')+'\nHarga: '+(item.price||'Tidak tersedia dari sumber')+'\nStatus: DRAFT — MENUNGGU PERSETUJUAN DIREKTUR\nID produk: '+item.id+'\n\nProduk sudah masuk Admin CMS → Produk Affiliate. Produk belum ditampilkan ke publik. Periksa detail dan tekan “Tampilkan” setelah menyetujui.';
             model='affiliate-product-import';used='VANNDIK CMS';speakerId='catalog';resultTaskTier='work';executingAgentId='catalog';deterministicSuccess=true;
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,'catalog','milestone','Produk tersimpan sebagai draft','completed',('Produk '+item.title+' · ID '+item.id).slice(0,500)).run();
           }catch(importError){
             const reason=String(importError?.message||'Impor produk gagal.').slice(0,500);
             try{await audit(env,admin,'affiliate.product.failed','product','',{sourceUrl:affiliateImportUrl,reason});}catch{}
-            answer='[RAFI · PRODUCT & CATALOG] Produk belum berhasil dimasukkan ke katalog.\\n\\nAlasan: '+reason+'\\n\\nTidak ada produk yang diterbitkan. Periksa kembali link atau kelengkapan metadata sumber, lalu coba impor ulang.';
+            answer='[RAFI · PRODUCT & CATALOG] Produk belum berhasil dimasukkan ke katalog.\n\nAlasan: '+reason+'\n\nTidak ada produk yang diterbitkan. Periksa kembali link atau kelengkapan metadata sumber, lalu coba impor ulang.';
             model='affiliate-product-import';used='VANNDIK CMS';speakerId='catalog';resultTaskTier='work';executingAgentId='catalog';deterministicSuccess=false;
           }
         } else {
