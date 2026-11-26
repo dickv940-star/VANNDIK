@@ -636,6 +636,33 @@ function isAiRoomContentCreationRequest(message) {
   return !isAiRoomNegativeAction(message,'create') && /\b(?:buat(?:kan)?|tulis(?:kan)?|susun(?:kan)?|siapkan|hasilkan|generate|create)\b[\s\S]{0,140}\b(?:artikel|article|berita|news)\b/i.test(String(message||''));
 }
 
+async function reconcileAiRoomWaitingParents(env) {
+  const parents=await env.CMS_DB.prepare("SELECT id,admin_id,message FROM cms_ai_room_jobs WHERE status='waiting' ORDER BY updated_at LIMIT 30").all();
+  const outcomes=[];
+  for(const parent of parents.results||[]){
+    const children=await env.CMS_DB.prepare('SELECT id,agent_id,status,result_summary,last_error FROM cms_ai_room_jobs WHERE admin_id=? AND id LIKE ? ORDER BY created_at').bind(parent.admin_id,'delegate-'+parent.id+'-%').all();
+    const jobs=children.results||[];
+    if(!jobs.length||jobs.some(item=>['queued','processing','waiting'].includes(item.status)))continue;
+    const failed=jobs.find(item=>['failed','paused'].includes(item.status));
+    let success=!failed,reason=failed?'Spesialis '+failed.agent_id+' gagal: '+String(failed.last_error||failed.result_summary||'tanpa hasil').slice(0,500):'Seluruh spesialis selesai.';
+    if(success&&isAiRoomContentCreationRequest(parent.message)){
+      const writer=jobs.find(item=>item.agent_id==='writer');
+      const editor=jobs.find(item=>item.agent_id==='editor');
+      const idMatch=String(writer?.result_summary||'').match(/\bID:\s*([a-f0-9-]{20,})\b/i);
+      const draft=idMatch?await env.CMS_DB.prepare('SELECT id,type,title,status FROM cms_content WHERE id=?').bind(idMatch[1]).first():null;
+      const expectedType=/\b(?:berita|news)\b/i.test(parent.message)?'news':'article';
+      const qaPass=/\b(?:PASS|LULUS)\b/i.test(String(editor?.result_summary||'').slice(0,500));
+      success=!!writer&&writer.status==='completed'&&!!editor&&editor.status==='completed'&&!!draft&&draft.status==='draft'&&draft.type===expectedType&&qaPass;
+      reason=success?'Draft '+draft.id+' terverifikasi di CMS sebagai '+expectedType+' berstatus draft dan QA PASS.':
+        'Belum memenuhi syarat produksi: '+(!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
+    }
+    await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,last_error=?,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='waiting'").bind(success?'completed':'failed',success?'Delegasi selesai dan terverifikasi':'Delegasi selesai tetapi hasil tidak lolos verifikasi',success?100:0,success?'':reason,reason.slice(0,2500),parent.id).run();
+    await env.CMS_DB.prepare('INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)').bind(uid(),parent.admin_id,parent.id,'team',success?'completed':'blocked',success?'Hasil delegasi terverifikasi':'Hasil delegasi gagal verifikasi',success?'completed':'failed',reason.slice(0,900)).run();
+    outcomes.push({id:parent.id,status:success?'completed':'failed',detail:reason});
+  }
+  return outcomes;
+}
+
 async function createAiRoomDraft(env, admin, requested, directorMessage='') {
   if(!requested||typeof requested!=='object') throw new Error('Payload draft tidak valid.');
   const command=String(directorMessage||'').toLocaleLowerCase('id-ID');
@@ -748,7 +775,7 @@ const AI_ROOM_AGENTS = {
   writer: {name:'Sophia · Editorial & Content',role:'Artikel, berita & copywriting',prompt:'Anda adalah Editorial & Content Manager VANNDIK. Bertanggung jawab pada artikel, berita, deskripsi produk, copywriting, naskah dan kalender konten. Tulis orisinal, jelas, SEO-friendly, dan jangan mengarang fakta.'},
   seo: {name:'Daniel · SEO & Growth',role:'SEO teknis, metadata & pertumbuhan',prompt:'Anda adalah SEO & Growth Specialist VANNDIK. Bertanggung jawab pada metadata, sitemap, indexing, struktur kata kunci, internal linking, SEO teknis dan optimasi trafik. Berikan evaluasi realistis dan jangan menjanjikan ranking.'},
   analyst: {name:'Isabella · Data & Analytics',role:'Statistik, performa & laporan',prompt:'Anda adalah Data & Analytics Manager VANNDIK. Bertanggung jawab pada statistik pengunjung, performa konten, klik, konversi, komisi dan laporan. Analisis hanya data yang tersedia, bedakan fakta aktual dari hipotesis.'},
-  editor: {name:'Lucas · Quality Assurance',role:'Pemeriksaan kualitas & publikasi',prompt:'Anda adalah Quality Assurance Manager VANNDIK. Bertanggung jawab pada pemeriksaan fakta, kualitas tulisan, link, gambar, metadata, tampilan, dan hasil pekerjaan sebelum persetujuan. Jangan menerbitkan konten tanpa persetujuan Direktur.'},
+  editor: {name:'Lucas · Quality Assurance',role:'Pemeriksaan kualitas & publikasi',prompt:'Anda adalah Quality Assurance Manager VANNDIK. Bertanggung jawab pada pemeriksaan fakta, kualitas tulisan, link, gambar, metadata, tampilan, dan hasil pekerjaan sebelum persetujuan. Untuk tugas review artikel/berita, periksa draft nyata di konteks CMS menggunakan ID dan hasil writer; jangan sekadar memberi saran umum. Keluarkan keputusan eksplisit PASS atau FAIL, alasan, dan daftar koreksi. PASS hanya jika draft benar-benar ada, isi memadai, klaim faktual punya sumber yang dapat ditelusuri, serta tidak ada placeholder atau klaim tanpa bukti. Jangan menerbitkan konten tanpa persetujuan Direktur.'},
   media: {name:'Maya · Media & Asset Manager',role:'Media Library, gambar & Google Drive',prompt:'Anda adalah Media & Asset Manager VANNDIK. Bertanggung jawab pada gambar, file media, Google Drive, metadata aset, optimasi ukuran, penamaan dan kebersihan penyimpanan. Jangan menghapus aset permanen tanpa persetujuan.'},
   catalog: {name:'Rafi · Product & Catalog Manager',role:'Produk affiliate, game & aplikasi',prompt:'Anda adalah Product & Catalog Manager VANNDIK. Bertanggung jawab pada katalog produk affiliate, game, aplikasi/tools, kategori, kelengkapan data, duplikasi dan status verifikasi. Produk tidak terverifikasi tidak boleh dipublikasikan.'},
   web: {name:'Nadia · Web Experience Manager',role:'Tema, halaman, navigasi & bahasa',prompt:'Anda adalah Web Experience Manager VANNDIK. Bertanggung jawab pada tema global/per halaman, halaman, navigasi, bahasa, responsivitas dan pengalaman pengunjung. Perubahan desain produksi perlu persetujuan bila berdampak luas.'}
@@ -808,6 +835,8 @@ function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}) {
 
     'DAFTAR KARYAWAN: '+JSON.stringify(roster),
     'FOKUS AGEN YANG DIPANGGIL: '+(AI_ROOM_AGENTS[requestedAgentId] ? JSON.stringify({id:requestedAgentId,name:AI_ROOM_AGENTS[requestedAgentId].name,role:AI_ROOM_AGENTS[requestedAgentId].role,mandate:AI_ROOM_AGENTS[requestedAgentId].prompt}) : 'Master Director mengoordinasikan seluruh divisi.'),
+    requestedAgentId==='writer' ? 'KONTRAK PENULIS: jika tugas meminta membuat artikel/berita, WAJIB hasilkan action create_content dengan content JSON berisi type (article atau news), title, body lengkap minimal 500 kata jika riset memadai (jangan mengarang bila sumber terbatas), excerpt, category, tags, image_url hanya jika URL aset nyata tersedia. Jangan hanya memberi laporan proses, outline, atau status. Sertakan [S1] dst pada klaim dan daftar URL sumber di bagian akhir body. Jika sumber/fakta kurang, tetap jelaskan keterbatasan secara transparan dan jangan membuat fakta.' : '',
+    requestedAgentId==='editor' ? 'KONTRAK QA: periksa hasil writer yang diberikan pada HASIL DEPENDENSI dan data CMS aktual. Berikan keputusan literal PASS atau FAIL di awal jawaban. PASS wajib didukung pemeriksaan draft ID, isi, sumber, kategori, dan aset; jika tidak dapat mengakses atau memverifikasi salah satu hal penting, putuskan FAIL dan jelaskan blocker. Jangan menyatakan selesai hanya karena job writer selesai.' : '',
     'ROUTING TUGAS: '+JSON.stringify(task)+'. Pilih kedalaman penalaran sesuai tier. Untuk tier work, susun langkah, cek asumsi, berikan hasil terstruktur dan tandai blocker. Untuk tier chat, jawab cepat dan natural tanpa analisis berlebihan.',
     locked ? 'DIREKTUR SECARA LANGSUNG MEMANGGIL '+requestedAgentId+'. Hanya agen tersebut yang boleh berbicara.' : 'DIREKTUR BERBICARA KEPADA GRUP: Master Director (Tim VANNDIK, speaker_id team) WAJIB menjadi pembicara dan selalu memberi jawaban utama. Tetapkan spesialis yang relevan sebagai penanggung jawab di dalam jawaban, tetapi jangan berpura-pura spesialis sudah menjalankan pekerjaan. Spesialis hanya berbicara langsung bila Direktur memanggilnya.',
     'BACA RIWAYAT: gunakan konteks percakapan bersama dan lanjutkan secara alami. Jangan mengulang jawaban.',
@@ -1153,6 +1182,7 @@ export async function onRequest({ request, env }) {
         }
       }
       await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='queued',stage='Memulihkan proses yang terputus',progress=0,next_retry_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE status='processing' AND heartbeat_at < datetime('now','-10 minutes')").run();
+      const reconciledParents=await reconcileAiRoomWaitingParents(env);
       const due=await env.CMS_DB.prepare("SELECT * FROM cms_ai_room_jobs WHERE status='queued' AND next_retry_at<=CURRENT_TIMESTAMP ORDER BY CASE WHEN message LIKE '[TARGET HARIAN %' THEN 0 ELSE 1 END,next_retry_at,created_at LIMIT 30").all();
       const results=[];let processedJobs=0;
       for(const job of (due.results||[])){
@@ -1194,17 +1224,20 @@ export async function onRequest({ request, env }) {
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
           const contentRequest=isAiRoomContentCreationRequest(job.message);
-          const delegationSucceeded=result.action?.type!=='delegate_tasks'||!!delegationResult?.created?.length;
-          const actionSucceeded=delegationSucceeded&&(!contentRequest||!!actionResult&&!actionResult.type_mismatch||!!delegationResult?.created?.length);
-          if(result.action?.type==='delegate_tasks'&&!delegationSucceeded)answer+='\n\n[PERLU TINDAKAN] Tidak ada tugas spesialis yang berhasil dimasukkan ke antrean.';
-          if(contentRequest&&!actionResult&&!delegationResult?.created?.length) answer+='\n\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft atau penugasan spesialis yang dapat diproses. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
+          const delegationQueued=result.action?.type==='delegate_tasks'&&!!delegationResult?.created?.length;
+          const actionSucceeded=!delegationQueued&&(result.action?.type!=='delegate_tasks'||!!delegationResult?.created?.length)&&(!contentRequest||!!actionResult&&!actionResult.type_mismatch);
+          if(result.action?.type==='delegate_tasks'&&!delegationQueued)answer+='\n\n[PERLU TINDAKAN] Tidak ada tugas spesialis yang berhasil dimasukkan ke antrean.';
+          if(contentRequest&&!actionResult&&!delegationQueued) answer+='\n\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft atau penugasan spesialis yang dapat diproses. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
+          if(delegationQueued)answer+='\n\nStatus: MENUNGGU HASIL SPESIALIS. Job induk belum dianggap selesai. Sistem akan memverifikasi hasil setiap agen dan keberadaan draft nyata di CMS.';
           const replyId=uid();
+          const finalStatus=delegationQueued?'waiting':actionSucceeded?'completed':'failed';
+          const finalStage=delegationQueued?'Menunggu hasil spesialis':actionSucceeded?'Selesai':'Draft belum tersimpan';
           await env.CMS_DB.batch([
             env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,answer,result.provider,result.model,result.task?.tier||'chat'),
-            env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,attempts=attempts+1,last_error=?,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(actionSucceeded?'completed':'failed',actionSucceeded?'Selesai':'Draft belum tersimpan',actionSucceeded?100:0,actionSucceeded?'':'Permintaan membuat konten tidak menghasilkan aksi create_content.',answer.slice(0,3000),job.id)
+            env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,attempts=attempts+1,last_error=?,finished_at=?,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(finalStatus,finalStage,delegationQueued?35:actionSucceeded?100:0,actionSucceeded||delegationQueued?'':'Permintaan membuat konten tidak menghasilkan aksi create_content.',delegationQueued?null:new Date().toISOString(),answer.slice(0,3000),job.id)
           ]);
-          await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,actionSucceeded?'completed':'blocked',actionSucceeded?'Selesai':'Draft belum tersimpan',actionSucceeded?'completed':'failed',actionResult?'Draft tersimpan dan siap ditinjau Direktur.':answer.slice(0,500)).run();
-          results.push({id:job.id,status:actionSucceeded?'completed':'failed',provider:result.provider,model:result.model});
+          await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,delegationQueued?'delegated':actionSucceeded?'completed':'blocked',finalStage,finalStatus,actionResult?'Draft tersimpan dan siap ditinjau Direktur.':answer.slice(0,500)).run();
+          results.push({id:job.id,status:finalStatus,provider:result.provider,model:result.model});
         }catch(error){
           const attempts=Number(job.attempts||0)+1;
           const status=attempts>=8?'paused':'queued';
@@ -1280,12 +1313,12 @@ export async function onRequest({ request, env }) {
       const since=`-${days-1} days`;
       const [statusRows,dailyRows,agentRows,responseRows,totals]=await Promise.all([
         env.CMS_DB.prepare("SELECT status,COUNT(*) AS total FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY status").bind(admin.id,since).all(),
-        env.CMS_DB.prepare("SELECT date(created_at) AS day,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing') THEN 1 ELSE 0 END) AS pending FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY date(created_at) ORDER BY day").bind(admin.id,since).all(),
-        env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing') THEN 1 ELSE 0 END) AS pending,MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY total DESC,agent_id").bind(admin.id,since).all(),
+        env.CMS_DB.prepare("SELECT date(created_at) AS day,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY date(created_at) ORDER BY day").bind(admin.id,since).all(),
+        env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending,MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY total DESC,agent_id").bind(admin.id,since).all(),
         env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS responses,MAX(created_at) AS last_response FROM cms_ai_room_messages WHERE admin_id=? AND role='assistant' AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY responses DESC,agent_id").bind(admin.id,since).all(),
-        env.CMS_DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed, SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed, SUM(CASE WHEN status IN ('queued','processing') THEN 1 ELSE 0 END) AS pending, MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?)").bind(admin.id,since).first()
+        env.CMS_DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed, SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed, SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending, MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?)").bind(admin.id,since).first()
       ]);
-      const byStatus={queued:0,processing:0,completed:0,paused:0,failed:0};
+      const byStatus={queued:0,processing:0,waiting:0,completed:0,paused:0,failed:0};
       for(const row of statusRows.results||[]) byStatus[row.status]=Number(row.total||0);
       const daily=Array.from({length:days},(_,i)=>{
         const date=new Date();date.setUTCHours(0,0,0,0);date.setUTCDate(date.getUTCDate()-(days-1-i));
