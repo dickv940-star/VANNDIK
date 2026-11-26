@@ -436,6 +436,7 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
   const page=await fetchMarketplaceHtml(inspectionUrl);
   let meta=page.html?readProductMetadata(page.html,page.finalUrl):{title:'',description:'',image:'',price:'',category:'',brand:'',hasProductSchema:false};
   let source='html-metadata',shopeeDiagnostics=[];
+  const pageDiagnostics=['page-host='+page.finalUrl.hostname,'page-status='+(page.status||200),'page-html-bytes='+String(page.html||'').length,page-blocked='+(page.blocked?'yes':'no')];
   const isShopee=page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id');
   if(isShopee){
     const shopeeResult=await fetchShopeeProduct(page.finalUrl,page.html||'');
@@ -480,6 +481,7 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
   if(!hasImage)meta.image='';
   const categoryInfo=classifyProduct(meta.title,meta.description,meta.sourceCategory||meta.category);
   const finalCategory=categoryInfo.category==='Lainnya'?(meta.category||categoryInfo.category):categoryInfo.category;
+  const readerDiagnostics=[...pageDiagnostics,...shopeeDiagnostics,...extractionDiagnostics].slice(0,12);
   const details=[
     meta.description,
     meta.brand?'Merek: '+meta.brand:'',
@@ -489,6 +491,7 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
     meta.rating?'Rating sumber: '+meta.rating+(meta.ratingCount?' ('+meta.ratingCount+' penilaian)':''):'',
     meta.price?'Harga yang terbaca: '+meta.price:'',
     'Sumber: '+page.finalUrl.href,
+    'Diagnosis pembacaan: '+readerDiagnostics.join(' | '),
     !complete?'STATUS VERIFIKASI: metadata belum lengkap; lengkapi secara manual sebelum publikasi.':''
   ].filter(Boolean).join('\n\n');
   const id=duplicate?.id||uid(),baseSlug=meta.title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,72)||'produk';
@@ -507,7 +510,7 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
   const seo=makeSeo({...data,seo_description:meta.description,canonical_url:new URL('/produk/'+encodeURIComponent(slug)+'/','https://vanndik.pages.dev').href,og_image:meta.image});
   await saveSeo(env,id,seo);
   await audit(env,admin,duplicate?'affiliate.product.reanalyzed':'affiliate.product.analyzed','product',id,{sourceHost:page.finalUrl.hostname,hasProductSchema:meta.hasProductSchema,hasImage:!!meta.image,hasPrice:!!meta.price,metadataComplete:complete,directImageExtractionDiagnostics:extractionDiagnostics});
-  return {id,type:'product',title:meta.title,slug,excerpt,image_url:meta.image,category:finalCategory,subcategory:categoryInfo.subcategory,price:meta.price,affiliate_url:original.href,target_url:page.finalUrl.href,status:'draft',tags:JSON.stringify(tags),seo_score:seo.seo_score,needsReview:!complete,metadata:{descriptionFound:hasDescription,imageFound:hasImage,titleFound:hasTitle,priceFound:!!meta.price,productSchemaFound:meta.hasProductSchema,source,sourceCategory:meta.sourceCategory||meta.category||'',categoryAuto:categoryInfo.auto,sourceHost:page.finalUrl.hostname,extractionDiagnostics}};
+  return {id,type:'product',title:meta.title,slug,excerpt,image_url:meta.image,category:finalCategory,subcategory:categoryInfo.subcategory,price:meta.price,affiliate_url:original.href,target_url:page.finalUrl.href,status:'draft',tags:JSON.stringify(tags),seo_score:seo.seo_score,needsReview:!complete,metadata:{descriptionFound:hasDescription,imageFound:hasImage,titleFound:hasTitle,priceFound:!!meta.price,productSchemaFound:meta.hasProductSchema,source,sourceCategory:meta.sourceCategory||meta.category||'',categoryAuto:categoryInfo.auto,sourceHost:page.finalUrl.hostname,pageStatus:page.status||200,pageBlocked:!!page.blocked,pageHtmlBytes:String(page.html||'').length,shopeeDiagnostics,extractionDiagnostics,readerDiagnostics}};
 }
 const safeUrl = v => !v || /^https?:\/\//i.test(v) || v.startsWith('/');
 function verifiedAffiliateProduct(item){
