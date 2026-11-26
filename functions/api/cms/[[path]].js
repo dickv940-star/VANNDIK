@@ -634,6 +634,7 @@ function aiRoomDependencySummary(item) {
   const parts=['['+(AI_ROOM_AGENTS[item.agent_id]?.name||item.agent_id)+'] '+String(parsed.summary||item.result_summary||'').slice(0,3000)];
   if(parsed.draft)parts.push('DRAFT CMS: '+JSON.stringify(parsed.draft));
   if(parsed.media_asset)parts.push('ASET MEDIA TERVERIFIKASI: '+JSON.stringify(parsed.media_asset));
+  if(parsed.research?.sources)parts.push('SUMBER RISET TERBACA: '+JSON.stringify(parsed.research.sources.filter(source=>source.read).map(source=>({title:source.title,url:source.url,read:source.read}))));
   if(parsed.qa_status)parts.push('HASIL QA: '+parsed.qa_status);
   return parts.join('\n');
 }
@@ -699,14 +700,18 @@ async function reconcileAiRoomWaitingParents(env) {
       const writerSummary=parseAiRoomJobSummary(writer?.result_data);
       const idMatch=String(writerSummary?.draft?.id||writer?.result_summary||'').match(/\bID:\s*([a-f0-9-]{20,})\b/i);
       const draftId=writerSummary?.draft?.id||idMatch?.[1]||'';
-      const draft=draftId?await env.CMS_DB.prepare('SELECT id,type,title,status,image_url FROM cms_content WHERE id=?').bind(draftId).first():null;
+      const draft=draftId?await env.CMS_DB.prepare('SELECT id,type,title,status,image_url,body FROM cms_content WHERE id=?').bind(draftId).first():null;
+      const researcher=jobs.find(item=>item.agent_id==='researcher');
+      const researcherSummary=parseAiRoomJobSummary(researcher?.result_data);
+      const readSources=(researcherSummary.research?.sources||[]).filter(source=>source.read&&/^https:\/\//i.test(String(source.url||'')));
+      const sourceIncluded=!!draft&&readSources.some(source=>String(draft.body||'').includes(source.url));
       const expectedType=/\b(?:berita|news)\b/i.test(parent.message)?'news':'article';
       const editorSummary=parseAiRoomJobSummary(editor?.result_data);
       const qaPass=editorSummary.qa_status==='PASS'||/^\s*(?:PASS|LULUS)\b/i.test(String(editorSummary.summary||editor?.result_summary||''));
       const requiresImage=/(?:foto|gambar|image|visual)/i.test(parent.message);
-      success=!!writer&&writer.status==='completed'&&!!editor&&editor.status==='completed'&&!!draft&&draft.status==='draft'&&draft.type===expectedType&&qaPass&&(!requiresImage||!!draft.image_url);
-      reason=success?'Draft '+draft.id+' terverifikasi di CMS sebagai '+expectedType+' berstatus draft'+(draft.image_url?' dengan foto terpasang':'')+' dan QA PASS.':
-        'Belum memenuhi syarat produksi: '+(!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':requiresImage&&!draft.image_url?'foto yang diminta belum terpasang; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
+      success=!!researcher&&researcher.status==='completed'&&readSources.length>0&&sourceIncluded&&!!writer&&writer.status==='completed'&&!!editor&&editor.status==='completed'&&!!draft&&draft.status==='draft'&&draft.type===expectedType&&qaPass&&(!requiresImage||!!draft.image_url);
+      reason=success?'Draft '+draft.id+' terverifikasi di CMS sebagai '+expectedType+' berstatus draft'+(draft.image_url?' dengan foto terpasang':'')+', memiliki sumber riset yang dibaca, dan QA PASS.':
+        'Belum memenuhi syarat produksi: '+(!researcher?'researcher tidak ditugaskan; ':researcher.status!=='completed'?'researcher belum selesai; ':!readSources.length?'tidak ada sumber riset yang berhasil dibaca; ':!sourceIncluded?'URL sumber riset tidak tercantum dalam naskah draft; ':!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':requiresImage&&!draft.image_url?'foto yang diminta belum terpasang; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
     }
     await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,last_error=?,finished_at=CURRENT_TIMESTAMP,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='waiting'").bind(success?'completed':'failed',success?'Delegasi selesai dan terverifikasi':'Delegasi selesai tetapi hasil tidak lolos verifikasi',success?100:0,success?'':reason,reason.slice(0,2500),parent.id).run();
     await env.CMS_DB.prepare('INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)').bind(uid(),parent.admin_id,parent.id,'team',success?'completed':'blocked',success?'Hasil delegasi terverifikasi':'Hasil delegasi gagal verifikasi',success?'completed':'failed',reason.slice(0,900)).run();
@@ -1115,7 +1120,7 @@ async function callAiRoomProvider(env, messages, requestedAgentId, memory, taskM
     try{
       const result=await provider.run();
       const parsed=parseAiRoomReply(result.raw,requestedAgentId);
-      return {...parsed,model:result.model,provider:result.provider,attempts,task};
+      return {...parsed,model:result.model,provider:result.provider,attempts,task,research:enrichedContext.web_research||null};
     }catch(error){
       const detail=String(error?.message||'provider error').slice(0,260);
       attempts.push({provider:provider.id,status:'failed',reason:detail});
@@ -1311,7 +1316,7 @@ export async function onRequest({ request, env }) {
           const finalStatus=delegationQueued?'waiting':actionSucceeded?'completed':'failed';
           const finalStage=delegationQueued?'Menunggu hasil spesialis':actionSucceeded?'Selesai':'Draft belum tersimpan';
           const qaStatus=job.agent_id==='editor'?(/^\s*(?:PASS|LULUS)\b/i.test(answer)?'PASS':'FAIL'):null;
-          const structuredSummary=JSON.stringify({version:1,summary:answer.slice(0,2200),draft:actionResult?{id:actionResult.id,type:actionResult.type,title:actionResult.title,status:actionResult.status,workspace:actionResult.workspace}:null,media_asset:mediaAsset,qa_status:qaStatus});
+          const structuredSummary=JSON.stringify({version:1,summary:answer.slice(0,2200),draft:actionResult?{id:actionResult.id,type:actionResult.type,title:actionResult.title,status:actionResult.status,workspace:actionResult.workspace}:null,media_asset:mediaAsset,research:result.research||null,qa_status:qaStatus});
           await env.CMS_DB.batch([
             env.CMS_DB.prepare('INSERT INTO cms_ai_room_messages(id,admin_id,role,agent_id,content,provider,model,task_tier) VALUES(?,?,?,?,?,?,?,?)').bind(replyId,job.admin_id,'assistant',result.speakerId,answer,result.provider,result.model,result.task?.tier||'chat'),
             env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status=?,stage=?,progress=?,attempts=attempts+1,last_error=?,finished_at=?,heartbeat_at=CURRENT_TIMESTAMP,result_summary=?,result_data=?,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(finalStatus,finalStage,delegationQueued?35:actionSucceeded?100:0,actionSucceeded||delegationQueued?'':'Permintaan membuat konten tidak menghasilkan aksi create_content.',delegationQueued?null:new Date().toISOString(),answer.slice(0,3000),structuredSummary,job.id)
