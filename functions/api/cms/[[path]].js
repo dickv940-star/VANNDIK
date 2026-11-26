@@ -1491,6 +1491,9 @@ export async function onRequest({ request, env }) {
               deterministicSuccess=false;
             }
           }
+          if(waitingForDelegation&&delegationResult?.created?.length){
+            answer+='\n\nPekerjaan telah benar-benar dimasukkan ke antrean cloud: '+delegationResult.created.map(item=>item.name).join(', ')+'. Status job induk: MENUNGGU HASIL SPESIALIS; belum selesai sampai draft dan QA diverifikasi.';
+          }
           if(result.action?.type==='create_content') {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
