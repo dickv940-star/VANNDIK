@@ -1537,7 +1537,7 @@ export async function onRequest({ request, env }) {
       await ensureAiRoomTables(env);
       const [jobs,activity]=await Promise.all([
         env.CMS_DB.prepare("SELECT id,agent_id,message,status,stage,progress,attempts,next_retry_at,last_error,result_summary,depends_on,created_at,updated_at,started_at,finished_at,heartbeat_at FROM cms_ai_room_jobs WHERE admin_id=? AND chat_mode='work' ORDER BY created_at DESC LIMIT 60").bind(admin.id).all(),
-        env.CMS_DB.prepare('SELECT id,job_id,agent_id,event_type,stage,status,detail,created_at FROM cms_ai_room_activity WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all()
+        env.CMS_DB.prepare("SELECT id,job_id,agent_id,event_type,stage,status,detail,created_at FROM cms_ai_room_activity WHERE admin_id=? AND job_id IN (SELECT id FROM cms_ai_room_jobs WHERE admin_id=? AND chat_mode='work') ORDER BY created_at DESC,rowid DESC LIMIT 80").bind(admin.id,admin.id).all()
       ]);
       const now=new Date().toISOString();
       return json({server_time:now,agents:AI_ROOM_AGENTS,jobs:jobs.results||[],activity:activity.results||[],refresh_interval_seconds:5,progress_semantics:'Milestone-based; not token-level model progress.'});
