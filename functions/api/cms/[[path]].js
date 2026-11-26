@@ -426,8 +426,11 @@ async function researchShopeeOnGoogle(pageUrl,html){
 }
 
 async function analyzeAffiliateProduct(env,admin,rawUrl){
-  const original=validateProductUrl(rawUrl),duplicate=await env.CMS_DB.prepare("SELECT id,title FROM cms_content WHERE type='product' AND affiliate_url=? LIMIT 1").bind(original.href).first();
-  if(duplicate)throw new Error('Link ini sudah ada di CMS sebagai "'+duplicate.title+'". Periksa antrean produk yang sudah ada.');
+  const original=validateProductUrl(rawUrl),duplicate=await env.CMS_DB.prepare("SELECT id,title,slug,excerpt,body,image_url,category,tags,status,price,target_url FROM cms_content WHERE type='product' AND affiliate_url=? LIMIT 1").bind(original.href).first();
+  if(duplicate){
+    let existingTags=[];try{existingTags=Array.isArray(duplicate.tags)?duplicate.tags:JSON.parse(duplicate.tags||'[]');}catch{}
+    if(duplicate.status!=='draft'||!existingTags.includes('metadata-partial'))throw new Error('Link ini sudah ada di CMS sebagai "'+duplicate.title+'". Hanya draft impor parsial yang dapat diperiksa ulang.');
+  }
   // Keep the affiliate URL for clicks; inspect the resolved marketplace URL for product metadata.
   const inspectionUrl=resolveAffiliateProductUrl(original.href);
   const page=await fetchMarketplaceHtml(inspectionUrl);
@@ -454,6 +457,15 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
     } else extractionDiagnostics.push('Foto produk tidak ditemukan pada HTML halaman Shopee.');
   }
   const ids=isShopee?shopeeIds(page.finalUrl,page.html||''):null;
+  // Retry the existing incomplete draft in place and preserve fields already completed in the editor.
+  if(duplicate){
+    const oldTitle=String(duplicate.title||'').trim();
+    if((!meta.title||meta.title.length<3)&&oldTitle&&!/^Produk Shopee #\d+$/i.test(oldTitle)&&!/^Produk Affiliate/i.test(oldTitle))meta.title=oldTitle;
+    const oldExcerpt=String(duplicate.excerpt||'').trim();
+    if((!meta.description||meta.description.trim().length<25)&&oldExcerpt.length>=25&&!/^Data produk belum berhasil dibaca otomatis/i.test(oldExcerpt))meta.description=oldExcerpt;
+    if(!meta.image&&duplicate.image_url)meta.image=duplicate.image_url;
+    if(!meta.price&&duplicate.price)meta.price=duplicate.price;
+  }
   const hasTitle=!!(meta.title&&meta.title.length>=3);
   const hasDescription=!!(meta.description&&meta.description.trim().length>=25);
   const hasImage=!!meta.image;
@@ -479,18 +491,22 @@ async function analyzeAffiliateProduct(env,admin,rawUrl){
     'Sumber: '+page.finalUrl.href,
     !complete?'STATUS VERIFIKASI: metadata belum lengkap; lengkapi secara manual sebelum publikasi.':''
   ].filter(Boolean).join('\n\n');
-  const id=uid(),baseSlug=meta.title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,72)||'produk';
-  let slug=baseSlug,suffix=1;while(await env.CMS_DB.prepare('SELECT id FROM cms_content WHERE slug=? LIMIT 1').bind(slug).first())slug=(baseSlug.slice(0,78)+'-'+suffix++).slice(0,90);
+  const id=duplicate?.id||uid(),baseSlug=meta.title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,72)||'produk';
+  let slug=duplicate?.slug||baseSlug,suffix=1;while(await env.CMS_DB.prepare('SELECT id FROM cms_content WHERE slug=? AND id<>? LIMIT 1').bind(slug,id).first())slug=(baseSlug.slice(0,78)+'-'+suffix++).slice(0,90);
   const excerpt=hasDescription?meta.description:'Data produk belum berhasil dibaca otomatis. Lengkapi nama, deskripsi, dan foto dari halaman marketplace sebelum publikasi.';
   const tags=complete
     ?['metadata-extracted','marketplace-page-read',source,'auto-category-classified',page.finalUrl.hostname]
     :['affiliate-link-imported','metadata-partial','manual-review-required',source,page.finalUrl.hostname];
   if(extractionDiagnostics.length)tags.push('image-extraction-incomplete');
   const data=clean({type:'product',title:meta.title,slug,excerpt,body:details,image_url:meta.image,category:finalCategory,tags,status:'draft',affiliate_url:original.href,target_url:page.finalUrl.href,price:meta.price});
-  await env.CMS_DB.prepare('INSERT INTO cms_content(id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,data.type,data.title,data.slug,data.excerpt,data.body,data.image_url,data.category,data.tags,data.status,data.affiliate_url,data.target_url,data.price,data.featured,data.sort_order,null).run();
+  if(duplicate){
+    await env.CMS_DB.prepare("UPDATE cms_content SET title=?,slug=?,excerpt=?,body=?,image_url=?,category=?,tags=?,target_url=?,price=? WHERE id=? AND status='draft'").bind(data.title,data.slug,data.excerpt,data.body,data.image_url,data.category,data.tags,data.target_url,data.price,id).run();
+  }else{
+    await env.CMS_DB.prepare('INSERT INTO cms_content(id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,data.type,data.title,data.slug,data.excerpt,data.body,data.image_url,data.category,data.tags,data.status,data.affiliate_url,data.target_url,data.price,data.featured,data.sort_order,null).run();
+  }
   const seo=makeSeo({...data,seo_description:meta.description,canonical_url:new URL('/produk/'+encodeURIComponent(slug)+'/','https://vanndik.pages.dev').href,og_image:meta.image});
   await saveSeo(env,id,seo);
-  await audit(env,admin,'affiliate.product.analyzed','product',id,{sourceHost:page.finalUrl.hostname,hasProductSchema:meta.hasProductSchema,hasImage:!!meta.image,hasPrice:!!meta.price,metadataComplete:complete,directImageExtractionDiagnostics:extractionDiagnostics});
+  await audit(env,admin,duplicate?'affiliate.product.reanalyzed':'affiliate.product.analyzed','product',id,{sourceHost:page.finalUrl.hostname,hasProductSchema:meta.hasProductSchema,hasImage:!!meta.image,hasPrice:!!meta.price,metadataComplete:complete,directImageExtractionDiagnostics:extractionDiagnostics});
   return {id,type:'product',title:meta.title,slug,excerpt,image_url:meta.image,category:finalCategory,subcategory:categoryInfo.subcategory,price:meta.price,affiliate_url:original.href,target_url:page.finalUrl.href,status:'draft',tags:JSON.stringify(tags),seo_score:seo.seo_score,needsReview:!complete,metadata:{descriptionFound:hasDescription,imageFound:hasImage,titleFound:hasTitle,priceFound:!!meta.price,productSchemaFound:meta.hasProductSchema,source,sourceCategory:meta.sourceCategory||meta.category||'',categoryAuto:categoryInfo.auto,sourceHost:page.finalUrl.hostname,extractionDiagnostics}};
 }
 const safeUrl = v => !v || /^https?:\/\//i.test(v) || v.startsWith('/');
