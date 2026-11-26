@@ -648,10 +648,10 @@ async function reconcileAiRoomWaitingParents(env) {
     if(success&&isAiRoomContentCreationRequest(parent.message)){
       const writer=jobs.find(item=>item.agent_id==='writer');
       const editor=jobs.find(item=>item.agent_id==='editor');
-      const idMatch=String(writer?.result_summary||'').match(/\\bID:\\s*([a-f0-9-]{20,})\\b/i);
+      const idMatch=String(writer?.result_summary||'').match(/\bID:\s*([a-f0-9-]{20,})\b/i);
       const draft=idMatch?await env.CMS_DB.prepare('SELECT id,type,title,status FROM cms_content WHERE id=?').bind(idMatch[1]).first():null;
-      const expectedType=/\\b(?:berita|news)\\b/i.test(parent.message)?'news':'article';
-      const qaPass=/\\b(?:PASS|LULUS)\\b/i.test(String(editor?.result_summary||'').slice(0,500));
+      const expectedType=/\b(?:berita|news)\b/i.test(parent.message)?'news':'article';
+      const qaPass=/\b(?:PASS|LULUS)\b/i.test(String(editor?.result_summary||'').slice(0,500));
       success=!!writer&&writer.status==='completed'&&!!editor&&editor.status==='completed'&&!!draft&&draft.status==='draft'&&draft.type===expectedType&&qaPass;
       reason=success?'Draft '+draft.id+' terverifikasi di CMS sebagai '+expectedType+' berstatus draft dan QA PASS.':
         'Belum memenuhi syarat produksi: '+(!writer?'writer tidak ditugaskan; ':writer.status!=='completed'?'writer belum selesai; ':!draft?'ID draft nyata tidak ditemukan pada CMS; ':draft.status!=='draft'?'status draft bukan draft; ':draft.type!==expectedType?'jenis draft tidak sesuai; ':!editor?'Lucas/QA tidak ditugaskan; ':editor.status!=='completed'?'Lucas/QA belum selesai; ':'Lucas/QA tidak memberikan PASS eksplisit; ');
@@ -1316,7 +1316,7 @@ export async function onRequest({ request, env }) {
         env.CMS_DB.prepare("SELECT date(created_at) AS day,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY date(created_at) ORDER BY day").bind(admin.id,since).all(),
         env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending,MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY total DESC,agent_id").bind(admin.id,since).all(),
         env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS responses,MAX(created_at) AS last_response FROM cms_ai_room_messages WHERE admin_id=? AND role='assistant' AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY responses DESC,agent_id").bind(admin.id,since).all(),
-        env.CMS_DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed, SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed, SUM(CASE WHEN status IN ('queued','processing') THEN 1 ELSE 0 END) AS pending, MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?)").bind(admin.id,since).first()
+        env.CMS_DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed, SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed, SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending, MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?)").bind(admin.id,since).first()
       ]);
       const byStatus={queued:0,processing:0,waiting:0,completed:0,paused:0,failed:0};
       for(const row of statusRows.results||[]) byStatus[row.status]=Number(row.total||0);
