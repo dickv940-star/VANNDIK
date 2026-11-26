@@ -702,6 +702,9 @@ const pageTitle = 'VANNDIK CMS';
             <article><small>YouTube Shorts views</small><strong id="execShortsViews">—</strong><span id="execShortsViewsNote">YouTube Analytics · belum terhubung</span></article>
             <article><small>Waktu tonton Shorts</small><strong id="execShortsWatch">—</strong><span id="execShortsWatchNote">Menit · belum terhubung</span></article>
             <article><small>Subscriber baru</small><strong id="execShortsSubs">—</strong><span id="execShortsSubsNote">YouTube Analytics · belum terhubung</span></article>
+            <article><small>Estimasi pendapatan AdSense</small><strong id="execAdSenseRevenue">—</strong><span id="execAdSenseRevenueNote">AdSense · belum terhubung</span></article>
+            <article><small>Klik iklan AdSense</small><strong id="execAdSenseClicks">—</strong><span id="execAdSenseClicksNote">AdSense · belum tersedia</span></article>
+            <article><small>Impresi iklan AdSense</small><strong id="execAdSenseImpressions">—</strong><span id="execAdSenseImpressionsNote">AdSense · belum tersedia</span></article>
           </div>
           <div class="exec-lower">
             <section class="exec-subpanel"><div class="exec-subhead"><div><b>Tren klik affiliate</b><small>Aktivitas klik yang tercatat di website</small></div><span>30 HARI</span></div><div id="execClickChart" class="exec-chart"><div class="empty-state">Memuat data klik…</div></div><div class="exec-footnote" id="execClickFreshness">Sumber: D1 · affiliate_click_events</div></section>
@@ -777,18 +780,43 @@ const pageTitle = 'VANNDIK CMS';
           setMetric('execShortsWatch',yt?fmt(Math.round(yt.watchMinutes)):'—',yt?'Menit ditonton · Shorts':'YouTube Analytics · belum tersedia');
           setMetric('execShortsSubs',yt?fmt(yt.subscribersGained):'—',yt?'Subscriber bertambah · Shorts':'YouTube Analytics · belum tersedia');
           integrationRows.push({name:'YouTube Analytics',detail:yt?'Akun '+status.email+' · data Shorts berhasil dibaca':'Google OAuth '+(status.connected?'aktif · cek izin YouTube Analytics API':'belum terhubung'),state:yt?'connected':status.connected?'pending':'disconnected',action:status.connected?'Atur koneksi':'Hubungkan Google'});
+          try {
+            const adsStatus=await api('adsense/status');
+            if(adsStatus.connected){
+              try {
+                const ads=await api('adsense/report?days=30');
+                const totals=ads.total||{}, revenue=totals.ESTIMATED_EARNINGS;
+                const currency=ads.currency;
+                const revenueLabel=revenue===null||revenue===undefined?'—':currency?new Intl.NumberFormat('id-ID',{style:'currency',currency,maximumFractionDigits:2}).format(Number(revenue)):fmt(revenue);
+                setMetric('execAdSenseRevenue',revenueLabel,'Google AdSense · 30 hari · '+(ads.period?.startDate||'')+'—'+(ads.period?.endDate||''));
+                setMetric('execAdSenseClicks',totals.CLICKS==null?'—':fmt(totals.CLICKS),'Google AdSense · laporan aktual');
+                setMetric('execAdSenseImpressions',totals.IMPRESSIONS==null?'—':fmt(totals.IMPRESSIONS),'Google AdSense · laporan aktual');
+                integrationRows.push({name:'Google AdSense',detail:'Laporan berhasil dibaca · '+(ads.account?.displayName||adsStatus.email),state:'connected',action:'Lihat laporan'});
+              } catch(adsError) {
+                ['execAdSenseRevenue','execAdSenseClicks','execAdSenseImpressions'].forEach(id=>setMetric(id,'—','AdSense · '+adsError.message));
+                integrationRows.push({name:'Google AdSense',detail:adsError.message,state:'pending',action:'Periksa AdSense'});
+              }
+            } else {
+              ['execAdSenseRevenue','execAdSenseClicks','execAdSenseImpressions'].forEach(id=>setMetric(id,'—','AdSense · belum terhubung'));
+              integrationRows.push({name:'Google AdSense',detail:adsStatus.configured?'Akun Google belum terhubung':'OAuth belum dikonfigurasi',state:'disconnected',action:'Hubungkan AdSense'});
+            }
+          } catch(adsStatusError) {
+            ['execAdSenseRevenue','execAdSenseClicks','execAdSenseImpressions'].forEach(id=>setMetric(id,'—','AdSense · '+adsStatusError.message));
+            integrationRows.push({name:'Google AdSense',detail:adsStatusError.message,state:'pending',action:'Buka Monetisasi'});
+          }
           let socialData={items:[],lastImports:[]};
           try { socialData=await api('growth/social?days=30'); } catch {}
           const importedPlatforms=new Set((socialData.lastImports||[]).map(x=>x.platform));
           const platformNames={instagram:'Instagram',facebook:'Facebook',tiktok:'TikTok',pinterest:'Pinterest',linkedin:'LinkedIn'};
-          $('#execIntegrations').innerHTML=integrationRows.map(x=>'<div class="exec-integration"><span class="exec-state '+x.state+'"></span><div><b>'+escapeHTML(x.name)+'</b><small>'+escapeHTML(x.detail)+'</small></div><button data-google-connect>'+escapeHTML(x.action)+'</button></div>').join('')+
+          $('#execIntegrations').innerHTML=integrationRows.map(x=>'<div class="exec-integration"><span class="exec-state '+x.state+'"></span><div><b>'+escapeHTML(x.name)+'</b><small>'+escapeHTML(x.detail)+'</small></div><button '+(x.name==='Google AdSense'?'data-adsense-open':'data-google-connect')+'>'+escapeHTML(x.action)+'</button></div>').join('')+
             Object.entries(platformNames).map(([id,name])=>{const imported=(socialData.lastImports||[]).find(x=>x.platform===id);return '<div class="exec-integration"><span class="exec-state '+(imported?'imported':'pending')+'"></span><div><b>'+name+'</b><small>'+(imported?'CSV terakhir diimpor '+escapeHTML(new Date(imported.last_import).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'})):'Belum ada koneksi API atau impor CSV')+'</small></div><span class="exec-pending-label">'+(imported?'DATA DIIMPOR':'BELUM TERHUBUNG')+'</span></div>';}).join('');
           const socialItems=socialData.items||[];
           $('#execSocialMetrics').innerHTML=socialItems.length?socialItems.map(x=>'<article class="exec-social-card"><small>'+escapeHTML((platformNames[x.platform]||x.platform).toUpperCase())+' · '+escapeHTML(x.metric.replaceAll('_',' '))+'</small><b>'+fmt(x.value)+'</b><span>'+escapeHTML(x.days)+' hari data · terakhir '+escapeHTML(x.latest_date)+'</span></article>').join(''):'<div class="empty-state">Belum ada statistik media sosial yang diimpor. Gunakan template CSV di halaman integrasi. Data impor akan diberi label terpisah dari API resmi.</div>';
-          $$('[data-google-connect]').forEach(btn=>btn.addEventListener('click',()=>{window.location.href='/admin/growth-settings/';}));
+          document.querySelectorAll('[data-google-connect]').forEach(btn=>btn.addEventListener('click',()=>{window.location.href='/admin/growth-settings/';}));
+          document.querySelectorAll('[data-adsense-open]').forEach(btn=>btn.addEventListener('click',()=>{window.location.href='/admin/monetization/';}));
         } catch(e) {
           $('#execIntegrations').innerHTML='<div class="empty-state">Status integrasi belum dapat dibaca: '+escapeHTML(e.message)+'</div>';
-          ['execUsers','execSessions','execViews','execSearchClicks','execImpressions','execShortsViews','execShortsWatch','execShortsSubs'].forEach(id=>setMetric(id,'—','Sumber belum tersedia'));
+          ['execUsers','execSessions','execViews','execSearchClicks','execImpressions','execShortsViews','execShortsWatch','execShortsSubs','execAdSenseRevenue','execAdSenseClicks','execAdSenseImpressions'].forEach(id=>setMetric(id,'—','Sumber belum tersedia'));
         }
         try {
           const [queue,room]=await Promise.all([api('ai-room/jobs'),api('ai-room/messages')]);
