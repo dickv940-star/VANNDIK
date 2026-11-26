@@ -532,7 +532,7 @@ async function ensureAiRoomTables(env) {
   const jobColumns=await env.CMS_DB.prepare('PRAGMA table_info(cms_ai_room_jobs)').all();
   const jobColumnNames=new Set((jobColumns.results||[]).map(column=>column.name));
   const jobAdditions=[
-    ['stage',"TEXT NOT NULL DEFAULT 'Queued'"],['progress','INTEGER NOT NULL DEFAULT 0'],['started_at','TEXT'],['finished_at','TEXT'],['heartbeat_at','TEXT'],['result_summary',"TEXT NOT NULL DEFAULT ''"],['result_data',"TEXT NOT NULL DEFAULT '{}'"],['depends_on',"TEXT NOT NULL DEFAULT ''"]
+    ['stage',"TEXT NOT NULL DEFAULT 'Queued'"],['progress','INTEGER NOT NULL DEFAULT 0'],['started_at','TEXT'],['finished_at','TEXT'],['heartbeat_at','TEXT'],['result_summary',"TEXT NOT NULL DEFAULT ''"],['result_data',"TEXT NOT NULL DEFAULT '{}'"],['depends_on',"TEXT NOT NULL DEFAULT ''"],['chat_mode',"TEXT NOT NULL DEFAULT 'work'"]
   ];
   for(const [name,definition] of jobAdditions)if(!jobColumnNames.has(name))await env.CMS_DB.prepare('ALTER TABLE cms_ai_room_jobs ADD COLUMN '+name+' '+definition).run();
   await env.CMS_DB.prepare("CREATE INDEX IF NOT EXISTS idx_ai_room_jobs_due ON cms_ai_room_jobs(status,next_retry_at)").run();
@@ -1008,7 +1008,8 @@ function modelForProvider(env, providerId, task, agentId='team') {
 }
 function buildAiRoomSystem(requestedAgentId, memory, task, cmsContext = {}, chatMode='work') {
   if(chatMode==='casual'){
-    const roster=Object.entries(AI_ROOM_AGENTS).filter(([id])=>id!=='team').map(([id,a])=>({id,name:a.name,personality:a.prompt}));
+    const casualPersonalities={sysadmin:'tenang, suka teknologi sebagai hobi tetapi tidak membahas pekerjaan kecuali ditanya',researcher:'penasaran, suka bertanya dan menemukan hal menarik',writer:'ekspresif, hangat, suka cerita dan permainan kata',seo:'ceria, humoris, suka tren budaya pop',analyst:'kalem, observatif, suka melihat sisi menarik dari cerita',editor:'teliti tapi santai, suka candaan ringan',media:'kreatif, imajinatif, suka seni dan visual',catalog:'ramah, antusias soal makanan dan barang unik',web:'hangat, empatik, suka desain dan hal-hal estetik'};
+    const roster=Object.entries(AI_ROOM_AGENTS).filter(([id])=>id!=='team').map(([id,a])=>({id,name:a.name,personality:casualPersonalities[id]||'ramah dan santai'}));
     const now=new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',dateStyle:'full',timeStyle:'short'}).format(new Date());
     return [
       'MODE SANTAI AKTIF: Anda adalah teman-teman dalam satu grup pertemanan, bukan kantor.',
@@ -1535,7 +1536,7 @@ export async function onRequest({ request, env }) {
     if (path === 'ai-room/monitor' && method === 'GET') {
       await ensureAiRoomTables(env);
       const [jobs,activity]=await Promise.all([
-        env.CMS_DB.prepare('SELECT id,agent_id,message,status,stage,progress,attempts,next_retry_at,last_error,result_summary,depends_on,created_at,updated_at,started_at,finished_at,heartbeat_at FROM cms_ai_room_jobs WHERE admin_id=? ORDER BY created_at DESC LIMIT 60').bind(admin.id).all(),
+        env.CMS_DB.prepare("SELECT id,agent_id,message,status,stage,progress,attempts,next_retry_at,last_error,result_summary,depends_on,created_at,updated_at,started_at,finished_at,heartbeat_at FROM cms_ai_room_jobs WHERE admin_id=? AND chat_mode='work' ORDER BY created_at DESC LIMIT 60").bind(admin.id).all(),
         env.CMS_DB.prepare('SELECT id,job_id,agent_id,event_type,stage,status,detail,created_at FROM cms_ai_room_activity WHERE admin_id=? ORDER BY created_at DESC,rowid DESC LIMIT 80').bind(admin.id).all()
       ]);
       const now=new Date().toISOString();
@@ -1546,11 +1547,11 @@ export async function onRequest({ request, env }) {
       const days=Math.max(7,Math.min(90,Number(url.searchParams.get('days')||30)));
       const since=`-${days-1} days`;
       const [statusRows,dailyRows,agentRows,responseRows,totals]=await Promise.all([
-        env.CMS_DB.prepare("SELECT status,COUNT(*) AS total FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY status").bind(admin.id,since).all(),
-        env.CMS_DB.prepare("SELECT date(created_at) AS day,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY date(created_at) ORDER BY day").bind(admin.id,since).all(),
-        env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending,MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY total DESC,agent_id").bind(admin.id,since).all(),
-        env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS responses,MAX(created_at) AS last_response FROM cms_ai_room_messages WHERE admin_id=? AND role='assistant' AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY responses DESC,agent_id").bind(admin.id,since).all(),
-        env.CMS_DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed, SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed, SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending, MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND created_at>=datetime('now',?)").bind(admin.id,since).first()
+        env.CMS_DB.prepare("SELECT status,COUNT(*) AS total FROM cms_ai_room_jobs WHERE admin_id=? AND chat_mode='work' AND created_at>=datetime('now',?) GROUP BY status").bind(admin.id,since).all(),
+        env.CMS_DB.prepare("SELECT date(created_at) AS day,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending FROM cms_ai_room_jobs WHERE admin_id=? AND chat_mode='work' AND created_at>=datetime('now',?) GROUP BY date(created_at) ORDER BY day").bind(admin.id,since).all(),
+        env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS total,SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed,SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed,SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending,MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND chat_mode='work' AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY total DESC,agent_id").bind(admin.id,since).all(),
+        env.CMS_DB.prepare("SELECT agent_id,COUNT(*) AS responses,MAX(created_at) AS last_response FROM cms_ai_room_messages WHERE admin_id=? AND chat_mode='work' AND role='assistant' AND created_at>=datetime('now',?) GROUP BY agent_id ORDER BY responses DESC,agent_id").bind(admin.id,since).all(),
+        env.CMS_DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed, SUM(CASE WHEN status IN ('failed','paused') THEN 1 ELSE 0 END) AS failed, SUM(CASE WHEN status IN ('queued','processing','waiting') THEN 1 ELSE 0 END) AS pending, MAX(updated_at) AS last_activity FROM cms_ai_room_jobs WHERE admin_id=? AND chat_mode='work' AND created_at>=datetime('now',?)").bind(admin.id,since).first()
       ]);
       const byStatus={queued:0,processing:0,waiting:0,completed:0,paused:0,failed:0};
       for(const row of statusRows.results||[]) byStatus[row.status]=Number(row.total||0);
@@ -1564,7 +1565,7 @@ export async function onRequest({ request, env }) {
     }
     if (path === 'ai-room/jobs' && method === 'GET') {
       await ensureAiRoomTables(env);
-      const rows=await env.CMS_DB.prepare('SELECT id,agent_id,message,status,stage,progress,attempts,next_retry_at,last_error,result_summary,depends_on,created_at,updated_at,started_at,finished_at,heartbeat_at FROM cms_ai_room_jobs WHERE admin_id=? ORDER BY created_at DESC LIMIT 50').bind(admin.id).all();
+      const rows=await env.CMS_DB.prepare("SELECT id,agent_id,message,status,stage,progress,attempts,next_retry_at,last_error,result_summary,depends_on,created_at,updated_at,started_at,finished_at,heartbeat_at FROM cms_ai_room_jobs WHERE admin_id=? AND chat_mode='work' ORDER BY created_at DESC LIMIT 50").bind(admin.id).all();
       return json({jobs:rows.results||[]});
     }
     if (path === 'ai-room/memory' && method === 'PUT') {
@@ -1599,7 +1600,7 @@ export async function onRequest({ request, env }) {
       let answer='',used='',model='',attempts=[],speakerId='team',resultTaskTier='chat',deterministicSuccess=true,waitingForDelegation=false;
       const jobId=uid();
       let executingAgentId=agentId;
-      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,stage,progress,started_at,heartbeat_at) VALUES(?,?,?,?, 'processing',0,CURRENT_TIMESTAMP,'Memanggil provider AI gratis',20,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)").bind(jobId,admin.id,agentId,message).run();
+      await env.CMS_DB.prepare("INSERT INTO cms_ai_room_jobs(id,admin_id,agent_id,message,status,attempts,next_retry_at,stage,progress,started_at,heartbeat_at,chat_mode) VALUES(?,?,?,?, 'processing',0,CURRENT_TIMESTAMP,'Memanggil provider AI gratis',20,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?)").bind(jobId,admin.id,agentId,message,chatMode).run();
       await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,agentId,'started','Memanggil provider AI gratis','processing','Permintaan Direktur diterima; satu pemanggilan model dimulai.').run();
       try{
         const affiliateImportUrl=chatMode==='work'?extractAiRoomAffiliateImportUrl(message):'';
