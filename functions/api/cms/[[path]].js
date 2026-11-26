@@ -407,41 +407,72 @@ async function researchShopeeOnGoogle(pageUrl,html){
 async function analyzeAffiliateProduct(env,admin,rawUrl){
   const original=validateProductUrl(rawUrl),duplicate=await env.CMS_DB.prepare("SELECT id,title FROM cms_content WHERE type='product' AND affiliate_url=? LIMIT 1").bind(original.href).first();
   if(duplicate)throw new Error('Link ini sudah ada di CMS sebagai "'+duplicate.title+'". Periksa antrean produk yang sudah ada.');
-  // Use embedded Shopee origin_link for metadata lookup, but always retain the exact imported affiliate URL for audience clicks.
+  // Keep the affiliate URL for clicks; inspect the resolved marketplace URL for product metadata.
   const inspectionUrl=resolveAffiliateProductUrl(original.href);
   const page=await fetchMarketplaceHtml(inspectionUrl);
   let meta=page.html?readProductMetadata(page.html,page.finalUrl):{title:'',description:'',image:'',price:'',category:'',brand:'',hasProductSchema:false};
   let source='html-metadata',shopeeDiagnostics=[];
-  if(page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id')){
-    const shopeeResult=await fetchShopeeProduct(page.finalUrl,page.html);
+  const isShopee=page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id');
+  if(isShopee){
+    const shopeeResult=await fetchShopeeProduct(page.finalUrl,page.html||'');
     shopeeDiagnostics=shopeeResult.diagnostics||[];
     const apiMeta=shopeeResult.product;
-    if(apiMeta?.title){meta={...meta,...apiMeta,description:apiMeta.description||meta.description,image:apiMeta.image||meta.image,price:apiMeta.price||meta.price,category:apiMeta.sourceCategory||meta.category,brand:apiMeta.brand||meta.brand};source=apiMeta.source;}
-  }
-  if(!meta.title||meta.title.length<3||!meta.description||meta.description.length<25||!meta.image){
-    if(page.finalUrl.hostname.toLowerCase().endsWith('shopee.co.id')){
-      const googleMeta=await researchShopeeOnGoogle(page.finalUrl,page.html||'');
-      meta={...meta,...googleMeta,description:googleMeta.description||meta.description,image:googleMeta.image||meta.image,price:googleMeta.price||meta.price,category:googleMeta.category||meta.category,brand:googleMeta.brand||meta.brand};
-      source=googleMeta.source;page.finalUrl=new URL(googleMeta.targetUrl);
+    if(apiMeta?.title){
+      meta={...meta,...apiMeta,description:apiMeta.description||meta.description,image:apiMeta.image||meta.image,price:apiMeta.price||meta.price,category:apiMeta.sourceCategory||meta.category,brand:apiMeta.brand||meta.brand};
+      source=apiMeta.source||'shopee-product-api';
     }
   }
-  if(!meta.title||meta.title.length<3||!meta.description||meta.description.length<25||!meta.image){
-    const detail=shopeeDiagnostics.length?' Diagnostik: '+shopeeDiagnostics.join(' | ').slice(0,300):'';
-    throw new Error('Produk belum lengkap dan tidak dapat diverifikasi. Wajib tersedia judul, deskripsi yang memadai, dan foto produk asli. '+detail+' Produk tidak disimpan.');
+  // Search engines are an optional discovery aid, never the authority for validating a known direct product URL.
+  // Google/Bing throttling or de-indexing must not discard an otherwise valid affiliate import.
+  const completeBeforeSearch=!!(meta.title&&meta.title.length>=3&&meta.description&&meta.description.length>=25&&meta.image);
+  let searchDiagnostics=[];
+  if(!completeBeforeSearch&&isShopee){
+    try{
+      const googleMeta=await researchShopeeOnGoogle(page.finalUrl,page.html||'');
+      meta={...meta,...googleMeta,description:googleMeta.description||meta.description,image:googleMeta.image||meta.image,price:googleMeta.price||meta.price,category:googleMeta.category||meta.category,brand:googleMeta.brand||meta.brand};
+      source=googleMeta.source||source;
+      if(googleMeta.targetUrl)page.finalUrl=new URL(googleMeta.targetUrl);
+    }catch(error){searchDiagnostics.push(String(error?.message||error).slice(0,450));}
   }
+  const ids=isShopee?shopeeIds(page.finalUrl,page.html||''):null;
+  const hasTitle=!!(meta.title&&meta.title.length>=3);
+  const hasDescription=!!(meta.description&&meta.description.trim().length>=25);
+  const hasImage=!!meta.image;
+  const complete=hasTitle&&hasDescription&&hasImage;
+  // A verified source URL is still useful as a private draft even when Shopee blocks metadata extraction.
+  // Never invent missing product attributes; mark them for manual completion and keep the draft unpublished.
+  if(!hasTitle){
+    meta.title=ids?.itemId?'Produk Shopee #'+ids.itemId:'Produk Affiliate — perlu verifikasi';
+    source='affiliate-link-pending-review';
+  }
+  if(!hasDescription)meta.description='';
+  if(!hasImage)meta.image='';
   const categoryInfo=classifyProduct(meta.title,meta.description,meta.sourceCategory||meta.category);
   const finalCategory=categoryInfo.category==='Lainnya'?(meta.category||categoryInfo.category):categoryInfo.category;
-  const details=[meta.description,meta.brand?'Merek: '+meta.brand:'',meta.sourceCategory?'Kategori sumber: '+meta.sourceCategory:'', 'Subkategori VANNDIK: '+categoryInfo.subcategory,meta.shopName?'Toko: '+meta.shopName:'',meta.rating?'Rating sumber: '+meta.rating+(meta.ratingCount?' ('+meta.ratingCount+' penilaian)':''):'',meta.price?'Harga yang terbaca: '+meta.price:'','Sumber: '+page.finalUrl.href].filter(Boolean).join('\n\n');
+  const details=[
+    meta.description,
+    meta.brand?'Merek: '+meta.brand:'',
+    meta.sourceCategory?'Kategori sumber: '+meta.sourceCategory:'',
+    'Subkategori VANNDIK: '+categoryInfo.subcategory,
+    meta.shopName?'Toko: '+meta.shopName:'',
+    meta.rating?'Rating sumber: '+meta.rating+(meta.ratingCount?' ('+meta.ratingCount+' penilaian)':''):'',
+    meta.price?'Harga yang terbaca: '+meta.price:'',
+    'Sumber: '+page.finalUrl.href,
+    !complete?'STATUS VERIFIKASI: metadata belum lengkap; lengkapi secara manual sebelum publikasi.':''
+  ].filter(Boolean).join('\n\n');
   const id=uid(),baseSlug=meta.title.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,72)||'produk';
   let slug=baseSlug,suffix=1;while(await env.CMS_DB.prepare('SELECT id FROM cms_content WHERE slug=? LIMIT 1').bind(slug).first())slug=(baseSlug.slice(0,78)+'-'+suffix++).slice(0,90);
-  const excerpt=meta.description||'Deskripsi lengkap tidak tersedia dari sumber otomatis. Periksa detail produk di marketplace sebelum publikasi.';
-  const bodyText=details;
-  const tags=JSON.stringify(['metadata-extracted','marketplace-page-read',source,'auto-category-classified',page.finalUrl.hostname,...(source==='google-search-exact-shopee-id'?['google-search-exact-match']:[])]);
-  const data=clean({type:'product',title:meta.title,slug,excerpt,body:bodyText,image_url:meta.image,category:finalCategory,tags:['metadata-extracted','marketplace-page-read',source,'auto-category-classified',page.finalUrl.hostname],status:'draft',affiliate_url:original.href,target_url:page.finalUrl.href,price:meta.price});
+  const excerpt=hasDescription?meta.description:'Data produk belum berhasil dibaca otomatis. Lengkapi nama, deskripsi, dan foto dari halaman marketplace sebelum publikasi.';
+  const tags=complete
+    ?['metadata-extracted','marketplace-page-read',source,'auto-category-classified',page.finalUrl.hostname]
+    :['affiliate-link-imported','metadata-partial','manual-review-required',source,page.finalUrl.hostname];
+  if(searchDiagnostics.length)tags.push('search-engine-unavailable');
+  const data=clean({type:'product',title:meta.title,slug,excerpt,body:details,image_url:meta.image,category:finalCategory,tags,status:'draft',affiliate_url:original.href,target_url:page.finalUrl.href,price:meta.price});
   await env.CMS_DB.prepare('INSERT INTO cms_content(id,type,title,slug,excerpt,body,image_url,category,tags,status,affiliate_url,target_url,price,featured,sort_order,published_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id,data.type,data.title,data.slug,data.excerpt,data.body,data.image_url,data.category,data.tags,data.status,data.affiliate_url,data.target_url,data.price,data.featured,data.sort_order,null).run();
   const seo=makeSeo({...data,seo_description:meta.description,canonical_url:new URL('/produk/'+encodeURIComponent(slug)+'/','https://vanndik.pages.dev').href,og_image:meta.image});
-  await saveSeo(env,id,seo);await audit(env,admin,'affiliate.product.analyzed','product',id,{sourceHost:page.finalUrl.hostname,hasProductSchema:meta.hasProductSchema,hasImage:!!meta.image,hasPrice:!!meta.price});
-  return {id,type:'product',title:meta.title,slug,excerpt,image_url:meta.image,category:finalCategory,subcategory:categoryInfo.subcategory,price:meta.price,affiliate_url:original.href,target_url:page.finalUrl.href,status:'draft',tags,seo_score:seo.seo_score,metadata:{descriptionFound:!!meta.description,imageFound:!!meta.image,priceFound:!!meta.price,productSchemaFound:meta.hasProductSchema,source,sourceCategory:meta.sourceCategory||meta.category||'',categoryAuto:categoryInfo.auto,sourceHost:page.finalUrl.hostname}};
+  await saveSeo(env,id,seo);
+  await audit(env,admin,'affiliate.product.analyzed','product',id,{sourceHost:page.finalUrl.hostname,hasProductSchema:meta.hasProductSchema,hasImage:!!meta.image,hasPrice:!!meta.price,metadataComplete:complete,searchEngineUnavailable:searchDiagnostics.length>0});
+  return {id,type:'product',title:meta.title,slug,excerpt,image_url:meta.image,category:finalCategory,subcategory:categoryInfo.subcategory,price:meta.price,affiliate_url:original.href,target_url:page.finalUrl.href,status:'draft',tags:JSON.stringify(tags),seo_score:seo.seo_score,needsReview:!complete,metadata:{descriptionFound:hasDescription,imageFound:hasImage,titleFound:hasTitle,priceFound:!!meta.price,productSchemaFound:meta.hasProductSchema,source,sourceCategory:meta.sourceCategory||meta.category||'',categoryAuto:categoryInfo.auto,sourceHost:page.finalUrl.hostname,searchDiagnostics}};
 }
 const safeUrl = v => !v || /^https?:\/\//i.test(v) || v.startsWith('/');
 function verifiedAffiliateProduct(item){
@@ -1502,7 +1533,7 @@ export async function onRequest({ request, env }) {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Memverifikasi dan menyimpan produk affiliate',progress=45,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,'catalog','milestone','Memverifikasi halaman affiliate','processing','AI Room meneruskan link ke importer katalog produk terverifikasi.').run();
             const item=await analyzeAffiliateProduct(env,admin,affiliateImportUrl);
-            answer='[RAFI · PRODUCT & CATALOG] Produk berhasil dibaca dan disimpan ke workspace Produk VANNDIK.\n\nNama: '+item.title+'\nKategori: '+(item.category||'Belum ditentukan')+'\nHarga: '+(item.price||'Tidak tersedia dari sumber')+'\nStatus: DRAFT — MENUNGGU PERSETUJUAN DIREKTUR\nID produk: '+item.id+'\n\nProduk sudah masuk Admin CMS → Produk Affiliate. Produk belum ditampilkan ke publik. Periksa detail dan tekan “Tampilkan” setelah menyetujui.';
+            answer=item.needsReview?'[RAFI · PRODUCT & CATALOG] Link affiliate berhasil dimasukkan ke workspace Produk VANNDIK sebagai draft pemeriksaan.\n\nNama sementara: '+item.title+'\nKategori: '+(item.category||'Belum ditentukan')+'\nHarga: '+(item.price||'Belum terbaca')+'\nStatus: PERLU MELENGKAPI DATA — TIDAK DIPUBLIKASIKAN\nID produk: '+item.id+'\n\nGoogle/Bing bukan syarat impor. Data yang tidak berhasil dibaca dari Shopee ditandai untuk pemeriksaan manual. Lengkapi nama, deskripsi, dan foto sebelum publikasi.':'[RAFI · PRODUCT & CATALOG] Produk berhasil dibaca dan disimpan ke workspace Produk VANNDIK.\n\nNama: '+item.title+'\nKategori: '+(item.category||'Belum ditentukan')+'\nHarga: '+(item.price||'Tidak tersedia dari sumber')+'\nStatus: DRAFT — MENUNGGU PERSETUJUAN DIREKTUR\nID produk: '+item.id+'\n\nProduk sudah masuk Admin CMS → Produk Affiliate. Produk belum ditampilkan ke publik. Periksa detail dan tekan “Tampilkan” setelah menyetujui.';
             model='affiliate-product-import';used='VANNDIK CMS';speakerId='catalog';resultTaskTier='work';executingAgentId='catalog';deterministicSuccess=true;
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,'catalog','milestone','Produk tersimpan sebagai draft','completed',('Produk '+item.title+' · ID '+item.id).slice(0,500)).run();
           }catch(importError){
