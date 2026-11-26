@@ -570,7 +570,8 @@ async function readResearchPage(rawUrl) {
   return {read:false,reason:'too_many_redirects'};
 }
 async function searchPublicWeb(query) {
-  const original=String(query||'').trim().slice(0,300);\n  const q=/persib|bobotoh|liga\\s*1|liga indonesia/i.test(original)?'Persib Bandung berita terbaru hasil pertandingan jadwal pemain site:persib.co.id OR site:detik.com OR site:kompas.com OR site:bola.com':original;
+  const original=String(query||'').trim().slice(0,300);
+  const q=/persib|bobotoh|liga\s*1|liga indonesia/i.test(original)?'Persib Bandung berita terbaru hasil pertandingan jadwal pemain site:persib.co.id OR site:detik.com OR site:kompas.com OR site:bola.com':original;
   if(q.length<3)return {query:q,provider:'DuckDuckGo HTML',sources:[],error:'query_too_short'};
   try{
     const response=await fetch('https://html.duckduckgo.com/html/?q='+encodeURIComponent(q),{signal:AbortSignal.timeout(8000),headers:{'accept':'text/html','accept-language':'id-ID,id;q=0.9,en;q=0.8','user-agent':'Mozilla/5.0 (compatible; VANNDIKResearch/1.0; +https://vanndik.pages.dev/)'}});
@@ -920,7 +921,7 @@ function extractAiRoomText(value, depth=0) {
     }
     return source;
   }
-  if(Array.isArray(value))return value.map(item=>extractAiRoomText(item,depth+1)).filter(Boolean).join('\\n');
+  if(Array.isArray(value))return value.map(item=>extractAiRoomText(item,depth+1)).filter(Boolean).join('\n');
   if(typeof value==='object'){
     for(const key of ['message','answer','reply','output_text','text','response','content','output','generated_text','parts','choices']){
       if(value[key]!==undefined&&value[key]!==null){
@@ -1259,7 +1260,7 @@ export async function onRequest({ request, env }) {
         }
         if(dependencyRows.some(item=>item.status!=='completed'))continue;
         processedJobs++;
-        const dependencyContext=dependencyRows.length?'\\n\\nHASIL DEPENDENSI YANG SUDAH SELESAI (gunakan sebagai konteks, jangan mengarang):\\n'+dependencyRows.map(aiRoomDependencySummary).join('\\n\\n'):'';
+        const dependencyContext=dependencyRows.length?'\n\nHASIL DEPENDENSI YANG SUDAH SELESAI (gunakan sebagai konteks, jangan mengarang):\n'+dependencyRows.map(aiRoomDependencySummary).join('\n\n'):'';
         await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='processing',stage='Memanggil provider AI gratis',progress=20,started_at=COALESCE(started_at,CURRENT_TIMESTAMP),heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id).run();
         await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'started','Memanggil provider AI gratis','processing','Worker mulai menjalankan satu pemanggilan model untuk tugas ini.').run();
         try{
