@@ -696,7 +696,8 @@ async function findLicensedEditorialImage(query) {
     return {title,mime,image_url:imageUrl,source_url:sourceUrl,license,license_url:licenseUrl,artist:String(meta.Artist?.value||'').replace(/<[^>]*>/g,' ').slice(0,300),attribution:String(meta.Attribution?.value||'').replace(/<[^>]*>/g,' ').slice(0,500)};
   }).filter(Boolean);
   if(!accepted.length)return null;
-  return accepted.find(item=>/persib|bandung/i.test(item.title))||null;
+  // Commons results are already ranked for the requested query; do not hard-code a club/team filter.
+  return accepted[0];
 }
 
 function parseAiRoomJobSummary(value) {
@@ -1398,8 +1399,9 @@ export async function onRequest({ request, env }) {
           let result,mediaAsset=null;
           if(job.agent_id==='media'){
             mediaAsset=await findLicensedEditorialImage(job.message);
-            if(!mediaAsset)throw new Error('Tidak ditemukan foto Persib yang lolos verifikasi lisensi CC/Domain Publik di Wikimedia Commons. Tidak ada foto yang dipasang.');
-            result={answer:'Foto editorial ditemukan dan lisensinya diverifikasi melalui metadata Wikimedia Commons. Judul: '+mediaAsset.title+'. Lisensi: '+mediaAsset.license+'. URL aset: '+mediaAsset.image_url+'. Sumber/atribusi: '+mediaAsset.source_url,speakerId:'media',provider:'wikimedia_commons',model:'Commons API',task:{tier:'work'},action:null};
+            result=mediaAsset
+              ? {answer:'Foto editorial ditemukan dan lisensinya diverifikasi melalui metadata Wikimedia Commons. Judul: '+mediaAsset.title+'. Lisensi: '+mediaAsset.license+'. URL aset: '+mediaAsset.image_url+'. Sumber/atribusi: '+mediaAsset.source_url,speakerId:'media',provider:'wikimedia_commons',model:'Commons API',task:{tier:'work'},action:null}
+              : {answer:'Tidak ditemukan aset visual yang cocok dan lolos pemeriksaan lisensi untuk topik ini. Tidak ada gambar yang dipasang. Pembuatan draft teks tetap dapat dilanjutkan tanpa gambar; QA akan menandai kebutuhan visual sebelum publikasi.',speakerId:'media',provider:'wikimedia_commons',model:'Commons API',task:{tier:'work'},action:null};
           } else {
             if(job.agent_id==='editor'){
               const writerDep=dependencyRows.find(item=>item.agent_id==='writer');
