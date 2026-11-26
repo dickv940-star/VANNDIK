@@ -1660,6 +1660,7 @@ export async function onRequest({ request, env }) {
         }
       }catch(error){
         const detail=String(error?.message||'Semua provider AI tidak tersedia.');
+        if(chatMode==='casual')return json({error:'Teman-teman sedang belum bisa membalas karena provider gratis tidak tersedia. Coba lagi nanti. Detail: '+detail.slice(0,300)},503);
         const userId=uid();
         const statusId=uid();
         await env.CMS_DB.batch([
