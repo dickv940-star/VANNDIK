@@ -524,7 +524,11 @@ async function enqueueAiRoomDelegations(env, adminId, parentJobId, tasks, parent
     if(Number(result.meta?.changes||0)>0){
       await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),adminId,id,agentId,'delegated',stage,'queued','Ditugaskan Master Director dari pekerjaan '+parentJobId+(dependencies.length?'; menunggu '+task.dependsOn.join(', '):'')+'.').run();
       created.push({id,agent_id:agentId,name:AI_ROOM_AGENTS[agentId].name,depends_on:task.dependsOn});
-    } else skipped.push({agent_id:agentId,reason:'already_queued'});
+    } else {
+      const existing=await env.CMS_DB.prepare('SELECT id,status FROM cms_ai_room_jobs WHERE id=? AND admin_id=?').bind(id,adminId).first();
+      if(existing)created.push({id,agent_id:agentId,name:AI_ROOM_AGENTS[agentId].name,depends_on:task.dependsOn,existing:true,status:existing.status});
+      else skipped.push({agent_id:agentId,reason:'insert_not_confirmed'});
+    }
   }
   return {created,skipped};
 }
@@ -1294,7 +1298,8 @@ export async function onRequest({ request, env }) {
             delegationResult=await enqueueAiRoomDelegations(env,job.admin_id,job.id,result.action.tasks,job.message);
           }
           if(delegationResult?.created?.length)answer+='\n\nPekerjaan sudah dibagi kepada '+delegationResult.created.length+' spesialis: '+delegationResult.created.map(item=>item.name).join(', ')+'. Tugas masuk antrean cloud.';
-          if(result.action?.type==='create_content'&&!(job.agent_id==='team'&&isAiRoomContentCreationRequest(job.message))) {
+          const parentContentRequest=job.agent_id==='team'&&isAiRoomContentCreationRequest(job.message);
+          if(result.action?.type==='create_content'&&!parentContentRequest) {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(job.id).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),job.admin_id,job.id,job.agent_id,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
             const jobAdmin=await env.CMS_DB.prepare('SELECT id,email,display_name,role FROM cms_admins WHERE id=? AND active=1').bind(job.admin_id).first();
@@ -1311,9 +1316,10 @@ export async function onRequest({ request, env }) {
           }
           const contentRequest=job.agent_id==='writer'&&isAiRoomContentCreationRequest(job.message);
           const delegationQueued=!!delegationResult?.created?.length;
-          const actionSucceeded=!delegationQueued&&(result.action?.type!=='delegate_tasks'||!!delegationResult?.created?.length)&&(!contentRequest||!!actionResult&&!actionResult.type_mismatch);
+          const actionSucceeded=parentContentRequest?delegationQueued:!delegationQueued&&(result.action?.type!=='delegate_tasks'||!!delegationResult?.created?.length)&&(!contentRequest||!!actionResult&&!actionResult.type_mismatch);
+          if(parentContentRequest&&!delegationQueued)answer+='\n\n[PERLU TINDAKAN] Tidak ada job spesialis yang berhasil dikonfirmasi di antrean. Job induk ditandai gagal.';
           if(result.action?.type==='delegate_tasks'&&!delegationQueued)answer+='\n\n[PERLU TINDAKAN] Tidak ada tugas spesialis yang berhasil dimasukkan ke antrean.';
-          if(contentRequest&&!actionResult&&!delegationQueued) answer+='\n\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft atau penugasan spesialis yang dapat diproses. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
+          if(contentRequest&&!actionResult&&!delegationQueued) answer+='\n\n[PERLU TINDAKAN] Model belum menghasilkan struktur draft yang dapat disimpan. Tidak ada konten baru yang dibuat. Tugas ditandai gagal, bukan selesai.';
           if(delegationQueued)answer+='\n\nStatus: MENUNGGU HASIL SPESIALIS. Job induk belum dianggap selesai. Sistem akan memverifikasi hasil setiap agen dan keberadaan draft nyata di CMS.';
           const replyId=uid();
           const finalStatus=delegationQueued?'waiting':actionSucceeded?'completed':'failed';
@@ -1483,6 +1489,10 @@ export async function onRequest({ request, env }) {
           if(agentId==='team'&&isAiRoomContentCreationRequest(message)){
             delegationResult=await enqueueAiRoomDelegations(env,admin.id,jobId,result.action?.tasks||[],message);
             waitingForDelegation=delegationResult.created.length>0;
+            if(!waitingForDelegation){
+              deterministicSuccess=false;
+              answer+='\n\n[PERLU TINDAKAN] Tidak ada job spesialis yang berhasil dikonfirmasi di antrean. Master Director tidak akan menandai tugas selesai.';
+            }
           } else if(result.action?.type==='delegate_tasks'&&agentId==='team'&&!message.startsWith('[TARGET HARIAN ')){
             delegationResult=await enqueueAiRoomDelegations(env,admin.id,jobId,result.action.tasks,message);
             if(delegationResult.created.length){
@@ -1496,7 +1506,7 @@ export async function onRequest({ request, env }) {
           if(waitingForDelegation&&delegationResult?.created?.length){
             answer+='\n\nPekerjaan telah benar-benar dimasukkan ke antrean cloud: '+delegationResult.created.map(item=>item.name).join(', ')+'. Status job induk: MENUNGGU HASIL SPESIALIS; belum selesai sampai draft dan QA diverifikasi.';
           }
-          if(result.action?.type==='create_content'&&!waitingForDelegation) {
+          if(result.action?.type==='create_content'&&!(agentId==='team'&&isAiRoomContentCreationRequest(message))) {
             await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET stage='Menyimpan draft ke CMS',progress=80,heartbeat_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(jobId).run();
             await env.CMS_DB.prepare("INSERT INTO cms_ai_room_activity(id,admin_id,job_id,agent_id,event_type,stage,status,detail) VALUES(?,?,?,?,?,?,?,?)").bind(uid(),admin.id,jobId,executingAgentId,'milestone','Menyimpan draft ke CMS','processing','Model mengembalikan aksi create_content; proses penyimpanan draft dimulai.').run();
             const actionResult=await createAiRoomDraft(env,admin,result.action.content,message);
