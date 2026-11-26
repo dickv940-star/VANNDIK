@@ -1310,7 +1310,7 @@ export async function onRequest({ request, env }) {
             actionResult=await createAiRoomDraft(env,jobAdmin,contentPayload,job.message);
             answer+='\n\n'+aiRoomDraftOutcome(actionResult);
           }
-          const contentRequest=isAiRoomContentCreationRequest(job.message);
+          const contentRequest=job.agent_id==='writer'&&isAiRoomContentCreationRequest(job.message);
           const delegationQueued=!!delegationResult?.created?.length;
           const actionSucceeded=!delegationQueued&&(result.action?.type!=='delegate_tasks'||!!delegationResult?.created?.length)&&(!contentRequest||!!actionResult&&!actionResult.type_mismatch);
           if(result.action?.type==='delegate_tasks'&&!delegationQueued)answer+='\n\n[PERLU TINDAKAN] Tidak ada tugas spesialis yang berhasil dimasukkan ke antrean.';
