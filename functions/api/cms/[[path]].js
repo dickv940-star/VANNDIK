@@ -1680,7 +1680,10 @@ export async function onRequest({ request, env }) {
         }
       }catch(error){
         const detail=String(error?.message||'Semua provider AI tidak tersedia.');
-        if(chatMode==='casual')return json({error:'Teman-teman sedang belum bisa membalas karena provider gratis tidak tersedia. Coba lagi nanti. Detail: '+detail.slice(0,300)},503);
+        if(chatMode==='casual'){
+          await env.CMS_DB.prepare("UPDATE cms_ai_room_jobs SET status='failed',stage='Provider gratis tidak tersedia',progress=0,last_error=?,finished_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?").bind(detail.slice(0,500),jobId).run();
+          return json({error:'Teman-teman sedang belum bisa membalas karena provider gratis tidak tersedia. Coba lagi nanti. Detail: '+detail.slice(0,300)},503);
+        }
         const userId=uid();
         const statusId=uid();
         await env.CMS_DB.batch([
