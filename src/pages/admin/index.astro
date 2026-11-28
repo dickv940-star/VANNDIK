@@ -1199,12 +1199,12 @@ const pageTitle = 'VANNDIK CMS';
       $('[data-chat-mode]').forEach(btn=>btn.addEventListener('click',()=>{if(!busy)setChatMode(btn.dataset.chatMode);}));
       setChatMode('work');
       async function sendMessage(){const message=input.value.trim();if(busy)return;if(!message){notify('Tulis pesan terlebih dahulu sebelum mengirim.',true);input.focus();return;}busy=true;send.disabled=true;send.textContent='Sedang membalas…';input.disabled=true;const optimistic=messagesEl.innerHTML;messagesEl.innerHTML=optimistic+(optimistic.includes('ai-room-empty')?'':'')+'<article class="ai-room-msg user"><div class="msg-meta">Direktur VANNDIK</div><p>'+esc(message)+'</p></article><article class="ai-room-msg assistant"><div class="msg-meta">VANNDIK · Sedang membaca pesan</div><p>Sebentar ya, tim sedang menyiapkan balasan...</p></article>';messagesEl.scrollTop=messagesEl.scrollHeight;try{const result=await api('ai-room/messages',{method:'POST',body:JSON.stringify({message,agentId:activeAgent,mode:chatMode})});input.value='';await loadRoom();if(result?.queued)notify('Pesan disimpan dalam antrean cloud dan akan dicoba kembali otomatis.');}catch(e){await loadRoom();messagesEl.insertAdjacentHTML('beforeend','<article class="ai-room-msg assistant" style="border:1px solid #a94b55;background:#351d27"><div class="msg-meta">GAGAL MENGIRIM · DETAIL TEKNIS</div><p>'+esc(e?.message||'Terjadi kesalahan yang belum diketahui.')+'</p></article>');messagesEl.scrollTop=messagesEl.scrollHeight;notify('Pesan belum terkirim. Detail error ditampilkan di ruang percakapan.',true);}finally{busy=false;send.disabled=false;send.textContent='Kirim pesan ↗';input.disabled=false;input.focus();}}
-      // Tombol kirim bukan submit button: klik tidak boleh memicu navigasi/form reload.
-      send.addEventListener('click',event=>{event.preventDefault();if(!busy)sendMessage();});
-      // Tahan submit native sebagai pengaman bila form terkirim lewat browser/autofill.
-      composer.addEventListener('submit',event=>{event.preventDefault();event.stopImmediatePropagation();if(!busy)sendMessage();},true);
-      // Enter mengirim langsung; Shift+Enter tetap membuat baris baru.
-      input.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();if(!busy)sendMessage();}});
+      // Gunakan handler DOM langsung agar tombol tetap terikat setelah panel dirender ulang.
+      // Handler memanggil fungsi dalam closure renderAiRoom, bukan navigasi/form native.
+      send.onclick=event=>{event.preventDefault();event.stopPropagation();if(!busy)void sendMessage();};
+      composer.onsubmit=event=>{event.preventDefault();event.stopPropagation();if(!busy)void sendMessage();return false;};
+      // Enter mengirim; Shift+Enter tetap membuat baris baru.
+      input.onkeydown=event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();if(!busy)void sendMessage();}};
       $('#aiRoomClear').addEventListener('click',async()=>{if(!confirm('Hapus seluruh riwayat percakapan AI Agent Room?'))return;try{await api('ai-room/messages',{method:'DELETE',body:'{}'});drawMessages([]);notify('Riwayat percakapan dihapus.');}catch(e){notify(e.message,true);}});
       loadRoom();
       loadDailyTargets();
